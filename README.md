@@ -20,3 +20,12 @@ Il faut Python ≥ 3.9 avec GDAL, numpy, scipy et pytest, soit les bibliothèque
 python3 -m pytest            # tests rapides (quelques secondes)
 python3 -m pytest -m slow -s # performance sur un million de bâtiments (~1 min)
 ```
+
+## Lancer une simulation
+
+```bash
+cd src
+python3 -m engine run ../data/test/muramvya/scenario_muramvya.json
+```
+
+Les résultats sont écrits dans `data/test/muramvya/outputs/`, qui n'est pas versionné. Le fonctionnement et les paramètres sont décrits dans `docs/aide/`.

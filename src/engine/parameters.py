@@ -159,16 +159,28 @@ def unit_series(table: ParameterTable, units, zone_layer: Optional[str] = "param
     A value given for a zone takes precedence over the value of the class,
     which takes precedence over the default ``*`` (spec §2.3).
     """
-    class_codes = units.codes["class"]
-    zone_codes = units.codes[zone_layer] if zone_layer and zone_layer in units.codes else np.full(len(units), -1)
-    pairs = np.stack([zone_codes, class_codes], axis=1)
-    combos, inverse = np.unique(pairs, axis=0, return_inverse=True)
+    combos, inverse = _combinations(units, zone_layer)
     series = []
     for zone_code, class_code in combos:
         zone = units.labels[zone_layer][zone_code] if zone_code >= 0 else None
         cls = units.labels["class"][class_code] if class_code >= 0 else None
         series.append(table.for_keys([None if zone is None else str(zone), cls]))
-    return series, inverse.ravel()
+    return series, inverse
+
+
+def _combinations(units, zone_layer: Optional[str]) -> Tuple[np.ndarray, np.ndarray]:
+    """Distinct (zone, class) pairs and the pair of each unit, computed once per set of units."""
+    cache = units.__dict__.setdefault("_combination_cache", {})
+    if zone_layer not in cache:
+        class_codes = units.codes["class"].astype(np.int64)
+        has_zone = zone_layer is not None and zone_layer in units.codes
+        zone_codes = units.codes[zone_layer].astype(np.int64) if has_zone else np.full(len(units), -1, np.int64)
+        width = int(class_codes.max(initial=0)) + 2
+        keys = (zone_codes + 1) * width + (class_codes + 1)
+        unique_keys, inverse = np.unique(keys, return_inverse=True)
+        combos = np.stack([unique_keys // width - 1, unique_keys % width - 1], axis=1)
+        cache[zone_layer] = (combos, inverse.ravel())
+    return cache[zone_layer]
 
 
 def unit_values(table: ParameterTable, units, year: float, zone_layer: Optional[str] = "param_zone") -> np.ndarray:
