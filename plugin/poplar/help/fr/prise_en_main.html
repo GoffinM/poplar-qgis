@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 13px; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 18px; } h3 { font-size: 14px; }
+table { border-collapse: collapse; margin: 6px 0; } th, td { border: 1px solid #b9c6c4; padding: 3px 6px; }
+th { background: #e7ecea; } code, pre { font-family: monospace; background: #eef2f1; }
+pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6px 0; padding: 2px 10px; background: #eef6f5; }
+</style></head><body>
+<h1>Prise en main</h1>
+<p>Cette page déroule un premier calcul sur le jeu d'exemple de Muramvya, fourni avec le projet.</p>
+<h2>1. Ouvrir le scénario d'exemple</h2>
+<ol><li>Dans la barre d'outils <b>Population</b>, cliquez sur <b>Scénario</b>.</li><li>Cliquez sur <b>Ouvrir…</b> et choisissez <code>scenario_muramvya.json</code>.</li><li>Les couches du scénario (commune, forêt, raster de population) sont ajoutées au projet si elles n'y sont pas déjà.</li></ol>
+<h2>2. Vérifier les données et les paramètres</h2>
+<ul><li><b>Scénario</b> : nom, langue du rapport, dossier des résultats, taille de maille (250 m) et système de calcul, qui doit être en mètres.</li><li><b>Données</b> : zone d'étude, typologie et son champ (<code>Type</code>), unités administratives, raster de population et son contenu (densité ou nombre d'habitants par pixel), zones d'exclusion (la forêt est « sans nouvel arrivant »).</li><li><b>Paramètres</b> : années (2024 → 2060), pas de temps, TCAM et densités maximales par classe, réglages de la migration.</li><li><b>Indicateurs</b> : demande en eau potable (dotation, rendement, pointes).</li></ul>
+<p>Passez la souris sur un libellé pour lire sa bulle d'aide. Le bouton <b>?</b> en haut de la fenêtre ouvre la page d'aide de l'onglet affiché.</p>
+<h2>3. Lancer le calcul</h2>
+<ol><li>Onglet <b>Lancer</b> : cliquez sur <b>Vérifier le scénario</b>. Chaque problème est signalé avec l'entrée à corriger.</li><li>Cliquez sur <b>Lancer le calcul</b>. Le calcul se fait en arrière-plan : QGIS reste utilisable, et le calcul peut être annulé.</li><li>Si la place manque, une fenêtre propose des solutions (voir <b>Non-convergence : que faire ?</b>).</li></ol>
+<h2>4. Consulter les résultats</h2>
+<ul><li>À la fin du calcul, la population et la densité de l'horizon final sont chargées dans un groupe « Poplar – <i>nom du scénario</i> ».</li><li>Onglet <b>Résultats</b> : choisissez d'autres grandeurs et d'autres années à charger, ouvrez le tableau <code>summary.csv</code> ou le dossier.</li><li>Onglet <b>Rapport</b> : statut, bilans de chaque pas de temps, avertissements.</li></ul>
+<h2>5. Enregistrer</h2>
+<p>Cliquez sur <b>Enregistrer…</b> pour garder tous les réglages dans un fichier <code>.json</code>. Le même fichier peut être lancé depuis la boîte à outils de traitement (<b>Poplar › Lancer un scénario</b>), dans un traitement par lots ou dans le Model Builder.</p>
+</body></html>

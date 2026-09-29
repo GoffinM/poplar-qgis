@@ -59,6 +59,9 @@ class RunResult:
     final_population: float
     initial_population: float = 0.0
     events: List[Message] = field(default_factory=list)
+    failure: Optional[NonConvergenceError] = None
+    """Set when the run stopped for lack of room: deficit and proposed ``dmax`` increase."""
+    failure_year: Optional[float] = None
 
 
 def run(
@@ -110,6 +113,7 @@ def run(
     outputs: List[str] = []
     rows: List[Dict[str, object]] = []
     status = SUCCESS
+    failure, failure_year = None, None
 
     def write(year: float) -> None:
         indicator_values = model.indicator_values(population, year)
@@ -164,6 +168,7 @@ def run(
                 steps.append(StepReport(step.start, step.end, before, after_growth, after_growth, 0.0, 0.0, 0.0, 0,
                                         False, 1.0, FAILED, list(error.messages)))
                 status = FAILED
+                failure, failure_year = error, step.end
                 break
             if outcome.dmax_factor != 1.0:
                 multiplier = np.where(~(units.no_inflow | dated_no_inflow | evacuated),
@@ -187,7 +192,8 @@ def run(
     summary_path = os.path.join(out_dir, "summary.csv")
     write_summary(summary_path, rows, language, model.column_units(scenario))
     outputs.append(summary_path)
-    result = RunResult(status, steps, warnings, outputs, out_dir, float(population.sum()), float(base_start), events)
+    result = RunResult(status, steps, warnings, outputs, out_dir, float(population.sum()), float(base_start), events,
+                       failure, failure_year)
     _write_run_report(scenario, result, model, clock.time() - started)
     scenario.save(os.path.join(out_dir, "scenario_used.json"))
     return result

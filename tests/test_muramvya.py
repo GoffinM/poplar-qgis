@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 from osgeo import ogr
 
-from conftest import MURAMVYA, REFERENCE
+from paths import MURAMVYA, REFERENCE
 from engine.base_population import AREA_WEIGHTED, RENORMALIZED, base_population_from_density
 from engine.buildings import Buildings, assign_to_units, per_unit_totals, read_footprints
 from engine.capacity import capacity

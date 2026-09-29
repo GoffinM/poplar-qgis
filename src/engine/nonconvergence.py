@@ -169,14 +169,16 @@ def migrate_with_policy(
     deficit = capacity_deficit(population, cap, receivable)
     if deficit >= settings.tolerance:
         messages.append(message("capacity_insufficient", deficit=round(deficit)))
-        if settings.policy == STOP:
-            raise NonConvergenceError(messages, deficit)
-        if settings.policy == RAISE_DMAX:
-            scope = receivable if settings.dmax_scope is None else (np.asarray(settings.dmax_scope, bool) & receivable)
+        scope = receivable if settings.dmax_scope is None else (np.asarray(settings.dmax_scope, bool) & receivable)
+        if settings.policy in (STOP, RAISE_DMAX):
+            # The proposal is also computed when stopping, so that the user can be offered it.
             exact = minimal_dmax_factor(population, area_km2, base_population, dmax, no_inflow, receivable, scope,
                                         settings.tolerance)
             steps = math.ceil(round((exact - 1.0) / settings.dmax_step, 9))
             proposal = DmaxProposal(exact, 1.0 + steps * settings.dmax_step, deficit, int(scope.sum()))
+        if settings.policy == STOP:
+            raise NonConvergenceError(messages, deficit, proposal)
+        if settings.policy == RAISE_DMAX:
             approved = (
                 settings.approve(proposal) if settings.approve is not None
                 else proposal.factor - 1.0 <= settings.max_auto_increase + 1e-12

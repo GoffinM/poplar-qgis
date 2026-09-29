@@ -596,7 +596,7 @@ Contenu :
 |---|---|
 | Messages du moteur (erreurs, avertissements, rapport) | Le moteur produit un **code de message** et ses valeurs. Le texte vient d'un **catalogue par langue** (`src/engine/locales/<langue>.json`). Si une traduction manque, le texte français est utilisé |
 | Nombres dans les textes | Séparateurs selon la langue : `171 280,5` en français, `171,280.5` en anglais |
-| Interface du plugin (phase 5) | Mécanisme standard de QGIS : textes marqués traduisibles, un fichier de traduction par langue, choix automatique selon la langue de QGIS |
+| Interface du plugin (phase 5) | Catalogues JSON par langue (`plugin/poplar/i18n/<langue>.json`), comme le moteur, avec choix automatique selon la langue de QGIS. Ils remplacent les fichiers de traduction Qt prévus au départ : aucun outil Qt n'est nécessaire |
 | Aide et « À propos » | Un dossier de pages par langue (`docs/aide/<langue>/`), avec le français par défaut |
 | Fichier de scénario | Clés techniques identiques dans toutes les langues |
 | **Noms des fichiers de sortie** | **Fixes, en anglais**, quelle que soit la langue |

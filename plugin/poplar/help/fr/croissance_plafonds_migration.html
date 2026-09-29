@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 13px; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 18px; } h3 { font-size: 14px; }
+table { border-collapse: collapse; margin: 6px 0; } th, td { border: 1px solid #b9c6c4; padding: 3px 6px; }
+th { background: #e7ecea; } code, pre { font-family: monospace; background: #eef2f1; }
+pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6px 0; padding: 2px 10px; background: #eef6f5; }
+</style></head><body>
+<h1>Croissance, plafonds et migration</h1>
+<p>Cette page explique comment l'outil fait évoluer la population d'une année à l'autre.</p>
+<h2>Les mailles et leurs morceaux</h2>
+<p>Le territoire est découpé en <b>mailles</b> carrées, de 250 m de côté par défaut (réglable). Une maille traversée par une limite (commune, zone urbaine ou rurale, forêt…) est coupée en <b>morceaux</b>. Chaque morceau garde sa propre surface, sa classe (par exemple <i>Rural</i> ou <i>Urbain1</i>) et sa population.</p>
+<h2>Chaque année, deux étapes</h2>
+<h3>1. La croissance</h3>
+<p>La population de chaque maille est multipliée par le taux de croissance annuel moyen (TCAM) de sa zone.</p>
+<blockquote>Exemple : 120 habitants avec un TCAM de 2,2 % donnent 122,64 habitants un an plus tard.</blockquote>
+<p>Si le taux change au cours d'une période, par exemple 3 % en 2026 et 2 % en 2040, l'outil utilise le <b>taux moyen</b> de chaque pas de temps. Entre deux années que vous avez renseignées, les valeurs sont interpolées en ligne droite.</p>
+<p>L'outil garde les décimales pendant le calcul. Sans elles, une petite maille de 7 habitants ne grandirait jamais : 7 × 1,022 = 7,15, et un arrondi redonnerait 7 chaque année. Les résultats publiés, eux, sont des nombres entiers, et leur total est conservé.</p>
+<h3>2. La migration</h3>
+<p>Chaque maille a un <b>plafond</b>, c'est-à-dire une population maximale :</p>
+<ul><li>plafond = surface × densité maximale de sa classe (par exemple 2 500 hab/km² en rural) ;</li><li>une maille <b>déjà au-dessus</b> de cette densité au départ garde sa densité de départ comme plafond ;</li><li>une maille en <b>zone sans migration</b> (forêt, domaine militaire…) a pour plafond sa population de départ : elle n'accueille personne, et sa croissance part ailleurs.</li></ul>
+<p>Quand une maille dépasse son plafond d'au moins <b>un habitant</b>, l'excès part, <b>à parts égales</b>, vers les <b>3 mailles les plus proches</b> qui ont encore de la place. La maille de départ revient à son plafond. Si une maille receveuse déborde à son tour, elle redistribue son propre excès, et ainsi de suite jusqu'à ce que plus aucune maille ne dépasse son plafond.</p>
+<blockquote>Exemple : une maille de plafond 10 compte 46 habitants, et ses voisines sont vides. Elle envoie 12 habitants à chacune de ses 3 voisines les plus proches, qui dépassent alors leur plafond de 2. Ces 3 × 2 habitants partent vers la maille libre suivante. Au final, on obtient 10, 10, 10, 10 et 6 habitants : les 46 habitants sont tous là.</blockquote>
+<p><b>Ce qui est garanti :</b></p>
+<ul><li><b>Aucun habitant ne disparaît.</b> On déplace des habitants, pas des densités : une maille incomplète en bordure reçoit exactement le nombre d'habitants qui quitte la maille de départ.</li><li><b>Personne ne s'installe dans une zone sans migration.</b></li><li><b>Le résultat est reproductible</b> : les mêmes données donnent toujours le même résultat.</li></ul>
+<p><b>Un excès de moins d'un habitant reste sur place.</b> Il s'ajoute à la croissance de l'année suivante et part dès qu'il atteint un habitant. Une maille ordinaire peut donc dépasser son plafond de moins d'un habitant. <b>Exception :</b> les zones sans migration exportent tout leur excès, même inférieur à un habitant, pour que leur population reste strictement stable.</p>
+<h2>Paramètres utiles</h2>
+<table>
+<tr><th>Paramètre</th><th>Rôle</th><th>Défaut</th></tr>
+<tr><td>Nombre de voisins</td><td>Nombre de mailles qui se partagent l'excès</td><td>3</td></tr>
+<tr><td>Tolérance</td><td>Excès minimal pour déclencher un déplacement</td><td>1 habitant</td></tr>
+<tr><td>Nombre maximal d'itérations</td><td>Garde-fou par pas de temps</td><td>10 000</td></tr>
+</table>
+<p>Si la place manque, consultez la page <b>Non-convergence : que faire</b>.</p>
+</body></html>

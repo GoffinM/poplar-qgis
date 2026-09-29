@@ -3,7 +3,7 @@ import os
 
 import pytest
 
-from conftest import MURAMVYA
+from paths import MURAMVYA
 from engine.scenario import ScenarioError, load_scenario, parse_parameter, scenario_from_dict
 
 EXAMPLE = os.path.join(MURAMVYA, "scenario_muramvya.json")

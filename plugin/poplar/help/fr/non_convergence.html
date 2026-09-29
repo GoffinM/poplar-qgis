@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 13px; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 18px; } h3 { font-size: 14px; }
+table { border-collapse: collapse; margin: 6px 0; } th, td { border: 1px solid #b9c6c4; padding: 3px 6px; }
+th { background: #e7ecea; } code, pre { font-family: monospace; background: #eef2f1; }
+pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6px 0; padding: 2px 10px; background: #eef6f5; }
+</style></head><body>
+<h1>Non-convergence : que faire ?</h1>
+<h2>De quoi s'agit-il ?</h2>
+<p>Il y a <b>non-convergence</b> quand la population ne tient plus dans les mailles autorisées : la somme des plafonds est inférieure à la population à loger. C'est le cas quand la croissance est forte, les densités maximales basses, ou les zones d'exclusion étendues.</p>
+<p>L'outil le détecte <b>avant</b> de déplacer qui que ce soit, en comparant la population en excès aux places libres. Il vous indique alors combien d'habitants ne peuvent pas être placés.</p>
+<h2>Les quatre réponses possibles</h2>
+<p>Vous choisissez la réponse dans le scénario ou, avec le plugin, dans la fenêtre qui s'ouvre au moment où le problème apparaît.</p>
+<table>
+<tr><th>Réponse</th><th>Ce qui se passe</th><th>Quand l'utiliser</th></tr>
+<tr><td><b>Arrêter</b> (par défaut)</td><td>Le calcul s'arrête avec un message qui indique le nombre d'habitants en trop. Les résultats déjà produits sont conservés</td><td>Pour vérifier d'abord ses hypothèses</td></tr>
+<tr><td><b>Relever les densités maximales</b></td><td>L'outil calcule la hausse minimale nécessaire et la propose arrondie au palier de 5 % supérieur (par exemple +25 %), sur toute la zone ou sur les zones que vous choisissez. <b>Rien n'est modifié sans votre accord.</b> En mode automatique, le scénario fixe une hausse maximale autorisée, au-delà de laquelle le calcul s'arrête</td><td>Quand une densification est plausible</td></tr>
+<tr><td><b>Mailles puits en périphérie</b></td><td>Une couronne de mailles, 4 mailles de large par défaut, est ajoutée autour de la zone d'étude pour accueillir l'excédent. La population placée dans la couronne est reportée à part</td><td>Pour représenter un étalement au-delà du périmètre étudié</td></tr>
+<tr><td><b>Population non relocalisée</b></td><td>L'outil place tout ce qu'il peut, puis enregistre le reste, maille par maille et année par année</td><td>Pour mesurer l'ampleur du problème sans modifier les hypothèses</td></tr>
+</table>
+<p>Dans tous les cas, le <b>rapport d'exécution</b> indique pour chaque pas de temps :</p>
+<ul><li>le statut : réussi, réussi avec ajustements, partiel ou échec ;</li><li>les populations avant et après ;</li><li>le nombre d'habitants déplacés ;</li><li>les ajustements appliqués ;</li><li>la population non relocalisée.</li></ul>
+<h2>Exemple</h2>
+<p>Deux mailles de plafond 10 comptent 15 et 10 habitants : il y a 5 habitants en trop.</p>
+<ul><li><b>Arrêter</b> : message « Capacité insuffisante : 5 habitants ne peuvent pas être placés ».</li><li><b>Relever les densités</b> : l'outil propose +25 %. Après validation, les deux plafonds passent à 12,5, et chaque maille compte 12,5 habitants.</li><li><b>Non relocalisés</b> : les deux mailles restent à 10, et 5 habitants sont enregistrés comme non relocalisés.</li></ul>
+</body></html>

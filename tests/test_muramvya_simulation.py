@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from osgeo import ogr
 
-from conftest import MURAMVYA, REFERENCE
+from paths import MURAMVYA, REFERENCE
 from engine.growth import growth_factor
 from engine.raster_io import read_raster
 from engine.scenario import load_scenario

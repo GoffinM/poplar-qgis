@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 13px; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 18px; } h3 { font-size: 14px; }
+table { border-collapse: collapse; margin: 6px 0; } th, td { border: 1px solid #b9c6c4; padding: 3px 6px; }
+th { background: #e7ecea; } code, pre { font-family: monospace; background: #eef2f1; }
+pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6px 0; padding: 2px 10px; background: #eef6f5; }
+</style></head><body>
+<h1>Paramètres et scénario</h1>
+<p>Un <b>scénario</b> rassemble dans un seul fichier toutes les données et tous les réglages d'un calcul. Le même scénario donne toujours le même résultat. Il est copié à côté des résultats (<code>scenario_used.json</code>), pour garder la trace de ce qui a été calculé.</p>
+<p>Un exemple complet se trouve dans <code>data/test/muramvya/scenario_muramvya.json</code>.</p>
+<h2>Données d'entrée</h2>
+<table>
+<tr><th>Entrée</th><th>Rôle</th><th>Obligatoire</th></tr>
+<tr><td><code>study_area</code></td><td>Zone d'étude (limites administratives)</td><td>oui</td></tr>
+<tr><td><code>typology</code></td><td>Couche des zones et champ qui porte leur classe (<code>Rural</code>, <code>Urbain1</code>, <i>haut standing</i>…). Les noms de classes sont libres</td><td>oui</td></tr>
+<tr><td><code>base_population</code></td><td>Raster de densité de population à l'année de base</td><td>oui</td></tr>
+<tr><td><code>admin_units</code></td><td>Unités administratives et champ de leur nom, pour les bilans et le recalage</td><td>non</td></tr>
+<tr><td><code>parameter_zones</code></td><td>Zones de paramètres, si les taux ou densités varient selon des limites différentes de la typologie</td><td>non</td></tr>
+<tr><td><code>exclusions</code></td><td>Zones d'exclusion (voir plus bas)</td><td>non</td></tr>
+<tr><td><code>projections</code></td><td>Projections démographiques (voir plus bas)</td><td>non</td></tr>
+</table>
+<p>Les chemins sont relatifs au fichier de scénario.</p>
+<h2>Temps</h2>
+<table>
+<tr><th>Réglage</th><th>Rôle</th><th>Exemple</th></tr>
+<tr><td><code>base_year</code></td><td>Année que représente la population de base (année du recensement)</td><td>2024</td></tr>
+<tr><td><code>end_year</code></td><td>Horizon final</td><td>2060</td></tr>
+<tr><td><code>time_step</code></td><td>Pas de temps, en années (10, 5, 1, 0,5…)</td><td>5</td></tr>
+<tr><td><code>output_years</code></td><td>Années pour lesquelles les résultats sont écrits (par défaut, la fin de chaque pas)</td><td>2030, 2040…</td></tr>
+<tr><td><code>migration_frequency</code></td><td><code>annual</code> : migration chaque année (plus précis) ; <code>time_step</code> : une migration par pas (plus rapide)</td><td><code>annual</code></td></tr>
+<tr><td><code>first_migration_year</code></td><td>Première année où la migration s'applique (avant : croissance seule)</td><td>2025</td></tr>
+<tr><td><code>start_mode</code></td><td><code>census</code> : départ du recensement (prudent) ; <code>projection</code> : départ d'une année de projection</td><td><code>census</code></td></tr>
+</table>
+<h2>Paramètres : TCAM et densités maximales</h2>
+<p>Chaque paramètre peut prendre l'une de ces formes :</p>
+<pre>&quot;growth_rate&quot;: 2.2
+&quot;growth_rate&quot;: {&quot;Rural&quot;: 2.0, &quot;Urbain1&quot;: 3.5}
+&quot;growth_rate&quot;: {&quot;*&quot;: {&quot;2026&quot;: 3.0, &quot;2040&quot;: 2.0}, &quot;Urbain1&quot;: 4.0}</pre>
+<ul><li><code>*</code> désigne la valeur par défaut, qui s'applique aux classes et aux zones non citées.</li><li>Avec des années, les valeurs sont <b>interpolées en ligne droite</b> entre les années citées. Avant la première et après la dernière année, elles restent <b>constantes</b>, sauf si <code>"extrapolation": "linear"</code> est indiqué.</li><li>Une valeur donnée pour une <b>zone de paramètres</b> l'emporte sur celle de la <b>classe</b>, qui l'emporte sur la valeur <b>par défaut</b>.</li><li><code>growth_rate</code> est en % par an. <code>dmax</code> est dans l'unité choisie par <code>density_unit</code> (<code>hab/km2</code> ou <code>hab/ha</code>).</li></ul>
+<h2>Zones d'exclusion</h2>
+<table>
+<tr><th>Comportement</th><th>Effet</th></tr>
+<tr><td><code>outside</code></td><td>Retiré du calcul : hors pays, lacs…</td></tr>
+<tr><td><code>no_inflow</code></td><td>N'accueille plus personne ; ses habitants restent et sa croissance part ailleurs : forêts, domaines militaires…</td></tr>
+<tr><td><code>relocate</code></td><td>Tous ses habitants sont relocalisés : barrage…</td></tr>
+</table>
+<p>Une exclusion peut porter une <b>année</b> (<code>"year": 2030</code>) : elle s'applique alors à partir de cette année, et les résultats de l'année 2030 en tiennent déjà compte. Les rivières données sous forme de lignes reçoivent une largeur de tampon (<code>"buffer_m": 50</code>).</p>
+<h2>Projections démographiques (optionnel)</h2>
+<p>Il s'agit d'un fichier CSV à trois colonnes : <code>admin</code>, <code>year</code>, <code>population</code>.</p>
+<ul><li><code>"recalibrate": true</code> recale chaque année la population de chaque unité administrative sur la projection, avec interpolation entre les années du fichier.</li><li><code>"start_mode": "projection"</code> avec <code>"start_year"</code> fait partir le calcul d'une année de projection.</li></ul>
+<h2>Migration</h2>
+<table>
+<tr><th>Réglage</th><th>Rôle</th><th>Défaut</th></tr>
+<tr><td><code>k</code></td><td>Nombre de mailles voisines qui se partagent l'excès</td><td>3</td></tr>
+<tr><td><code>tolerance</code></td><td>Excès minimal pour déclencher un déplacement (nombre entier d'habitants)</td><td>1</td></tr>
+<tr><td><code>policy</code></td><td>Réponse en cas de manque de place : <code>stop</code>, <code>raise_dmax</code>, <code>sink</code>, <code>unallocated</code> (voir <b>Non-convergence</b>)</td><td><code>stop</code></td></tr>
+<tr><td><code>max_auto_increase</code></td><td>Hausse des densités acceptée sans validation, en mode automatique (0,25 = +25 %)</td><td>0</td></tr>
+<tr><td><code>sink_width_cells</code></td><td>Largeur de la couronne de mailles puits</td><td>4</td></tr>
+</table>
+<h2>Système de coordonnées</h2>
+<p>Les couches peuvent être dans n'importe quel système de coordonnées : l'outil les reprojette. Le <b>calcul</b> se fait toujours dans un système <b>projeté en mètres</b>, pour que les surfaces et les densités soient justes.</p>
+<table>
+<tr><th>Valeur de <code>crs</code></th><th>Système de calcul</th></tr>
+<tr><td>(absent)</td><td>Celui du raster de population s'il est en mètres, sinon la zone UTM de la zone d'étude</td></tr>
+<tr><td><code>EPSG:32735</code>, WKT…</td><td>Le système indiqué (refusé s'il est en degrés)</td></tr>
+<tr><td><code>auto-utm</code></td><td>La zone UTM du centre de la zone d'étude</td></tr>
+<tr><td><code>auto-equal-area</code></td><td>Un système à surfaces conservées centré sur la zone : recommandé pour un grand pays</td></tr>
+</table>
+<p>Si le système choisi déforme les surfaces de plus de 0,5 % sur la zone d'étude, le rapport le signale.</p>
+<p>Le raster de population peut contenir une <b>densité</b> (<code>"value_type": "density"</code>, dans l'unité <code>density_unit</code>) ou un <b>nombre d'habitants par pixel</b> (<code>"value_type": "count"</code>, comme WorldPop).</p>
+<h2>Autres réglages</h2>
+<table>
+<tr><th>Réglage</th><th>Rôle</th><th>Défaut</th></tr>
+<tr><td><code>cell_size</code></td><td>Taille de maille, en mètres</td><td>250</td></tr>
+<tr><td><code>crs</code></td><td>Système de coordonnées de calcul (voir plus haut)</td><td>automatique</td></tr>
+<tr><td><code>language</code></td><td>Langue du rapport et des tableaux (<code>fr</code>, <code>en</code>)</td><td><code>fr</code></td></tr>
+<tr><td><code>output.directory</code></td><td>Dossier des résultats</td><td><code>outputs</code></td></tr>
+</table>
+<h2>Lancer un calcul sans QGIS</h2>
+<pre>python -m engine run scenario.json
+python -m engine run scenario.json --language en</pre>
+</body></html>

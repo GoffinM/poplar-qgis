@@ -111,3 +111,12 @@ def test_report_and_tables_in_english(tmp_path):
         assert handle.readline().startswith("Run report")
     with open(os.path.join(result.directory, "summary.csv"), encoding="utf-8-sig") as handle:
         assert handle.readline().startswith("Year,Administrative unit,Population")
+
+
+def test_failure_carries_the_proposed_increase(tmp_path):
+    density = UNIFORM.copy()
+    density[:, :5] = 200.0  # room on the left half, but not enough for the whole growth
+    result, _ = _run(tmp_path, density, parameters={"growth_rate": 2.0, "dmax": 300})
+    assert result.status == "failed"
+    assert result.failure.proposal is not None and result.failure.proposal.factor > 1.0
+    assert result.failure_year is not None

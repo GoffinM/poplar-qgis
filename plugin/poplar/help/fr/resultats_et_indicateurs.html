@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 13px; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 18px; } h3 { font-size: 14px; }
+table { border-collapse: collapse; margin: 6px 0; } th, td { border: 1px solid #b9c6c4; padding: 3px 6px; }
+th { background: #e7ecea; } code, pre { font-family: monospace; background: #eef2f1; }
+pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6px 0; padding: 2px 10px; background: #eef6f5; }
+</style></head><body>
+<h1>Résultats, rapport et indicateurs</h1>
+<h2>Fichiers produits</h2>
+<p>Les noms de fichiers sont <b>fixes et en anglais</b>, quelle que soit la langue. <code>AAAA</code> désigne l'année.</p>
+<table>
+<tr><th>Fichier</th><th>Contenu</th></tr>
+<tr><td><code>population_AAAA.tif</code></td><td>Population par maille, en <b>nombres entiers</b>. Le total est conservé</td></tr>
+<tr><td><code>density_AAAA.tif</code></td><td>Densité par maille, dans l'unité choisie, calculée sur la surface utile de la maille</td></tr>
+<tr><td><code>unallocated_AAAA.tif</code></td><td>Population non relocalisée cumulée, si la politique <code>unallocated</code> est utilisée</td></tr>
+<tr><td><code>capacity_AAAA.tif</code></td><td>Population maximale de chaque maille</td></tr>
+<tr><td><code>water_…_AAAA.tif</code></td><td>Indicateurs de demande en eau (voir plus bas)</td></tr>
+<tr><td><code>summary.csv</code></td><td>Tableau par unité administrative et par année : population, surface, densité, non relocalisés, indicateurs. Les en-têtes sont dans la langue choisie ; en français, le séparateur est « ; » et la virgule sert de séparateur décimal</td></tr>
+<tr><td><code>report.txt</code> / <code>report.json</code></td><td>Rapport d'exécution, pour une personne ou pour un programme</td></tr>
+<tr><td><code>scenario_used.json</code></td><td>Copie du scénario utilisé</td></tr>
+</table>
+<p>Les résultats de l'année de départ sont toujours écrits.</p>
+<h2>Le rapport d'exécution</h2>
+<p>Le rapport indique :</p>
+<ul><li>le <b>statut</b> : réussi, réussi avec ajustements, partiel (population non relocalisée) ou échec ;</li><li>la population au départ et à l'horizon final ;</li><li>le nombre de mailles et la durée du calcul ;</li><li>les <b>avertissements</b>, par exemple une résolution grossière ou des zones sans classe ;</li><li>les <b>événements</b>, par exemple une zone relocalisée ou fermée à une date ;</li><li>pour <b>chaque pas</b> : la population avant et après la croissance, après la migration, le nombre d'habitants déplacés et un <b>écart de bilan</b>, qui doit être nul.</li></ul>
+<h2>Demande en eau potable</h2>
+<table>
+<tr><th>Paramètre</th><th>Unité</th><th>Défaut</th></tr>
+<tr><td><code>water_per_capita</code> (dotation)</td><td>l/hab/j</td><td>obligatoire</td></tr>
+<tr><td><code>non_domestic_share</code> (besoins non domestiques)</td><td>% de la consommation domestique</td><td>0</td></tr>
+<tr><td><code>non_domestic_volume</code> (volume fixe par zone, réparti selon la population)</td><td>m³/j</td><td>0</td></tr>
+<tr><td><code>network_efficiency</code> (rendement du réseau)</td><td>%</td><td>100</td></tr>
+<tr><td><code>peak_day_factor</code> (coefficient de pointe journalière)</td><td>—</td><td>1</td></tr>
+<tr><td><code>peak_hour_factor</code> (coefficient de pointe horaire)</td><td>—</td><td>1</td></tr>
+</table>
+<p>Ces paramètres peuvent varier par classe, par zone et dans le temps, comme le TCAM.</p>
+<table>
+<tr><th>Résultat</th><th>Calcul</th></tr>
+<tr><td><code>water_domestic</code></td><td>population × dotation / 1 000 (m³/j)</td></tr>
+<tr><td><code>water_consumption_mean</code></td><td>consommation domestique + besoins non domestiques (m³/j)</td></tr>
+<tr><td><code>water_production_mean</code></td><td>consommation moyenne / rendement (m³/j)</td></tr>
+<tr><td><code>water_production_peak_day</code></td><td>production moyenne × coefficient de pointe journalière (m³/j)</td></tr>
+<tr><td><code>water_peak_hour</code></td><td>consommation moyenne × pointe journalière × pointe horaire / 24 (m³/h) : le rendement ne s'applique pas à la pointe horaire</td></tr>
+</table>
+<h2>Autres usages</h2>
+<p>La demande en eau est le premier « indicateur ». D'autres (déchets, énergie, places scolaires…) peuvent être ajoutés de la même façon : chacun calcule des grandeurs à partir de la population, avec ses propres paramètres.</p>
+</body></html>

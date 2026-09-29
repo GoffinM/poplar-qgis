@@ -4,9 +4,7 @@ import pytest
 
 from engine._gdal import srs_from_epsg
 
-REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MURAMVYA = os.path.join(REPO, "data", "test", "muramvya")
-REFERENCE = os.path.join(REPO, "reference_outputs", "muramvya")
+from paths import MURAMVYA, REFERENCE, REPO  # noqa: F401
 
 
 @pytest.fixture(scope="session")

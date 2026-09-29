@@ -5,8 +5,8 @@ description = "Moteur de croissance et de migration de population (BUR71), indé
 requires-python = ">=3.9"
 
 [tool.pytest.ini_options]
-pythonpath = ["src", "tests"]
-testpaths = ["tests"]
+pythonpath = ["src", "tests", "tests_plugin"]
+testpaths = ["tests", "tests_plugin"]
 markers = [
     "slow: tests longs (performance sur un million de bâtiments), lancés avec -m slow",
 ]
