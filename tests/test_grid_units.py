@@ -81,3 +81,30 @@ def test_per_cell_sums(utm35s_wkt):
     zones = [Zone(square(0, 0, 750, 1000), "Rural"), Zone(square(750, 0, 1000, 1000), "Urbain")]
     units = build_units(grid, square(0, 0, 1000, 1000), zones)
     assert units.per_cell(units.area_km2)[0, 0] == pytest.approx(1.0)
+
+
+def test_several_partition_layers(utm35s_wkt):
+    from engine.units import Layer
+
+    grid = Grid.covering((0, 0, 1000, 1000), 1000, utm35s_wkt)
+    typology = [Zone(square(0, 0, 500, 1000), "Rural"), Zone(square(500, 0, 1000, 1000), "Urbain")]
+    parameter_zones = Layer("param_zone", [square(0, 0, 1000, 300), square(0, 300, 1000, 1000)], ["Z1", "Z2"])
+    admin = Layer("admin", [square(0, 0, 1000, 1000)], ["Commune A"])
+    units = build_units(grid, square(0, 0, 1000, 1000), typology, layers=[parameter_zones, admin])
+    assert len(units) == 4
+    combos = {(units.class_name(i), units.values("param_zone")[i]): units.area_km2[i] for i in range(len(units))}
+    assert combos == pytest.approx({("Rural", "Z1"): 0.15, ("Rural", "Z2"): 0.35,
+                                    ("Urbain", "Z1"): 0.15, ("Urbain", "Z2"): 0.35})
+    assert set(units.values("admin")) == {"Commune A"}
+
+
+def test_first_polygon_wins_where_a_layer_overlaps(utm35s_wkt):
+    from engine.units import Layer
+
+    grid = Grid.covering((0, 0, 500, 500), 250, utm35s_wkt)
+    layer = Layer("exclusion", [square(0, 0, 300, 500), square(200, 0, 500, 500)], ["forest", "military"])
+    units = build_units(grid, square(0, 0, 500, 500), [Zone(square(0, 0, 500, 500), "R")], layers=[layer])
+    values = np.array(units.values("exclusion"))
+    assert units.area_km2[values == "forest"].sum() == pytest.approx(0.15)
+    assert units.area_km2[values == "military"].sum() == pytest.approx(0.10)
+    assert units.report.overlap_by_layer_km2["exclusion"] == pytest.approx(0.05)
