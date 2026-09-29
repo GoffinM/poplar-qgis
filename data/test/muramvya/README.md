@@ -12,3 +12,13 @@ Les fichiers ont été renommés sans espaces. Leur contenu est identique aux or
 Tous les fichiers vectoriels et le raster sont en WGS 84 / UTM zone 35S.
 
 Le fichier `.qmd` contient les métadonnées QGIS du shapefile correspondant. Il n'est pas nécessaire pour le calcul.
+
+## Bâtiments
+
+`buildings_muramvya.gpkg` contient 38 942 points (centroïde des bâtiments) avec les champs :
+- `area_m2` : surface du toit ;
+- `stratum` : `Rural` ou `Urbain` ;
+- `legacy_pop` : population calculée par le classeur ;
+- `source_id` : identifiant d'origine.
+
+Il est extrait des classeurs de calage `legacy/calage/*.xlsx`, feuille `Donnees_SIG`, par `tools/extract_legacy_buildings.py`.

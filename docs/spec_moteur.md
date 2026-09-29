@@ -110,7 +110,11 @@ Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
   - son statut **sans migration** `x_u` ;
   - sa **position**, le **centroïde** de sa géométrie (S3).
 - Les unités de surface inférieure à `min_unit_area` (par défaut 1 m²) sont rattachées à l'unité voisine de même maille ayant la plus grande surface. Cela évite les éclats numériques.
-- **Population de base** `P0_u` : somme sur les pixels du raster de base de (densité × surface commune entre pixel et unité).
+- **Population de base** `P0_u`, à partir d'un raster de densité : somme sur les pixels de (densité × surface commune entre pixel et unité). Un pixel à cheval sur la limite du domaine est traité selon `boundary_mode` :
+  - `area_weighted` : seule la part du pixel située dans le domaine est comptée ;
+  - `renormalized` : toute la population du pixel est répartie entre les unités qui le couvrent.
+
+  Le choix par défaut est à valider (voir `docs/bilan_phase1.md`). Les pixels sans valeur (nodata) comptent pour zéro, et leur surface est reportée.
 - **Mise en œuvre (phase 4).** Seules les mailles traversées par une limite sont découpées, avec la géométrie OGR/GDAL. Les mailles intérieures restent entières (une unité = une maille) et sont traitées en tableau. Le moteur manipule un tableau 1D d'unités, pas une image.
 - **Sorties raster** : pour chaque maille, population = somme des unités, et densité = population / surface utile totale de la maille. Une couche vectorielle des unités peut aussi être produite en option.
 

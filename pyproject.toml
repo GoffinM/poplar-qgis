@@ -1,0 +1,15 @@
+[project]
+name = "poplar-engine"
+version = "0.1.0"
+description = "Moteur de croissance et de migration de population (BUR71), indépendant de QGIS"
+requires-python = ">=3.9"
+
+[tool.pytest.ini_options]
+pythonpath = ["src", "tests"]
+testpaths = ["tests"]
+markers = [
+    "slow: tests longs (performance sur un million de bâtiments), lancés avec -m slow",
+]
+addopts = "-m 'not slow'"
+# GDAL 3.8 warns while the engine only enables exceptions locally (see engine/_gdal.py).
+filterwarnings = ["ignore:Neither .*UseExceptions.*:FutureWarning"]
