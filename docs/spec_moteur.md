@@ -24,13 +24,17 @@
 
 | Donnée | Format | Obligatoire | Contenu |
 |---|---|---|---|
-| Population de base | Raster GDAL | oui | Densité de population à l'année de base, dans l'unité `density_unit` |
-| Zone d'étude | Vecteur (polygones) | oui | Emprise du calcul |
+| Limites administratives | Vecteur (polygones) | oui | Unités administratives (pays, provinces, communes, collines…). Elles définissent la zone d'étude et servent aux bilans par unité |
+| Frontière nationale | Vecteur (polygones) | non | Tout ce qui est hors du pays est retiré du calcul : les bâtiments situés hors du pays ne sont pas comptés et aucune population n'y est placée |
+| Zones d'exclusion | Une ou plusieurs couches vectorielles (polygones ou lignes) | non | Forêts, lacs, rivières, zones tampons, domaines militaires, périmètres de sécurité… Chaque couche, ou chaque catégorie, a un comportement (§2.4). Les lignes, comme les rivières, sont transformées en polygones avec une largeur de tampon paramétrable |
+| Toits (bâti) | Vecteur (polygones, ou points avec un champ de surface) lu directement depuis sa source : Google Open Buildings en priorité, puis PostGIS, GeoPackage, shapefile, WFS, GeoParquet | oui pour le calage | Empreintes des bâtiments (§3 bis) |
+| Recensement | Table ou champ d'une couche de limites administratives, **avec son année** | oui pour le calage | Population par unité administrative. Elle sert au calage (§3 ter) et fixe `base_year` |
+| Projections démographiques | Table : unité, année, total | non | Totaux cibles pour une ou plusieurs années, qui servent au recalage (§5.2) |
+| Population de base déjà calculée | Raster GDAL | non | Alternative au calage : densité de population à l'année de base, comme le raster `POP2023` actuel |
 | Zones de typologie | Vecteur (polygones) | oui | Un champ de classe à valeurs libres (par exemple `Rural`, `Urbain1`, ou `haut standing`, `ville satellite`…) |
-| Zones sans migration | Vecteur (polygones) | non | Zones qui ne reçoivent jamais de migration (A7 = c) |
-| Paramètres | Table (GeoPackage, CSV) ou valeur unique | oui | Voir §2.3 |
-| Projections démographiques | Table | non | Totaux cibles par zone et par année, pour le recalage (§5.2) |
-| Toits (bâti) | Vecteur (polygones, ou points avec un champ de surface), lu directement depuis sa source : PostGIS, GeoPackage, shapefile, WFS, GeoParquet | non (phase 6) | Empreintes des bâtiments pour le calage surface de toit → population (§3 bis) |
+| Strates de calage | Vecteur (polygones) | non | Nombre et regroupement des régressions (§3 ter.1). Par défaut, les limites administratives croisées avec la typologie |
+| Paramètres | Table (GeoPackage, CSV) ou valeur unique | oui | Taux de croissance (TCAM) et densités max, par zone et dans le temps (§2.3) |
+| Coefficients de traduction | Table ou valeur unique | non | Dotations en eau potable par habitant et par jour, ou autre ratio (§8.4) |
 
 ### 2.2 Paramètres du scénario
 
@@ -71,6 +75,17 @@ Chaque paramètre peut être donné sous l'une de ces formes, de la plus simple 
 - Avec **deux ou plus**, la valeur est interpolée linéairement entre elles.
 - Avant la première et après la dernière année charnière, la valeur est constante par défaut, ou prolongée linéairement si `extrapolation = linear`.
 - Une extrapolation linéaire peut donner un taux ou une densité aberrants (négatifs par exemple). Le moteur borne alors les valeurs (`dmax > 0`, `growth_rate > −100 %`) et signale le cas dans le rapport.
+
+### 2.4 Comportement des zones d'exclusion (à valider)
+
+Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
+
+| Comportement | Effet | Exemples, par défaut |
+|---|---|---|
+| `outside` | La zone est **retirée du domaine de calcul** : on n'y compte aucun bâtiment et on n'y place aucune population | Hors pays (frontière nationale), lacs |
+| `no_inflow` | La zone ne reçoit **aucune population nouvelle**. Ses habitants existants restent comptés, avec un plafond égal à leur population de base : leur croissance est exportée vers les zones autorisées (A7 = c, A7-bis = c1) | Forêts, rivières et leurs tampons, domaines militaires, périmètres de sécurité |
+
+Une zone d'exclusion peut aussi avoir une **date d'effet** : par exemple, un périmètre de sécurité créé en 2030 n'accueille plus de population à partir de cette année-là. **À confirmer.**
 
 ## 3. Grille et unités de calcul
 
@@ -303,6 +318,17 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 - pour chaque pas de temps : population avant et après croissance, facteur de recalage, capacité totale, nombre d'itérations, convergence, population non relocalisée, ajustements appliqués (facteur `raise_dmax`, population placée en couronne) ;
 - le contrôle de conservation : écart entre population attendue et obtenue ;
 - un **statut global** : `success`, `success_with_adjustments`, `partial` (population non relocalisée) ou `failed`.
+
+### 8.4 Traductions des résultats (indicateurs dérivés)
+
+Un indicateur se calcule par la formule : population × coefficient. Le coefficient peut être une valeur unique, ou varier par zone et dans le temps, avec une interpolation comme au §2.3.
+
+| Indicateur | Formule | Sorties |
+|---|---|---|
+| **Demande en eau potable** (prioritaire) | population × dotation (l/hab/j), par exemple 20 l/hab/j comme dans les classeurs actuels. **Options à valider** : coefficients de pointe journalière et horaire, rendement du réseau (pertes), besoins non domestiques | Raster de demande par année (m³/j), totaux par unité administrative ou par zone de desserte |
+| Autres indicateurs | Même mécanisme, avec un coefficient et une unité libres : déchets, énergie, besoins scolaires… | Raster et tableaux par unité administrative |
+
+Des **tableaux de synthèse** sont produits pour chaque unité administrative et chaque année de sortie : population, densité, population non relocalisée, indicateurs.
 
 ## 9. Invariants vérifiés par les tests
 
