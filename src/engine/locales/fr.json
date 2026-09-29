@@ -155,5 +155,5 @@
   "input_parameters.growth_rate": "le TCAM (onglet Paramètres)",
   "input_parameters.dmax": "les densités maximales (onglet Paramètres)",
   "input_projections.file": "le fichier des projections (onglet Données)",
-  "file_on_network": "Ce fichier est sur un partage réseau. Si QGIS l'affiche mais que Poplar ne le trouve pas, copiez les données sur le disque local (par exemple C:\\\\BUR71) et rechoisissez les couches : cela permet de savoir si le problème vient du réseau."
+  "file_on_network": "Ce fichier est sur un partage réseau. Si QGIS l'affiche mais que Poplar ne le trouve pas, copiez les données sur le disque local (par exemple C:\\BUR71) et rechoisissez les couches : cela permet de savoir si le problème vient du réseau."
 }
