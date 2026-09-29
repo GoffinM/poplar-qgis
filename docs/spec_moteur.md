@@ -88,7 +88,11 @@ Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
 
 **Date d'effet (validé).** Une zone d'exclusion peut porter une année d'effet `exclusion_year`, par exemple un périmètre de sécurité créé en 2030. Avant cette année, la zone est traitée comme une zone ordinaire. À partir de cette année, elle suit le même comportement qu'une zone exclue dès le départ :
 - `no_inflow` : la zone n'accueille plus personne. Son plafond devient la population présente à `exclusion_year`, et la croissance qui suit est exportée ;
-- `outside` : **point à trancher (X1)**. Une zone exclue dès le départ n'a jamais d'habitants comptés. En revanche, une zone qui devient `outside` en cours de période en a. Faut-il les **relocaliser** vers les zones autorisées, ou les **retirer** du total ? Je propose de les relocaliser par la migration normale, car c'est le principe « aucun habitant ne disparaît ». Les habitants déplacés seraient reportés dans le rapport.
+- pour une zone qui devient inhabitable en cours de période (X1, validé), l'utilisateur choisit entre deux traitements :
+  - `relocate` : **tous les habitants** présents à `exclusion_year` sont relocalisés vers les zones autorisées par la migration normale, puis la zone est retirée du domaine. C'est le cas d'un lac de barrage. Le nombre de personnes déplacées figure dans le rapport ;
+  - `no_inflow` : on **arrête la croissance** de la zone. Ses habitants restent, et leur croissance est traitée comme un excès qui migre ailleurs.
+
+  Aucun habitant n'est jamais retiré du total sans être relocalisé.
 
 ## 3. Grille et unités de calcul
 
@@ -357,7 +361,7 @@ Formules proposées (à valider), pour chaque maille et chaque année de sortie 
 - production du jour de pointe : Q_jp = Q_prod × coefficient de pointe journalière ;
 - débit de l'heure de pointe en distribution : Q_hp = Q_moy × coefficient de pointe journalière × coefficient de pointe horaire / 24 (m³/h).
 
-**Point à trancher (X2)** : faut-il appliquer le rendement du réseau au débit de pointe horaire ? Les conventions varient selon les bureaux d'études et les pays.
+**Rendement du réseau (X2, validé)** : il s'applique à la **demande journalière**, moyenne et de pointe (Q_prod, Q_jp), et pas au débit de l'heure de pointe en distribution (Q_hp).
 
 Des **tableaux de synthèse** sont produits pour chaque unité administrative et chaque année de sortie : population, densité, population non relocalisée, indicateurs.
 
