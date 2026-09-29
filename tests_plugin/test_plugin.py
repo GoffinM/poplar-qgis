@@ -485,6 +485,14 @@ def test_calibration_tab(iface, scenario_copy, tmp_path):
     page.roof_layer.setLayer(roofs)                                 # choosing the layer again, by hand
     assert page.area_field.currentField() == "area_m2"              # guessed from its name
     assert page.usage_field.currentField() == ""                    # never the first field by default
+    strata = page.strata_layer.currentLayer()
+    page.strata_layer.setLayer(None)
+    page.strata_layer.setLayer(strata)
+    page.strata_field.setField("COMMUNES")
+    assert page.group_field.currentField() == "" and page.census_field.currentField() == ""
+    page.group_field.setField("Type")
+    page.census_field.setField("COMMUNES")                          # text: not offered for a population
+    assert page.census_field.currentField() == ""
     assert page.compute(background=False)
     assert page.group_table.rowCount() == 2 and "38 942" in page.status.text()
     page.group_table.selectRow(0)                                   # Rural
@@ -574,7 +582,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.1"
+    assert version() == "0.3.2"
     AboutDialog()
 
 

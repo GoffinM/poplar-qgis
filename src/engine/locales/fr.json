@@ -137,5 +137,22 @@
   "file_not_found_roofs": "Couche des toits (onglet Calage) introuvable ou inaccessible : {path}.",
   "file_not_found_exclusion": "Zone d'exclusion « {name} » (onglet Données) introuvable ou inaccessible : {path}.",
   "file_not_found_projections": "Fichier des projections (onglet Données) introuvable ou inaccessible : {path}.",
-  "raster_ignored": "Raster de population introuvable ({path}) : ignoré, la population de départ vient des toits."
+  "raster_ignored": "Raster de population introuvable ({path}) : ignoré, la population de départ vient des toits.",
+  "scenario_missing_input": "À renseigner : {input}.",
+  "input_study_area": "la zone d'étude (onglet Données)",
+  "input_typology": "la typologie (onglet Données)",
+  "input_typology.field": "le champ de la classe, à droite de la typologie (onglet Données)",
+  "input_typology.source": "la couche de la typologie (onglet Données)",
+  "input_study_area.source": "la couche de la zone d'étude (onglet Données)",
+  "input_admin_units.field": "le champ des unités administratives (onglet Données)",
+  "input_base_population": "la population de départ : un raster (onglet Données) ou les toits (onglet Calage)",
+  "input_base_population.raster": "le raster de population (onglet Données), ou cochez « Population de départ calculée à partir des toits » (onglet Calage)",
+  "input_time": "les années (onglet Paramètres)",
+  "input_time.base_year": "l'année de base (onglet Paramètres)",
+  "input_time.end_year": "l'horizon final (onglet Paramètres)",
+  "input_time.start_year": "l'année de départ sur les projections (onglet Données)",
+  "input_parameters": "le TCAM et les densités maximales (onglet Paramètres)",
+  "input_parameters.growth_rate": "le TCAM (onglet Paramètres)",
+  "input_parameters.dmax": "les densités maximales (onglet Paramètres)",
+  "input_projections.file": "le fichier des projections (onglet Données)"
 }

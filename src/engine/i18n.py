@@ -38,6 +38,11 @@ class Message:
     values: Dict[str, Any] = field(default_factory=dict)
 
     def render(self, language: str = DEFAULT_LANGUAGE) -> str:
+        if self.code == "scenario_missing_key":  # name the setting and its tab rather than the JSON key
+            label = catalog(language).get(f"input_{self.values.get('key')}") or \
+                catalog(DEFAULT_LANGUAGE).get(f"input_{self.values.get('key')}")
+            if label:
+                return translate("scenario_missing_input", language, input=label)
         return translate(self.code, language, **self.values)
 
     def to_dict(self, language: str = DEFAULT_LANGUAGE) -> Dict[str, Any]:

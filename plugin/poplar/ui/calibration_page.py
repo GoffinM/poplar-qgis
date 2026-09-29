@@ -11,6 +11,7 @@ import json
 
 import numpy as np
 from qgis.core import QgsTask
+from qgis.core import QgsFieldProxyModel
 from qgis.gui import QgsFieldComboBox, QgsFileWidget
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import (
@@ -146,6 +147,7 @@ class CalibrationPage(QWidget):
         self.settings = {}           # group name → GroupSettings (what the scenario holds)
         self.current = None
         self.usage = {}
+        self.census_memory = {}
         self.task = None
         self._building = False
         layout = QVBoxLayout(self)
@@ -206,8 +208,9 @@ class CalibrationPage(QWidget):
         self.group_field.setAllowEmptyFieldName(True)
         self.census_field = QgsFieldComboBox()
         self.census_field.setAllowEmptyFieldName(True)
-        for combo in (self.group_field, self.census_field):
-            self.strata_layer.layerChanged.connect(combo.setLayer)
+        self.census_field.setFilters(QgsFieldProxyModel.Filter.Numeric if hasattr(QgsFieldProxyModel, "Filter")
+                                     else QgsFieldProxyModel.Numeric)  # a population is a number
+        self.strata_layer.layerChanged.connect(self._strata_layer_changed)
         add_row(form, "calibration.group_field", self.group_field)
         add_row(form, "calibration.census_field", self.census_field)
         self.census = QTableWidget(0, 2)
@@ -401,6 +404,12 @@ class CalibrationPage(QWidget):
             if "confidence" in names:
                 self.confidence_field.setField(names["confidence"])
 
+    def _strata_layer_changed(self, layer):
+        """New strata layer: no group nor census field until chosen (never the first field by default)."""
+        for combo in (self.group_field, self.census_field):
+            combo.setLayer(layer)
+            combo.setField("")
+
     def _show_status(self, text, warn=False):
         self.status.setText(text)
         self.status.setProperty("state", "warn" if warn else "ok")
@@ -411,7 +420,8 @@ class CalibrationPage(QWidget):
 
     def _fill_census(self, from_field=False):
         """One row per stratum (or « whole area »), kept values, or values of the census field."""
-        current = self.census_values()
+        self.census_memory.update(self.census_values())       # typed values survive a change of layer or field
+        current = self.census_memory
         layer, field = self.strata_layer.currentLayer(), self.strata_field.currentField()
         keys = field_values(layer, field) if layer is not None and field else [WHOLE_AREA]
         from_layer = {}
@@ -491,6 +501,7 @@ class CalibrationPage(QWidget):
         self.group_field.setField(strata.get("group_field") or "")
         self.census_field.setField(strata.get("census_field") or "")
         self.census.setRowCount(0)
+        self.census_memory = {}
         self._fill_census()
         for row in range(self.census.rowCount()):
             key = self.census.item(row, 0).data(Qt.ItemDataRole.UserRole)
