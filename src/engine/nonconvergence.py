@@ -21,6 +21,7 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from .capacity import capacity as unit_capacity
+from .i18n import DEFAULT_LANGUAGE, Message, message
 from .migration import EPSILON, MigrationResult, migrate
 
 STOP = "stop"
@@ -36,10 +37,14 @@ FAILED = "failed"
 
 
 class NonConvergenceError(RuntimeError):
-    """The population cannot be placed under the current constraints."""
+    """The population cannot be placed under the current constraints.
 
-    def __init__(self, message: str, deficit: float, proposal: Optional["DmaxProposal"] = None):
-        super().__init__(message)
+    ``messages`` explain why, in any language (see :mod:`engine.i18n`).
+    """
+
+    def __init__(self, messages: List[Message], deficit: float, proposal: Optional["DmaxProposal"] = None):
+        super().__init__(" ".join(m.render(DEFAULT_LANGUAGE) for m in messages))
+        self.messages = messages
         self.deficit = deficit
         self.proposal = proposal
 
@@ -100,7 +105,7 @@ class StepOutcome:
     status: str
     dmax_factor: float = 1.0
     sink_population: Optional[np.ndarray] = None
-    messages: List[str] = field(default_factory=list)
+    messages: List[Message] = field(default_factory=list)
 
 
 def capacity_deficit(population, capacity, receivable) -> float:
@@ -124,11 +129,7 @@ def minimal_dmax_factor(
     while deficit(high) > 0:
         high *= 2.0
         if high > 1e6:
-            raise NonConvergenceError(
-                "no increase of the maximum densities can make room for the population "
-                "(the units that may receive population have no area)",
-                deficit(1.0),
-            )
+            raise NonConvergenceError([message("dmax_impossible")], deficit(1.0))
     for _ in range(100):
         middle = (low + high) / 2.0
         if deficit(middle) > 0:
@@ -161,18 +162,15 @@ def migrate_with_policy(
     dmax = np.asarray(dmax_hab_km2, dtype=np.float64)
     receivable = ~no_inflow & ~evacuated
     cap = _capacity(area_km2, base_population, dmax, no_inflow, evacuated)
-    messages: List[str] = []
+    messages: List[Message] = []
     factor = 1.0
     status = SUCCESS
 
     deficit = capacity_deficit(population, cap, receivable)
     if deficit >= settings.tolerance:
-        messages.append(
-            f"Capacité insuffisante : {deficit:,.0f} habitants ne peuvent pas être placés "
-            "avec les densités maximales actuelles.".replace(",", " ")
-        )
+        messages.append(message("capacity_insufficient", deficit=round(deficit)))
         if settings.policy == STOP:
-            raise NonConvergenceError(messages[-1], deficit)
+            raise NonConvergenceError(messages, deficit)
         if settings.policy == RAISE_DMAX:
             scope = receivable if settings.dmax_scope is None else (np.asarray(settings.dmax_scope, bool) & receivable)
             exact = minimal_dmax_factor(population, area_km2, base_population, dmax, no_inflow, receivable, scope,
@@ -184,17 +182,13 @@ def migrate_with_policy(
                 else proposal.factor - 1.0 <= settings.max_auto_increase + 1e-12
             )
             if not approved:
-                raise NonConvergenceError(
-                    messages[-1] + f" Une hausse de {proposal.increase_percent:g} % des densités maximales "
-                    "permettrait de les placer ; elle n'a pas été validée.",
-                    deficit, proposal,
-                )
+                messages.append(message("dmax_increase_not_approved", increase=proposal.increase_percent))
+                raise NonConvergenceError(messages, deficit, proposal)
             factor = proposal.factor
             dmax = np.where(scope, dmax * factor, dmax)
             cap = _capacity(area_km2, base_population, dmax, no_inflow, evacuated)
             status = SUCCESS_WITH_ADJUSTMENTS
-            messages.append(f"Densités maximales relevées de {proposal.increase_percent:g} % "
-                            f"sur {proposal.scope_units} unités.")
+            messages.append(message("dmax_raised", increase=proposal.increase_percent, units=proposal.scope_units))
         if settings.policy == SINK:
             if sink is None:
                 raise ValueError("the 'sink' policy needs a ring of sink cells")
@@ -206,15 +200,18 @@ def migrate_with_policy(
     if not result.converged:
         excess = result.population - cap
         leftover = np.where((excess >= settings.tolerance) | (~receivable & (excess > EPSILON)), excess, 0.0)
-        reason = ("plus aucune unité n'a de place libre" if result.receivers_exhausted
-                  else f"nombre maximal d'itérations atteint ({settings.max_iterations})")
-        message = f"La migration n'a pas convergé ({reason}) : {leftover.sum():,.0f} habitants en excès.".replace(",", " ")
+        total = float(leftover.sum())
+        if result.receivers_exhausted:
+            messages.append(message("no_convergence_no_receivers", excess=round(total)))
+        else:
+            messages.append(message("no_convergence_max_iterations", excess=round(total),
+                                    max_iterations=settings.max_iterations))
         if settings.policy != UNALLOCATED:
-            raise NonConvergenceError(message, float(leftover.sum()))
+            raise NonConvergenceError(messages, total)
         unallocated = leftover
         result.population = result.population - leftover
         status = PARTIAL
-        messages.append(message + " Ils sont enregistrés comme population non relocalisée.")
+        messages.append(message("recorded_as_unallocated", excess=round(total)))
     return StepOutcome(result.population, cap, unallocated, result, status, factor, None, messages)
 
 
@@ -230,12 +227,9 @@ def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messag
         export_all=~all_receivable,
     )
     if not result.converged:
-        raise NonConvergenceError(
-            "La couronne de mailles puits ne suffit pas à placer toute la population.",
-            result.remaining_excess,
-        )
+        raise NonConvergenceError(messages + [message("sink_insufficient")], result.remaining_excess)
     placed = float(result.population[n:].sum() - sink.population.sum())
-    messages.append(f"{placed:,.0f} habitants placés dans la couronne de mailles puits.".replace(",", " "))
+    messages.append(message("sink_placed", placed=round(placed)))
     migration = MigrationResult(result.population[:n], result.iterations, True, result.moved,
                                 result.remaining_excess, result.receivers_exhausted)
     return StepOutcome(result.population[:n], cap, np.zeros(n), migration, SUCCESS_WITH_ADJUSTMENTS, 1.0,

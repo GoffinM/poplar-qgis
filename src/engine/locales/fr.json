@@ -1,0 +1,28 @@
+{
+  "capacity_insufficient": "Capacité insuffisante : {deficit} habitants ne peuvent pas être placés avec les densités maximales actuelles.",
+  "dmax_increase_not_approved": "Une hausse de {increase} % des densités maximales permettrait de les placer ; elle n'a pas été validée.",
+  "dmax_raised": "Densités maximales relevées de {increase} % sur {units} unités.",
+  "dmax_impossible": "Aucune hausse des densités maximales ne permet de placer la population : les unités autorisées à recevoir n'ont pas de surface.",
+  "no_convergence_no_receivers": "La migration n'a pas convergé (plus aucune unité n'a de place libre) : {excess} habitants en excès.",
+  "no_convergence_max_iterations": "La migration n'a pas convergé (nombre maximal d'itérations atteint : {max_iterations}) : {excess} habitants en excès.",
+  "recorded_as_unallocated": "{excess} habitants sont enregistrés comme population non relocalisée.",
+  "sink_insufficient": "La couronne de mailles puits ne suffit pas à placer toute la population.",
+  "sink_placed": "{placed} habitants placés dans la couronne de mailles puits.",
+
+  "status_success": "réussi",
+  "status_success_with_adjustments": "réussi avec ajustements",
+  "status_partial": "partiel (population non relocalisée)",
+  "status_failed": "échec",
+
+  "report_step": "Pas {start} → {end} : {status}",
+  "report_population_before_growth": "Population avant croissance",
+  "report_population_after_growth": "Population après croissance",
+  "report_population_after_migration": "Population après migration",
+  "report_moved": "Habitants déplacés",
+  "report_iterations": "{iterations} itérations",
+  "report_placed_in_sink": "Placés en couronne",
+  "report_unallocated": "Non relocalisés",
+  "report_dmax_factor": "Densités max relevées de",
+  "report_balance_error": "Écart de bilan",
+  "report_inhabitant": "habitant"
+}

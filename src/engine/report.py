@@ -6,14 +6,9 @@ import json
 from dataclasses import asdict, dataclass, field
 from typing import List
 
+from .i18n import DEFAULT_LANGUAGE, Message, format_number, translate
 from .nonconvergence import StepOutcome
 
-STATUS_LABELS = {
-    "success": "réussi",
-    "success_with_adjustments": "réussi avec ajustements",
-    "partial": "partiel (population non relocalisée)",
-    "failed": "échec",
-}
 
 
 @dataclass
@@ -30,7 +25,7 @@ class StepReport:
     converged: bool
     dmax_factor: float
     status: str
-    messages: List[str] = field(default_factory=list)
+    messages: List[Message] = field(default_factory=list)
 
     @classmethod
     def from_outcome(
@@ -61,28 +56,37 @@ class StepReport:
             self.population_after_migration + self.unallocated + self.placed_in_sink
         )
 
-    def to_json(self) -> str:
+    def to_dict(self, language: str = DEFAULT_LANGUAGE) -> dict:
         data = asdict(self)
+        data["messages"] = [m.to_dict(language) for m in self.messages]
         data["balance_error"] = self.balance_error
-        return json.dumps(data, ensure_ascii=False, indent=2)
+        return data
 
-    def to_text(self) -> str:
+    def to_json(self, language: str = DEFAULT_LANGUAGE) -> str:
+        return json.dumps(self.to_dict(language), ensure_ascii=False, indent=2)
+
+    def to_text(self, language: str = DEFAULT_LANGUAGE) -> str:
         def fmt(value: float) -> str:
-            return f"{value:,.0f}".replace(",", " ")
+            return format_number(value, language, decimals=0)
 
+        def line(code: str, value: str) -> str:
+            return f"  {translate(code, language):<30}: {value}"
+
+        status = translate(f"status_{self.status}", language)
         lines = [
-            f"Pas {self.start:g} → {self.end:g} : {STATUS_LABELS.get(self.status, self.status)}",
-            f"  Population avant croissance : {fmt(self.population_before_growth)}",
-            f"  Population après croissance : {fmt(self.population_after_growth)}",
-            f"  Population après migration  : {fmt(self.population_after_migration)}",
-            f"  Habitants déplacés          : {fmt(self.moved)} ({self.iterations} itérations)",
+            translate("report_step", language, start=f"{self.start:g}", end=f"{self.end:g}", status=status),
+            line("report_population_before_growth", fmt(self.population_before_growth)),
+            line("report_population_after_growth", fmt(self.population_after_growth)),
+            line("report_population_after_migration", fmt(self.population_after_migration)),
+            line("report_moved", f"{fmt(self.moved)} ({translate('report_iterations', language, iterations=self.iterations)})"),
         ]
         if self.placed_in_sink:
-            lines.append(f"  Placés en couronne          : {fmt(self.placed_in_sink)}")
+            lines.append(line("report_placed_in_sink", fmt(self.placed_in_sink)))
         if self.unallocated:
-            lines.append(f"  Non relocalisés             : {fmt(self.unallocated)}")
+            lines.append(line("report_unallocated", fmt(self.unallocated)))
         if self.dmax_factor != 1.0:
-            lines.append(f"  Densités max relevées de    : {(self.dmax_factor - 1) * 100:g} %")
-        lines.append(f"  Écart de bilan              : {self.balance_error:.6f} habitant")
-        lines.extend(f"  • {message}" for message in self.messages)
+            lines.append(line("report_dmax_factor", f"{format_number((self.dmax_factor - 1) * 100, language)} %"))
+        lines.append(line("report_balance_error",
+                          f"{format_number(self.balance_error, language, decimals=6)} {translate('report_inhabitant', language)}"))
+        lines.extend(f"  • {m.render(language)}" for m in self.messages)
         return "\n".join(lines)

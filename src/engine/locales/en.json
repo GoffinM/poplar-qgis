@@ -1,0 +1,28 @@
+{
+  "capacity_insufficient": "Insufficient capacity: {deficit} inhabitants cannot be placed with the current maximum densities.",
+  "dmax_increase_not_approved": "Raising the maximum densities by {increase} % would make room for them; this increase was not approved.",
+  "dmax_raised": "Maximum densities raised by {increase} % on {units} units.",
+  "dmax_impossible": "No increase of the maximum densities can make room for the population: the units allowed to receive population have no area.",
+  "no_convergence_no_receivers": "Migration did not converge (no unit has free capacity left): {excess} inhabitants in excess.",
+  "no_convergence_max_iterations": "Migration did not converge (maximum number of iterations reached: {max_iterations}): {excess} inhabitants in excess.",
+  "recorded_as_unallocated": "{excess} inhabitants are recorded as unallocated population.",
+  "sink_insufficient": "The ring of sink cells is not large enough to place the whole population.",
+  "sink_placed": "{placed} inhabitants placed in the ring of sink cells.",
+
+  "status_success": "successful",
+  "status_success_with_adjustments": "successful with adjustments",
+  "status_partial": "partial (unallocated population)",
+  "status_failed": "failed",
+
+  "report_step": "Step {start} → {end}: {status}",
+  "report_population_before_growth": "Population before growth",
+  "report_population_after_growth": "Population after growth",
+  "report_population_after_migration": "Population after migration",
+  "report_moved": "Inhabitants moved",
+  "report_iterations": "{iterations} iterations",
+  "report_placed_in_sink": "Placed in the sink ring",
+  "report_unallocated": "Unallocated",
+  "report_dmax_factor": "Maximum densities raised by",
+  "report_balance_error": "Balance error",
+  "report_inhabitant": "inhabitant"
+}
