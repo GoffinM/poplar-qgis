@@ -54,7 +54,7 @@
 | `extrapolation` | `constant` ou `linear` | `constant` | Valeur des paramètres avant la première et après la dernière année charnière |
 | `nonconvergence_policy` | `stop`, `raise_dmax`, `sink`, `unallocated` | `stop` | Traitement de l'excédent sans capacité (§7) |
 | `max_iterations` | entier | 10 000 | Garde-fou de la migration |
-| `tolerance` | réel (habitants) | 0,01 | Seuil en dessous duquel un excès ou une capacité est considéré comme nul |
+| `tolerance` | entier ≥ 1 (habitants) | 1 | Seuil en dessous duquel un excès ou une capacité libre n'est pas pris en compte. Il est entier, car on ne déplace pas une fraction d'habitant (décision du 29/09/2026). Un excès inférieur au seuil reste sur place et n'est pas perdu : il sera déplacé au pas suivant s'il dépasse alors le seuil |
 | `migration_mode` | `conservative` ou `legacy` | `conservative` | `legacy` reproduit l'outil actuel et sert uniquement à la comparaison (§6.5) |
 
 ### 2.3 Paramètres variables dans l'espace et le temps
@@ -374,7 +374,7 @@ Des **tableaux de synthèse** sont produits pour chaque unité administrative et
 | # | Invariant |
 |---|---|
 | I1 | Après migration : Σ P = Σ P avant migration − non relocalisés + placés en couronne, à 10⁻⁶ près en valeur relative |
-| I2 | Après convergence, aucune maille éligible ne dépasse sa capacité de plus de `tolerance` |
+| I2 | Après convergence, aucune maille éligible ne dépasse sa capacité de `tolerance` (1 habitant) ou plus |
 | I3 | Une maille sans migration ne reçoit rien. Sa population après migration vaut exactement `P0_i` (c1) |
 | I4 | Mêmes entrées, même résultat (déterminisme) |
 | I5 | À taux constant, la croissance calculée en N pas de Δ ou en un pas de N × Δ donne le même facteur, à 10⁻⁹ près. À taux variable, l'écart reste inférieur à 10⁻⁴ en valeur relative |

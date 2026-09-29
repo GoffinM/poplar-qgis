@@ -40,8 +40,9 @@ Le cas T14 (première année de migration) dépend de l'enchaînement des année
 - `docs/bilan_phase2.md`, sur le modèle de la phase 1.
 - Première version des pages d'aide « Croissance, plafonds et migration » et « Non-convergence : que faire » (`docs/aide/`), en vue du menu Aide du plugin (spécification §14).
 
-## 5. Points que je considère comme acquis (dites-le si ce n'est pas le cas)
+## 5. Points validés (29/09/2026)
 
-- Tolérance de 0,01 habitant et 10 000 itérations au maximum par pas. Si cette limite est atteinte, la non-convergence est déclarée.
+- **Tolérance entière, 1 habitant par défaut** (décision du 29/09/2026). Un excès de moins d'un habitant reste dans sa maille, et une maille dont la place libre est inférieure à un habitant ne reçoit personne. Le calcul interne reste en valeurs réelles (R2), et seules les populations publiées sont arrondies.
+- 10 000 itérations au maximum par pas. Si cette limite est atteinte, la non-convergence est déclarée.
 - `raise_dmax` ne modifie jamais les densités max sans validation. En mode automatique, un plafond de hausse autorisée est fixé dans le scénario, et au-delà le calcul s'arrête.
 - Couronne de mailles puits : 4 mailles de large, avec la densité max de la classe la moins dense (S5).
