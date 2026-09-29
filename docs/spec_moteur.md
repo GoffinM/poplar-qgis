@@ -5,7 +5,7 @@
 | **Objet** | Comportement attendu du moteur `src/engine/` : entrées, calculs, sorties, invariants et cas de test |
 | **Sources** | `docs/BUR71_fiche_diagnostic_outil_SIG_population.md`, `docs/etat_des_lieux_code.md` (décisions §6 à §10) |
 | **Date** | 29/09/2026 |
-| **Statut** | **Projet, à valider.** Les points marqués **[S…]** sont des choix que je propose sans les avoir tranchés. Ils sont regroupés au §10 |
+| **Statut** | **Projet v2.** Choix S1 à S7 tranchés le 29/09/2026 (§10). Reste à valider dans son ensemble |
 
 ---
 
@@ -35,9 +35,11 @@
 
 | Paramètre | Type | Défaut | Rôle |
 |---|---|---|---|
-| `base_year` | réel | — | Année de la population de base : l'année du recensement (RF4), 2024 pour le Burundi |
+| `base_year` | réel | — | Année que représente la population de base (RF4). Pour BUR71 : 2024, année du recensement sur lequel le raster est calé |
+| `first_migration_year` | réel | **à fixer par l'utilisateur** | Première année où la migration s'applique. Avant cette année, on n'applique que la croissance. Ce choix dépend des dates des données sources : par exemple toits de 2023 et population de 2024 (S7) |
 | `end_year` | réel | — | Horizon final, par exemple 2060 |
 | `time_step` | réel > 0 | 1 | Pas de temps en années : 10, 5, 1, ou moins d'un an |
+| `migration_frequency` | `annual` ou `time_step` | `annual` | `annual` : croissance et migration année par année, quel que soit le pas. `time_step` : une seule migration par pas. Ce second mode est plus rapide, mais la répartition est de moindre qualité (S6) |
 | `output_years` | liste | chaque pas | Années pour lesquelles les résultats sont écrits |
 | `cell_size` | réel (m) | 250 | Côté de la maille |
 | `density_unit` | `hab/km2` ou `hab/ha` | `hab/km2` | Unité des densités en entrée et en sortie (A8) |
@@ -69,48 +71,63 @@ Chaque paramètre peut être donné sous l'une de ces formes, de la plus simple 
 - Avant la première et après la dernière année charnière, la valeur est constante par défaut, ou prolongée linéairement si `extrapolation = linear`.
 - Une extrapolation linéaire peut donner un taux ou une densité aberrants (négatifs par exemple). Le moteur borne alors les valeurs (`dmax > 0`, `growth_rate > −100 %`) et signale le cas dans le rapport.
 
-## 3. Grille de calcul
+## 3. Grille et unités de calcul
 
 - La grille est alignée sur l'origine du raster de base, avec un pas de `cell_size`.
-- **Surface utile** `a_i` (km², en réel) : surface de la maille *i* comprise dans la zone d'étude, calculée à partir de la géométrie, **sans arrondi** (voir F19). Les mailles de surface nulle sont ignorées.
-- **Population de base** `P0_i` : somme sur les pixels du raster de base de (densité × surface commune entre pixel, maille et zone d'étude).
-  - Si `cell_size` est un multiple du pixel, cela revient à additionner les populations des pixels.
-  - Si la maille est plus petite que le pixel, la population du pixel est répartie au prorata des surfaces, avec un avertissement dans le rapport.
-- **Classe** `c_i` de chaque maille : **[S1]** la classe qui couvre la plus grande part de la maille.
-- **Statut « sans migration »** `x_i` : **[S2]** vrai si plus de 50 % de la surface utile de la maille est dans une zone sans migration.
-- **Position** de la maille pour les calculs de distance : **[S3]** le centroïde de sa surface utile.
+- **Unités de calcul (S1/S2).** Chaque maille est découpée par intersection avec :
+  - la zone d'étude,
+  - les zones de typologie,
+  - les zones sans migration.
+
+  Chaque sous-polygone obtenu, éventuellement multi-parties, est une **unité** *u*. C'est l'équivalent des fragments de l'outil actuel.
+- Une unité porte :
+  - sa maille `m_u` ;
+  - sa **surface** `a_u` (km², en réel, calculée à partir de la géométrie, **sans arrondi**, voir F19) ;
+  - sa **classe** `c_u` ;
+  - son statut **sans migration** `x_u` ;
+  - sa **position**, le **centroïde** de sa géométrie (S3).
+- Les unités de surface inférieure à `min_unit_area` (par défaut 1 m²) sont rattachées à l'unité voisine de même maille ayant la plus grande surface. Cela évite les éclats numériques.
+- **Population de base** `P0_u` : somme sur les pixels du raster de base de (densité × surface commune entre pixel et unité).
+- **Mise en œuvre (phase 4).** Seules les mailles traversées par une limite sont découpées, avec la géométrie OGR/GDAL. Les mailles intérieures restent entières (une unité = une maille) et sont traitées en tableau. Le moteur manipule un tableau 1D d'unités, pas une image.
+- **Sorties raster** : pour chaque maille, population = somme des unités, et densité = population / surface utile totale de la maille. Une couche vectorielle des unités peut aussi être produite en option.
 
 ## 4. Capacité
 
-À l'instant *t*, la capacité en habitants de chaque maille vaut :
+À l'instant *t*, la capacité en habitants de chaque unité vaut :
 
-- pour une maille ordinaire : `C_i(t) = a_i × max(d0_i, dmax(c_i, t))` ;
-- pour une maille sans migration (A7-bis = c1) : `C_i(t) = P0_i`.
+- pour une unité ordinaire : `C_u(t) = a_u × max(d0_u, dmax(c_u, t))` ;
+- pour une unité sans migration (A7-bis = c1) : `C_u(t) = P0_u`.
 
-Ici `d0_i = P0_i / a_i` est la densité de l'année de base. Le `max` applique la règle A4 : une maille déjà en surcharge à l'année de base garde sa densité de base comme plafond.
+Ici `d0_u = P0_u / a_u` est la densité de l'année de base. Le `max` applique la règle A4 : une unité déjà en surcharge à l'année de base garde sa densité de base comme plafond.
 
-**Mailles éligibles à recevoir** : toutes les mailles avec `a_i > 0` et `x_i` faux. Une maille sans migration ne reçoit jamais de population.
+**Unités éligibles à recevoir** : toutes les unités avec `a_u > 0` et `x_u` faux. Une unité sans migration ne reçoit jamais de population.
+
+Dans la suite (§5 à §7), le terme « maille » désigne une unité de calcul.
 
 ## 5. Déroulé d'un pas de temps [t, t + Δ]
 
 1. **Croissance** (§5.1).
 2. **Recalage**, s'il est activé (§5.2).
 3. **Contrôle de capacité** (§7.1).
-4. **Migration** (§6), ou application de la politique de non-convergence (§7).
+4. **Migration** (§6), ou application de la politique de non-convergence (§7). Cette étape n'a lieu que si `t + Δ ≥ first_migration_year`.
 5. **Bilan et rapport** du pas (§8).
 6. **Écriture** des sorties si `t + Δ` fait partie de `output_years`.
 
+Avec `migration_frequency = annual`, un pas de Δ années est découpé en sous-pas d'au plus un an. Chaque sous-pas enchaîne croissance, recalage et migration, et les sorties ne sont écrites qu'à la fin du pas. Avec `migration_frequency = time_step`, le pas est traité d'un seul bloc.
+
 Le pas suivant repart de la population **après migration** (A6).
 
-Le premier pas commence à `base_year`. Le dernier pas est raccourci pour tomber exactement sur `end_year`, et chaque année de `output_years` est aussi atteinte exactement.
+La simulation commence à `base_year`. Le dernier pas est raccourci pour tomber exactement sur `end_year`, et chaque année de `output_years` est aussi atteinte exactement.
 
 ### 5.1 Croissance
 
-`P_i ← P_i × G_i(t, Δ)`
+`P_u ← P_u × (1 + r̄_u / 100)^Δ`
 
-**[S4]** Le facteur de croissance `G_i` est calculé en découpant le pas en sous-intervalles d'au plus un an. Sur chaque sous-intervalle de durée δ, on applique `(1 + r_i(s_mid)/100)^δ`, où `s_mid` est le milieu du sous-intervalle et `r_i` le taux interpolé pour la maille. Ainsi, une croissance calculée en 5 pas d'un an ou en 1 pas de 5 ans donne le même résultat.
+`r̄_u` est le **taux moyen de l'unité sur le (sous-)pas** (S4), c'est-à-dire la moyenne de `r_u(s)` pour s allant de t à t + Δ. Avec une interpolation linéaire, c'est la valeur au milieu du pas lorsqu'aucune année charnière ne tombe à l'intérieur. Sinon, c'est la moyenne pondérée par la durée de chaque segment.
 
-La croissance s'applique à **toutes** les mailles, y compris celles sans migration. Pour ces dernières, la croissance dépasse leur capacité et devient un excès, exporté à l'étape de migration.
+La croissance s'applique à **toutes** les unités, y compris celles sans migration. Pour ces dernières, la croissance dépasse leur capacité et devient un excès, exporté à l'étape de migration.
+
+**Sensibilité au pas.** Un pas grossier ne change le facteur de croissance que marginalement (T3). En revanche, il change la migration (S6). Le rapport l'indique (§8.3).
 
 ### 5.2 Recalage (option, Q5)
 
@@ -205,6 +222,7 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 
 **Il contient :**
 - les paramètres du scénario et les versions des logiciels ;
+- la **qualité de la résolution** : taille de maille, pas de temps, `migration_frequency`, `first_migration_year`. Si le calcul est grossier (maille plus grande que le raster de base, ou migration par pas de plus d'un an), un avertissement explicite précise que le résultat est une première approche, à affiner (S6) ;
 - pour chaque pas de temps : population avant et après croissance, facteur de recalage, capacité totale, nombre d'itérations, convergence, population non relocalisée, ajustements appliqués (facteur `raise_dmax`, population placée en couronne) ;
 - le contrôle de conservation : écart entre population attendue et obtenue ;
 - un **statut global** : `success`, `success_with_adjustments`, `partial` (population non relocalisée) ou `failed`.
@@ -217,21 +235,21 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 | I2 | Après convergence, aucune maille éligible ne dépasse sa capacité de plus de `tolerance` |
 | I3 | Une maille sans migration ne reçoit rien. Sa population après migration vaut exactement `P0_i` (c1) |
 | I4 | Mêmes entrées, même résultat (déterminisme) |
-| I5 | La croissance calculée en N pas de Δ ou en un pas de N × Δ donne le même facteur, à 10⁻⁹ près |
+| I5 | À taux constant, la croissance calculée en N pas de Δ ou en un pas de N × Δ donne le même facteur, à 10⁻⁹ près. À taux variable, l'écart reste inférieur à 10⁻⁴ en valeur relative |
 | I6 | Σ des populations entières publiées = `round(Σ P_i)` |
 | I7 | Aucune valeur négative, aucun NaN dans les sorties |
 
-## 10. Choix proposés, à valider
+## 10. Choix tranchés (29/09/2026)
 
-| # | Question | Proposition |
+| # | Question | Décision |
 |---|---|---|
-| S1 | À quelle classe appartient une maille coupée par une limite de typologie ? | La classe majoritaire en surface. L'outil actuel découpe la maille en fragments ; le moteur raster ne le fait pas. Une maille de 250 m à cheval sur la limite rural/urbain prend donc une seule classe |
-| S2 | Quand une maille est-elle « sans migration » ? | Si plus de 50 % de sa surface utile est dans une zone sans migration |
-| S3 | Quelle position retenir pour mesurer les distances ? | Le centroïde de la surface utile. Pour une maille entière, c'est son centre |
-| S4 | Comment appliquer un taux qui varie pendant un pas ? | Sous-intervalles d'au plus un an, avec le taux au milieu de chaque sous-intervalle. Cela rend la croissance indépendante du pas choisi (I5) |
-| S5 | Quels paramètres pour la couronne de mailles puits ? | `sink_width` = 4 mailles et `sink_dmax` = `dmax` de la classe la moins dense, par défaut |
-| S6 | Le pas de temps influence la migration : migrer tous les ans ou tous les 5 ans ne donne pas exactement la même répartition. Est-ce acceptable ? | Oui, en le documentant. Proposition : un pas interne de 1 an par défaut, quelles que soient les années de sortie |
-| S7 | Faut-il migrer au premier pas, dès l'année de base ? L'outil actuel ne migre pas en 2024 | Oui : chaque pas comprend croissance puis migration. En particulier, les mailles sans migration exportent leur croissance dès le premier pas |
+| S1 | À quelle classe appartient une maille coupée par une limite de typologie ? | La maille est **découpée en sous-polygones**. Chaque partie est une unité avec sa propre classe (§3) |
+| S2 | Quand une maille est-elle « sans migration » ? | Même principe : la partie située en zone sans migration forme sa propre unité (§3) |
+| S3 | Quelle position retenir pour mesurer les distances ? | Le **centroïde** de l'unité |
+| S4 | Comment appliquer un taux qui varie pendant un pas ? | Le **taux moyen** sur le pas (§5.1) |
+| S5 | Quels paramètres pour la couronne de mailles puits ? | `sink_width` = 4 mailles et `sink_dmax` = `dmax` de la classe la moins dense, par défaut (accepté) |
+| S6 | Le pas de temps influence la migration | L'utilisateur choisit `migration_frequency` : `annual` (qualité) ou `time_step` (rapidité). Un premier run grossier, en temps et en espace, puis un run affiné est un usage prévu. Le rapport indique toujours la résolution utilisée et ses limites |
+| S7 | Faut-il migrer dès le premier pas ? | Ce choix revient à l'utilisateur, avec le paramètre `first_migration_year`. Il dépend des dates des données sources (par exemple toits de 2023 et population de 2024) |
 
 ---
 
@@ -258,7 +276,9 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 
 ### T3 – Croissance sur un pas avec un taux variable (S4)
 - **Entrée** : mêmes taux que T2, `P0` = 1 000, un pas de 5 ans de 2026 à 2031.
-- **Attendu** : facteur = Π des 5 années de (1 + r(y + 0,5)) = 1,1492569, donc **P = 1 149,2569**.
+- **Calcul** : taux moyen r̄ = r(2028,5) = 2,82143 %.
+- **Attendu** : facteur = 1,0282143⁵ = 1,1492597, donc **P = 1 149,2597**.
+- **Contrôle de sensibilité** : 5 pas d'un an donnent 1 149,2569, soit un écart relatif de 2,4·10⁻⁶ (I5).
 
 ### T4 – Migration simple, une itération
 - **Entrée** : 5 mailles, `C` = 10 chacune, `P` = [0, 0, 25, 0, 0].
@@ -315,11 +335,27 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 - **Entrée** : T4 exécuté deux fois, et avec l'ordre des sources permuté.
 - **Attendu** : des résultats identiques bit à bit (I4).
 
+### T13 – Maille découpée entre deux classes (S1)
+- **Entrée** : une maille de 1 km² de densité de base uniforme 800, coupée par une limite de typologie :
+  - partie rurale de 0,75 km², avec `dmax` = 1 000 ;
+  - partie urbaine de 0,25 km², avec `dmax` = 4 000.
+- **Découpage attendu** : 2 unités.
+  - Unité rurale : `P0` = 600, `C` = 750.
+  - Unité urbaine : `P0` = 200, `C` = 1 000.
+  - Capacité totale de la maille : 1 750, contre 1 000 (= 1 km² × `dmax` rural) si la maille entière était classée rurale.
+- **Sortie raster** : population 800, densité 800.
+
+### T14 – Premier pas sans migration (S7)
+- **Entrée** : T7 avec `base_year` = 2024, `first_migration_year` = 2026 et des pas de 1 an.
+- **Attendu** :
+  - en 2025 (croissance seule), `P` = [11, 0] ;
+  - en 2026, croissance puis migration : la maille 0 passe à 12,1 ; sa capacité est 10, donc elle exporte 2,1. Résultat : `P` = [**10 ; 2,1**], total 12,1.
+
 ---
 
 ## 12. Données de référence
 
 | Référence | Usage |
 |---|---|
-| `reference_outputs/muramvya/p2023_entree` | Comparaison chiffrée de la préparation (densité par maille, `Pmax` par classe). Tolérances : 1 % sur la population par maille, pour tenir compte de F19 et du passage des fragments aux mailles raster (S1) ; 0,5 % sur le total |
+| `reference_outputs/muramvya/p2023_entree` | Comparaison chiffrée de la préparation (densité par maille, `Pmax` par classe). Tolérances : 1 % sur la population par maille et 0,5 % sur le total, pour tenir compte de F19 (surface arrondie dans la référence) |
 | `reference_outputs/muramvya/pentree_final` | Référence qualitative (état des lieux §10.5). On relance le moteur avec les taux par période du §10.3, puis on compare les totaux, l'absence de dépassement et la répartition urbain/rural. Les écarts dus à RF3 et F19 sont attendus et documentés |

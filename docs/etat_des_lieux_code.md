@@ -304,7 +304,7 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 - La taille de maille est un paramètre, 250 m par défaut. Elle est en pratique rarement inférieure à 250 m.
 - Si la maille de calcul est plus grossière que le raster d'entrée, on agrège en **conservant la population** : on somme les populations, puis on recalcule la densité.
 - Si elle est plus fine, on désagrège uniformément, avec un avertissement : l'affinage ne crée pas d'information.
-- Les mailles partiellement couvertes (en bordure) portent leur **surface utile**. C'est l'équivalent raster des fragments actuels.
+- Chaque maille est **découpée en sous-polygones** selon la zone d'étude, les classes de typologie et les zones sans migration, comme dans l'outil actuel. Chaque partie est une **unité de calcul** qui a sa propre surface, sa propre classe et son propre centroïde (décision S1/S2 du 29/09/2026, voir `docs/spec_moteur.md`).
 
 ### 8.2 Typologie et paramètres
 
@@ -350,7 +350,7 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 ### Phase 1 – Socle du moteur (`src/engine/`, sans import de `qgis`)
 
 - Grille de calcul paramétrable : agrégation et désagrégation en conservant la population, surface utile des mailles.
-- Rasterisation de la typologie libre, des zones et des exclusions.
+- Découpage des mailles en unités de calcul selon la typologie libre, la zone d'étude et les zones sans migration (OGR). Seules les mailles traversées par une limite sont découpées.
 - Calcul de `Pmax`, avec correction des défauts F1 à F3.
 - Croissance sur un pas de temps quelconque.
 - Contrôle de conservation de la population.
