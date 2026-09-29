@@ -333,5 +333,8 @@
  "cleanup.status.success_with_adjustments": "successful with adjustments",
  "cleanup.status.partial": "partial",
  "cleanup.status.failed": "failed",
- "cleanup.status.running": "interrupted"
+ "cleanup.status.running": "interrupted",
+ "check.buffer_missing": "Exclusion zone “{name}”: a layer of lines or points needs a buffer in metres (Data tab).",
+ "data.exclusions.buffer.tip.title": "Buffer (m)",
+ "data.exclusions.buffer.tip": "Width added around each feature, in metres. Required for a layer of lines (road, river) or points (borehole); optional for polygons, which it widens."
 }

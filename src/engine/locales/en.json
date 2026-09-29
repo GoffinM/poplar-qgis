@@ -64,5 +64,6 @@
   "crs_not_metric": "The calculation coordinate system must be projected in metres (\"{crs}\" is not). Choose for example a UTM zone, or \"auto-utm\".",
   "crs_used": "Calculation coordinate system: {name} (chosen by: {source}).",
   "crs_area_distortion": "This coordinate system distorts areas by up to {distortion} % over the study area. An equal-area system is recommended (\"crs\": \"auto-equal-area\").",
-  "raster_reprojected": "Population raster reprojected to {name} ({pixel} m pixels) by area-weighted averaging of densities; total population difference due to the raster edges: {correction} %."
+  "raster_reprojected": "Population raster reprojected to {name} ({pixel} m pixels) by area-weighted averaging of densities; total population difference due to the raster edges: {correction} %.",
+  "exclusion_needs_buffer": "Exclusion zone “{name}”: the layer holds lines or points; give a buffer width in metres."
 }

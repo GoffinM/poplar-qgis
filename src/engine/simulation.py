@@ -37,7 +37,7 @@ from .report import StepReport
 from .scenario import NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError
 from .timeline import PER_STEP, build_timeline
 from .units import Layer, Zone, build_sink_units, build_units
-from .vector_io import read_features, union_all
+from .vector_io import BufferRequired, read_features, union_all
 
 STATUS_ORDER = ["success", "success_with_adjustments", "partial", "failed"]
 WGS84_WKT = srs_from_epsg(4326).ExportToWkt()
@@ -371,7 +371,11 @@ def _read(scenario: Scenario, spec, crs: str):
 def _read_exclusion(scenario: Scenario, exclusion, crs: str):
     path = scenario.path(exclusion.source)
     _check_file(path)
-    return [f.geometry for f in read_features(path, exclusion.layer, exclusion.where, crs, exclusion.buffer_m)]
+    try:
+        features = read_features(path, exclusion.layer, exclusion.where, crs, exclusion.buffer_m)
+    except BufferRequired:
+        raise ScenarioError([message("exclusion_needs_buffer", name=exclusion.name or path)]) from None
+    return [f.geometry for f in features]
 
 
 def _load_projections(scenario: Scenario) -> Dict[str, TimeSeries]:

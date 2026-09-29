@@ -34,7 +34,7 @@ def box(c0, r0, c1, r1, cell=100.0):
     return square(X0 + c0 * cell, Y0 - r1 * cell, X0 + c1 * cell, Y0 - r0 * cell)
 
 
-def make_world(directory, density, cell=100.0, zones=None, exclusions=(), admin=None, **overrides):
+def make_world(directory, density, cell=100.0, zones=None, exclusions=(), admin=None, exclusion_specs=(), **overrides):
     """Write a raster of ``density`` (hab/km2, rows x cols) and vector layers; return the scenario dict."""
     os.makedirs(directory, exist_ok=True)
     rows, cols = density.shape
@@ -53,12 +53,12 @@ def make_world(directory, density, cell=100.0, zones=None, exclusions=(), admin=
         "parameters": {"growth_rate": 2.0, "dmax": 10000},
         "output": {"directory": "out"},
     }
-    exclusion_specs = []
+    specs = list(exclusion_specs)  # layers already written (lines, points, buffers)
     for i, (name, geometry, behaviour, year) in enumerate(exclusions):
         path = write_polygons(os.path.join(directory, f"exclusion_{i}.gpkg"), [(geometry, name)])
-        exclusion_specs.append({"name": name, "source": os.path.basename(path), "behaviour": behaviour, "year": year})
-    if exclusion_specs:
-        scenario["exclusions"] = exclusion_specs
+        specs.append({"name": name, "source": os.path.basename(path), "behaviour": behaviour, "year": year})
+    if specs:
+        scenario["exclusions"] = specs
     if admin:
         write_polygons(os.path.join(directory, "admin.gpkg"), admin, field="admin")
         scenario["admin_units"] = {"source": "admin.gpkg", "field": "admin"}

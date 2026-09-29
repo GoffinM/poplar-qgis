@@ -53,7 +53,7 @@ Chaque paramètre peut prendre l'une de ces formes :
 | `no_inflow` | N'accueille plus personne ; ses habitants restent et sa croissance part ailleurs : forêts, domaines militaires… |
 | `relocate` | Tous ses habitants sont relocalisés : barrage… |
 
-Une exclusion peut porter une **année** (`"year": 2030`) : elle s'applique alors à partir de cette année, et les résultats de l'année 2030 en tiennent déjà compte. Les rivières données sous forme de lignes reçoivent une largeur de tampon (`"buffer_m": 50`).
+Une exclusion peut porter une **année** (`"year": 2030`) : elle s'applique alors à partir de cette année, et les résultats de l'année 2030 en tiennent déjà compte. Les couches de **lignes** (routes, rivières) et de **points** (forages, sources) reçoivent obligatoirement une largeur de tampon en mètres (`"buffer_m": 50`, colonne « Tampon (m) » de l'onglet Données). Pour une couche de polygones, le tampon est facultatif et élargit la zone, par exemple un lac et ses 100 m de berge. Le tampon est appliqué dans le système de calcul, donc toujours en mètres, même si la couche est en degrés.
 
 ## Projections démographiques (optionnel)
 

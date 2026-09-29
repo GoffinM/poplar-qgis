@@ -333,5 +333,8 @@
  "cleanup.status.success_with_adjustments": "réussi avec ajustements",
  "cleanup.status.partial": "partiel",
  "cleanup.status.failed": "échec",
- "cleanup.status.running": "interrompu"
+ "cleanup.status.running": "interrompu",
+ "check.buffer_missing": "Zone d'exclusion « {name} » : couche de lignes ou de points, indiquez un tampon en mètres (onglet Données).",
+ "data.exclusions.buffer.tip.title": "Tampon (m)",
+ "data.exclusions.buffer.tip": "Largeur ajoutée autour de chaque objet, en mètres. Obligatoire pour une couche de lignes (route, rivière) ou de points (forage) ; facultative pour des polygones, qu'elle élargit."
 }

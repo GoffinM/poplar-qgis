@@ -150,6 +150,45 @@ def test_runs_are_kept_apart_and_cleaned_up(iface, scenario_copy, monkeypatch):
     QgsProject.instance().clear()
 
 
+def test_exclusion_made_of_lines_needs_a_buffer(iface, scenario_copy, tmp_path):
+    from osgeo import ogr, osr
+    from qgis.core import QgsVectorLayer
+    from poplar.ui.main_dialog import MainDialog
+
+    # A road crossing Muramvya, as a line layer
+    path = str(tmp_path / "route.gpkg")
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(4326)
+    datasource = ogr.GetDriverByName("GPKG").CreateDataSource(path)
+    layer = datasource.CreateLayer("route", srs, ogr.wkbLineString)
+    feature = ogr.Feature(layer.GetLayerDefn())
+    feature.SetGeometry(ogr.CreateGeometryFromWkt("LINESTRING (29.55 -3.30, 29.70 -3.22)"))
+    layer.CreateFeature(feature)
+    feature = layer = datasource = None
+    road = QgsVectorLayer(path, "route", "ogr")
+    assert road.isValid()
+    QgsProject.instance().addMapLayer(road)
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    data = dialog.page("data")
+    data._add_exclusion({"name": "RN7"})
+    row = data.exclusions.rowCount() - 1
+    data.exclusions.cellWidget(row, 1).setLayer(road)
+    data.exclusions.cellWidget(row, 2).setCurrentIndex(1)  # relocate
+    data.exclusions.item(row, 3).setText("2027")
+    assert not dialog.check()
+    assert any("RN7" in dialog.page("run").checks.item(i).text() for i in range(dialog.page("run").checks.count()))
+    data.exclusions.item(row, 4).setText("50")
+    assert dialog.check()
+    assert dialog.collect()["exclusions"][-1]["buffer_m"] == 50
+    directory = _run_in_dialog(dialog)
+    with open(os.path.join(directory, "report.json"), encoding="utf-8") as handle:
+        events = json.load(handle)["events"]
+    assert any(e["code"] == "exclusion_relocated" and "RN7" in e["text"] for e in events)
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent

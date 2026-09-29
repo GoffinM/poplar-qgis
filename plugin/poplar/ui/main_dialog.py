@@ -205,6 +205,8 @@ class MainDialog(QDialog):
             page.show_checks([(False, m.render(language)) for m in error.messages])
             return False
         items = [(True, tr("check.scenario_ok"))]
+        for name in self.page("data").exclusions_without_buffer():
+            items.append((False, tr("check.buffer_missing", name=name)))
         if not scenario.output_directory:
             items.append((False, tr("check.no_output")))
         page.show_checks(items)

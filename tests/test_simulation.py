@@ -120,3 +120,59 @@ def test_failure_carries_the_proposed_increase(tmp_path):
     assert result.status == "failed"
     assert result.failure.proposal is not None and result.failure.proposal.factor > 1.0
     assert result.failure_year is not None
+
+
+def _exclusion_layer(tmp_path, name, geometry, buffer_m=None, behaviour="relocate", year=2027):
+    from world import write_polygons
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    write_polygons(str(tmp_path / f"{name}.gpkg"), [(geometry, name)])
+    spec = {"name": name, "source": f"{name}.gpkg", "behaviour": behaviour, "year": year}
+    if buffer_m is not None:
+        spec["buffer_m"] = buffer_m
+    return spec
+
+
+def test_line_exclusion_with_buffer(tmp_path):
+    from osgeo import ogr
+    from world import X0, Y0
+
+    road = ogr.CreateGeometryFromWkt(f"LINESTRING ({X0 + 550} {Y0 + 10}, {X0 + 550} {Y0 - 1010})")  # centre of column 5
+    spec = _exclusion_layer(tmp_path, "route", road, buffer_m=60)                                  # 120 m wide strip
+    result, _ = _run(tmp_path, exclusion_specs=[spec])
+    before, after = _population(result.directory, 2026), _population(result.directory, 2027)
+    assert before[:, 5].sum() > 0 and after[:, 5].sum() == 0           # the road cells are emptied
+    assert after[:, 4].sum() > 0 and after[:, 6].sum() > 0              # only 10 m of columns 4 and 6 are in it
+    assert after.sum() == round(1000 * 1.02 ** 3)                      # nobody is lost
+    assert [e.code for e in result.events] == ["exclusion_relocated"]
+
+
+def test_point_exclusion_with_buffer(tmp_path):
+    from osgeo import ogr
+    from world import X0, Y0
+
+    borehole = ogr.CreateGeometryFromWkt(f"POINT ({X0 + 250} {Y0 - 250})")  # centre of cell (2, 2)
+    spec = _exclusion_layer(tmp_path, "forage", borehole, buffer_m=50, behaviour="outside", year=None)
+    result, _ = _run(tmp_path, exclusion_specs=[spec])
+    share = np.pi * 50 ** 2 / 100 ** 2                                     # the circle covers 78.5 % of the cell
+    assert _population(result.directory, 2024)[2, 2] == pytest.approx(10 * (1 - share), abs=1)
+
+
+def test_polygon_exclusion_widened_by_the_buffer(tmp_path):
+    spec = _exclusion_layer(tmp_path, "lac", box(4, 4, 6, 6), buffer_m=100, behaviour="outside", year=None)
+    result, _ = _run(tmp_path, exclusion_specs=[spec])
+    population = _population(result.directory, 2024)
+    assert population[3:7, 4:6].sum() == 0 and population[4:6, 3:7].sum() == 0  # 100 m around the lake
+    assert population[3, 3] > 0                                                   # rounded corner
+
+
+def test_line_exclusion_without_buffer_is_explained(tmp_path):
+    from osgeo import ogr
+    from engine.scenario import ScenarioError
+    from world import X0, Y0
+
+    road = ogr.CreateGeometryFromWkt(f"LINESTRING ({X0} {Y0 - 500}, {X0 + 1000} {Y0 - 500})")
+    spec = _exclusion_layer(tmp_path, "route", road)
+    with pytest.raises(ScenarioError) as error:
+        _run(tmp_path, exclusion_specs=[spec])
+    assert [m.code for m in error.value.messages] == ["exclusion_needs_buffer"]

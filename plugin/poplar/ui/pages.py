@@ -16,7 +16,7 @@ from qgis.PyQt.QtWidgets import (
     QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget,
 )
 
-from ..compat import POLYGON_FILTER, RASTER_FILTER, VECTOR_FILTER
+from ..compat import POLYGON_FILTER, RASTER_FILTER, VECTOR_FILTER, needs_buffer
 from ..engine.crs import AUTO_EQUAL_AREA, AUTO_UTM, is_metric_projected
 from ..engine.i18n import available_languages
 from ..i18n import tip, tr
@@ -188,6 +188,7 @@ class DataPage(Page):
                                                    tr("data.exclusions.behaviour"), tr("data.exclusions.year"),
                                                    tr("data.exclusions.buffer")])
         self.exclusions.horizontalHeaderItem(2).setToolTip(tip("data.exclusions.behaviour"))
+        self.exclusions.horizontalHeaderItem(4).setToolTip(tip("data.exclusions.buffer"))
         header = self.exclusions.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
@@ -233,6 +234,17 @@ class DataPage(Page):
         self.exclusions.setItem(row, 3, QTableWidgetItem("" if year is None else f"{year:g}"))
         buffer = item.get("buffer_m")
         self.exclusions.setItem(row, 4, QTableWidgetItem("" if buffer is None else f"{buffer:g}"))
+
+    def exclusions_without_buffer(self):
+        """Names of the exclusion layers made of lines or points that have no buffer width."""
+        names = []
+        for row in range(self.exclusions.rowCount()):
+            layer = self.exclusions.cellWidget(row, 1).currentLayer()
+            buffer = self.exclusions.item(row, 4).text().strip() if self.exclusions.item(row, 4) else ""
+            if layer is not None and needs_buffer(layer) and not buffer:
+                name = self.exclusions.item(row, 0).text() if self.exclusions.item(row, 0) else ""
+                names.append(name or layer.name())
+        return names
 
     def load(self, data):
         def select(combo, spec, raster=False):

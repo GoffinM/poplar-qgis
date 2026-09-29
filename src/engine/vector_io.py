@@ -29,13 +29,16 @@ def read_features(
     layer: Optional[str] = None,
     where: Optional[str] = None,
     target_crs_wkt: Optional[str] = None,
-    line_buffer_m: Optional[float] = None,
+    buffer_m: Optional[float] = None,
 ) -> List[Feature]:
     """Read all features of a layer, reprojected to ``target_crs_wkt`` if given.
 
-    Lines and points are turned into polygons with ``line_buffer_m`` (for
-    example rivers given as lines); without it they are rejected, because
-    every input layer of the engine describes areas.
+    Lines and points are turned into polygons with ``buffer_m`` (for example
+    roads or rivers given as lines, boreholes given as points); without it
+    they are rejected, because every input layer of the engine describes
+    areas. Polygons are widened by ``buffer_m`` too when it is given. The
+    buffer is applied after reprojection, so it is in metres of the
+    calculation CRS.
     """
     with gdal_exceptions():
         datasource = ogr.Open(source)
@@ -60,7 +63,7 @@ def read_features(
             geometry = geometry.Clone()
             if transform is not None:
                 geometry.Transform(transform)
-            geometry = _as_polygonal(geometry, line_buffer_m, source)
+            geometry = _as_polygonal(geometry, buffer_m, source)
             if geometry is None:
                 continue
             attributes = {name: ogr_feature.GetField(name) for name in names}
@@ -68,14 +71,20 @@ def read_features(
         return features
 
 
-def _as_polygonal(geometry: ogr.Geometry, line_buffer_m: Optional[float], source: str) -> Optional[ogr.Geometry]:
-    dimension = geometry.GetDimension()
-    if dimension < 2:
-        if line_buffer_m is None or line_buffer_m <= 0:
-            raise ValueError(f"{source}: line or point geometries need a buffer width")
-        geometry = geometry.Buffer(line_buffer_m)
-    elif not geometry.IsValid():
+class BufferRequired(ValueError):
+    """Lines or points were read without a buffer width."""
+
+
+def _as_polygonal(geometry: ogr.Geometry, buffer_m: Optional[float], source: str) -> Optional[ogr.Geometry]:
+    widen = buffer_m is not None and buffer_m > 0
+    if geometry.GetDimension() < 2:
+        if not widen:
+            raise BufferRequired(f"{source}: line or point geometries need a buffer width")
+        return polygonal_part(geometry.Buffer(buffer_m))
+    if not geometry.IsValid():
         geometry = geometry.MakeValid()
+    if widen:
+        geometry = geometry.Buffer(buffer_m)
     return polygonal_part(geometry)
 
 
