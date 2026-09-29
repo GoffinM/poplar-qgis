@@ -453,18 +453,17 @@ Le total de l'Excel pour Muramvya (171 010) correspond au raster, et non à la g
 - Ce facteur uniforme d'environ 1/1,097 fait penser à une **remise à l'échelle après la migration** (par exemple un recalage sur un total cible) ou à des `Pmax` différents lors du calcul. **À expliquer (§10.5).**
 - Les nouvelles mailles peuplées sont rares : entre 29 et 64 par période, pour 95 à 264 habitants. L'essentiel de la migration se fait vers des mailles déjà habitées.
 
-### 10.5 Questions pour pouvoir utiliser ces résultats comme référence de non-régression
+### 10.5 Réponses sur les résultats de référence (29/09/2026)
 
-| # | Question |
-|---|---|
-| RF1 | Quelle procédure a mené de `p2023_entree` à `pentree_final` ? Le script de migration a-t-il été lancé pour chaque horizon, avec quelle couche d'entrée, et comment les colonnes ont-elles été rassemblées ? |
-| RF2 | D'où viennent les taux de croissance par période (2,75 % en 2023-2024, 2,2 % en 2024-2030, … 1,29 % en 2055-2060) ? D'une projection officielle, et laquelle ? |
-| RF3 | Pourquoi le plafond effectif est-il d'environ 0,91 × `Pmax` ? Y a-t-il eu une remise à l'échelle après la migration, ou des `Pmax` différents ? |
-| RF4 | Pourquoi l'année 2024 : est-ce l'année du recensement administratif de l'Excel ? |
-| RF5 | Existe-t-il une version plus récente du `.model3` (surface en km², champ `P2024`) ? |
+| # | Question | Réponse | Conséquence |
+|---|---|---|---|
+| RF1 | Quelle procédure a mené de `p2023_entree` à `pentree_final` ? | Le script de migration a été lancé à la main, horizon après horizon. Des erreurs de manipulation sont possibles | La procédure exacte ne peut pas être rejouée |
+| RF2 | D'où viennent les taux de croissance par période ? | Ils ont été fixés par l'utilisateur | Les taux deviennent des **paramètres d'entrée**. On peut n'en donner que quelques-uns (par exemple 2 années charnières) : les autres années sont interpolées linéairement, et extrapolées si besoin |
+| RF3 | Pourquoi le plafond effectif est-il d'environ 0,91 × `Pmax` ? | Aucune explication connue, sans doute une erreur | Ce comportement **ne sera pas reproduit** |
+| RF4 | Pourquoi 2024 comme première année ? | C'est l'année du recensement au Burundi | L'**année de la population de base** devient un paramètre, pour que l'outil serve dans d'autres pays |
+| RF5 | Existe-t-il une version plus récente du `.model3` ? | Pas à notre connaissance | Keyvan n'est plus dans l'équipe : on ne pourra pas éclaircir davantage |
 
-**Utilisation possible dès maintenant :**
-- `p2023_entree` sert de référence pour la phase 1 (règle de `Pmax`, densité par maille), avec des tolérances qui tiennent compte de F19 ;
-- `pentree_final` sert de référence **qualitative** pour les phases 2 et 3 : totaux, absence de dépassement du plafond, forme de la diffusion.
-
-Une comparaison chiffrée exacte avec `pentree_final` suppose les réponses RF1 à RF3.
+**Conséquence pour les tests.** Une comparaison chiffre à chiffre avec `pentree_final` est impossible et ne serait pas souhaitable, puisque ce résultat contient au moins une erreur (RF3). La validation reposera donc sur trois niveaux :
+1. **des cas de test calculés à la main**, qui fixent le comportement attendu (`docs/spec_moteur.md`) ;
+2. **`p2023_entree`** comme référence chiffrée pour la préparation (densité et `Pmax` par maille), avec des tolérances qui tiennent compte de F19 ;
+3. **`pentree_final`** comme référence qualitative : ordre de grandeur des totaux avec les mêmes taux, aucun dépassement de plafond, forme de la diffusion. Les écarts seront expliqués dans un rapport, pas corrigés pour coller à l'ancien résultat.
