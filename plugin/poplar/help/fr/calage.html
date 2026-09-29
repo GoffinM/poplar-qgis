@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><style>
+body { font-family: sans-serif; font-size: 13px; line-height: 1.5; margin: 12px 16px; }
+h1 { font-size: 20px; } h2 { font-size: 16px; margin-top: 18px; } h3 { font-size: 14px; }
+table { border-collapse: collapse; margin: 6px 0; } th, td { border: 1px solid #b9c6c4; padding: 3px 6px; }
+th { background: #e7ecea; } code, pre { font-family: monospace; background: #eef2f1; }
+pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6px 0; padding: 2px 10px; background: #eef6f5; }
+</style></head><body>
+<h1>Calage : des toits à la population</h1>
+<p>L'onglet <b>Calage</b> calcule la population de départ à partir des <b>toits</b>, au lieu d'un raster préparé à part. Pour chaque toit, l'outil donne un <b>nombre entier d'habitants</b> selon sa surface. La somme par maille donne la carte de densité de départ.</p>
+<h2>1. Les toits</h2>
+<table>
+<tr><th>Réglage</th><th>Rôle</th></tr>
+<tr><td>Couche des toits</td><td>Polygones, dont la surface est calculée, ou points avec un champ de surface, depuis un fichier ou une base de données (bouton <b>…</b>)</td></tr>
+<tr><td>Fichier Open Buildings</td><td>Tuile CSV de Google Open Buildings, lue directement. Ce fichier est prioritaire sur la couche</td></tr>
+<tr><td>Surface</td><td>Champ en m² ; vide : surface calculée dans le système de calcul</td></tr>
+<tr><td>Usage</td><td>Champ de catégories, avec un <b>coefficient</b> par catégorie (habitation = 1, mixte = 0,5, commerce = 0…). Les catégories absentes du tableau comptent 1 et sont listées dans le rapport</td></tr>
+<tr><td>Confiance</td><td>Seuil <b>désactivé par défaut</b> ; activé, il écarte les toits douteux</td></tr>
+</table>
+<p>Chaque toit est rattaché à une maille et à une strate par son <b>centroïde</b>.</p>
+<h2>2. Strates et population connue</h2>
+<ul><li>Une <b>strate</b> est un polygone qui a sa propre population connue (commune, colline…). Sans couche de strates, toute la zone d'étude forme une seule strate.</li><li>Le <b>groupe de régression</b> regroupe les strates qui partagent une même courbe (par exemple : rural, urbain). Sans groupe, chaque strate a sa courbe.</li><li>La <b>population connue</b> vient du recensement ou d'une projection validée. Elle se lit dans un champ de la couche ou se saisit dans le tableau.</li><li>Si l'<b>année visée</b> diffère de l'année de la population connue, celle-ci y est ramenée avec un <b>TCAM de décalage</b> (par défaut, celui du scénario).</li></ul>
+<p>Cliquez sur <b>Calculer le calage</b> : les toits sont lus une fois. Ensuite, tous les réglages du groupe réagissent immédiatement.</p>
+<h2>3. Les classes de surface</h2>
+<table>
+<tr><th>Réglage</th><th>Rôle</th><th>Défaut</th></tr>
+<tr><td>Plancher</td><td>Les toits plus petits comptent 0 habitant (abris, annexes)</td><td>1er percentile des surfaces</td></tr>
+<tr><td>Plafond</td><td>Fin de la dernière classe ; les toits plus grands prennent la valeur de la dernière classe</td><td>90e percentile</td></tr>
+<tr><td>Exclusion</td><td>Au-delà, un toit compte 0 habitant (bâtiment non résidentiel)</td><td>450 m²</td></tr>
+<tr><td>Classes</td><td>Nombre de classes, entre plancher et plafond</td><td>8</td></tr>
+<tr><td>Découpage</td><td>Ruptures naturelles, surfaces égales, effectifs égaux (percentiles), ou manuel</td><td>ruptures naturelles</td></tr>
+</table>
+<p>Plancher, plafond et exclusion peuvent être un percentile, une valeur en m², ou « aucun ».</p>
+<p>Le graphique a deux vues :</p>
+<ul><li><b>Distribution</b> : nombre de toits par m² de surface, courbe des habitants par toit et limites des classes ;</li><li><b>Cumul</b> : part cumulée des toits et part cumulée de la population, avec la part de chaque classe.</li></ul>
+<p>Les limites de classe se <b>font glisser</b> sur le graphique : le découpage passe alors en « manuel ».</p>
+<p><b>Quel découpage choisir ?</b></p>
+<ul><li>Les ruptures naturelles suivent les creux de la distribution des surfaces.</li><li>Les surfaces égales sont les plus simples à expliquer.</li><li>Les effectifs égaux donnent le même poids à chaque classe : c'est le meilleur choix pour une régression sur plusieurs strates.</li></ul>
+<h2>4. Habitants par toit</h2>
+<ul><li><b>Habitants proposés</b> pour une classe = arrondi(surface moyenne des toits de la classe ÷ <b>surface de toit par habitant</b>). Le résultat reste entre le minimum et le maximum par toit, et une classe n'a jamais moins d'habitants que la précédente.</li><li><b>Ajuster au recensement</b> cherche la surface de toit par habitant qui redonne au mieux la population connue du groupe.</li><li>La colonne <b>Habitants retenus</b> se modifie à la main. Chaque modification est notée dans le rapport, avec la valeur proposée.</li></ul>
+<p>L'<b>écart</b> à la population connue est affiché ; au-delà de <b>±2 %</b>, il est signalé.</p>
+<p>Le <b>recalage</b> ramène exactement chaque strate à sa population connue. Son facteur est toujours calculé et affiché, mais il n'est appliqué que si la case est cochée (facteur 1 par défaut).</p>
+<h2>5. TCAM suggéré</h2>
+<p>Avec une <b>surface de toit par habitant de référence</b> venue d'ailleurs (autre commune calée, étude antérieure), l'année des images et celle de la population connue, l'outil suggère un TCAM :</p>
+<p><code>TCAM suggéré = (population connue ÷ population des toits)^(1 ÷ écart d'années) − 1</code></p>
+<p>S'il est très différent du TCAM par défaut, l'une des deux hypothèses est à revoir.</p>
+<h2>6. Mode des anciens classeurs</h2>
+<p>Pour comparer avec les anciens résultats, le mode <code>legacy</code> reproduit exactement les classeurs Excel : 139 100 habitants en rural et 33 253 en urbain à Muramvya. Il n'est accessible que par le fichier de scénario (voir la spécification, §3 ter).</p>
+<h2>7. Rapport</h2>
+<p>Le fichier <code>calibration.json</code>, écrit avec les résultats, contient pour chaque groupe :</p>
+<ul><li>les limites et les classes ;</li><li>les habitants proposés et retenus ;</li><li>la surface par habitant ;</li><li>les écarts ;</li><li>les distributions et les cumuls ;</li><li>les diagnostics.</li></ul>
+</body></html>

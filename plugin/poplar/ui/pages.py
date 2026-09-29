@@ -607,16 +607,7 @@ class IndicatorsPage(Page):
 
 # --- Calibration (phase 6) ----------------------------------------------------------
 
-class CalibrationPage(Page):
-    key = "calibration"
-
-    def __init__(self, dialog):
-        super().__init__()
-        layout = QVBoxLayout(self)
-        text = QLabel(tr("calibration.phase6"))
-        text.setWordWrap(True)
-        layout.addWidget(text)
-        layout.addStretch(1)
+from .calibration_page import CalibrationPage  # noqa: E402,F401  (tab of its own module)
 
 
 # --- Run ----------------------------------------------------------------------------
@@ -806,8 +797,25 @@ class ReportPage(Page):
         super().__init__()
         self.dialog = dialog
         layout = QVBoxLayout(self)
+        row = QHBoxLayout()
+        self.open_html = QPushButton(tr("report.open_html"))
+        self.open_html.setToolTip(tip("report.open_html"))
+        self.open_html.clicked.connect(self._open_html)
+        row.addWidget(self.open_html)
+        row.addStretch(1)
+        layout.addLayout(row)
         self.text = QTextBrowser()
         layout.addWidget(self.text)
+
+    def _open_html(self):
+        from ..engine.html_report import write_html_report
+
+        directory = self.dialog.results_directory() or ""
+        if os.path.exists(os.path.join(directory, "report.json")):
+            path = os.path.join(directory, "report.html")
+            if not os.path.exists(path):
+                path = write_html_report(directory)
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
     def refresh(self):
         path = os.path.join(self.dialog.results_directory() or "", "report.txt")

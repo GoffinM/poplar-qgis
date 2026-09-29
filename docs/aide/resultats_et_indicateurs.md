@@ -14,6 +14,8 @@ Les noms de fichiers sont **fixes et en anglais**, quelle que soit la langue. `A
 | `summary.csv` | Tableau par unité administrative et par année : population, surface, densité, non relocalisés, indicateurs. Les en-têtes sont dans la langue choisie ; en français, le séparateur est « ; » et la virgule sert de séparateur décimal |
 | `report.txt` / `report.json` | Rapport d'exécution, pour une personne ou pour un programme |
 | `scenario_used.json` | Copie du scénario utilisé |
+| `calibration.json` | Détail du calage, si la population de départ vient des toits |
+| `report.html` | **Rapport complet autonome** : chiffres clés, évolution de la population, avertissements, calage avec ses graphiques. Il s'ouvre dans un navigateur et s'imprime en PDF ; bouton « Ouvrir le rapport complet » de l'onglet Rapport, ou `python -m engine report <dossier>` |
 
 Les résultats de l'année de départ sont toujours écrits.
 

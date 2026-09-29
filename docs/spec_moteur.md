@@ -235,6 +235,32 @@ Le plugin affiche pour chaque régression :
 
 Chaque modification manuelle est **enregistrée dans le fichier de scénario et signalée dans le rapport** (qui, quoi, valeurs avant et après). Un calage peut être sauvegardé, puis réutilisé pour une autre commune.
 
+### 3 ter.3 Modèle retenu (décisions du 29/09/2026)
+
+Le résultat du calage est un **nombre entier d'habitants par toit**, selon sa surface. Par groupe de régression :
+
+1. **Classes de surface** entre un **plancher** (sous lequel un toit compte 0 habitant) et un **plafond** (au-delà duquel un toit prend la valeur de la dernière classe). Chacun est un percentile des surfaces (1er et 90e par défaut), une valeur en m², ou aucun. Une **exclusion** des grands bâtiments (450 m² par défaut, désactivable) met à 0 les toits non résidentiels.
+2. **Découpage** en N classes (8 par défaut) : ruptures naturelles (Fisher-Jenks sur des tranches de 1 m²), surfaces égales, effectifs égaux (percentiles), ou manuel.
+3. **Habitants proposés** d'une classe = arrondi(surface moyenne des toits de la classe ÷ **surface de toit par habitant**), entre un minimum et un maximum par toit (1 et 15), jamais moins que la classe précédente. La surface par habitant est **ajustée** pour redonner au mieux la population connue du groupe.
+4. **Habitants retenus** : les valeurs proposées, modifiables classe par classe (`overrides`), signalées dans le rapport.
+5. Forme par défaut **en paliers** : chaque toit reçoit exactement la valeur de sa classe, de sorte que le tableau des classes est ce que reçoivent les toits. Segments et polynôme restent disponibles ; le mode `legacy` reproduit les classeurs.
+6. **Recalage** proposé et affiché, **non appliqué par défaut** (facteur 1) ; alerte au-delà de **±2 %** d'écart.
+7. **Décalage d'années** : la population connue est ramenée à l'année visée par un TCAM (saisi, sinon celui du scénario). Avec une surface par habitant de référence venue d'ailleurs, l'outil suggère un TCAM entre l'année des images et celle de la population connue.
+
+Sur Muramvya rural : plancher 10,4 m² (1er percentile), plafond 119,7 m² (90e), 16,9 m² de toit par habitant, 1 à 6 habitants par classe, écart +0,05 %.
+
+Format du scénario :
+
+```json
+"calibration": {"buildings": {"source": "toits.gpkg", "area_field": "area_m2", "usage_field": "usage",
+                              "usage_coefficients": {"habitation": 1, "commerce": 0, "*": 1}},
+                "strata": {"source": "communes.shp", "field": "COMMUNE", "group_field": "TYPE", "census_field": "POP"},
+                "census_year": 2024, "recalibrate": false,
+                "groups": {"Rural": {"classes": {"method": "breaks", "count": 8}, "floor": {"percentile": 1},
+                                     "ceiling": {"percentile": 90}, "exclude_above": 450, "area_per_person": 16.9,
+                                     "min_per_roof": 1, "max_per_roof": 15, "overrides": {"5": 6}}}}
+```
+
 ## 4. Capacité
 
 À l'instant *t*, la capacité en habitants de chaque unité vaut :

@@ -38,6 +38,11 @@ def main():
     for name in os.listdir(MURAMVYA):
         if not os.path.isdir(os.path.join(MURAMVYA, name)):
             shutil.copy(os.path.join(MURAMVYA, name), work)
+    data["calibration"] = {
+        "buildings": {"source": "buildings_muramvya.gpkg", "area_field": "area_m2"},
+        "strata": {"source": "commune_muramvya.shp", "field": "COMMUNES", "group_field": "Type"},
+        "census": {"MURAMVYA  RURAL": 136759, "MURAMVYA URBAIN": 34251}, "census_year": 2024,
+    }
     data["time"]["end_year"] = 2030
     data["time"]["output_years"] = []
     path = os.path.join(work, "scenario.json")
@@ -59,6 +64,14 @@ def main():
         dialog.show_page(key)
         QApplication.processEvents()
         dialog.grab().save(os.path.join(out, f"plugin_{key}{suffix}.png"))
+    page = dialog.page("calibration")
+    dialog.show_page("calibration")
+    page.compute(background=False)
+    page.group_table.selectRow(0)
+    for view in ("distribution", "cumulative"):
+        page._set_view(view)
+        QApplication.processEvents()
+        page.grab().save(os.path.join(out, f"plugin_calibration_{view}{suffix}.png"))
     from poplar.ui.cleanup_dialog import CleanupDialog
 
     cleanup = CleanupDialog(dialog.output_directory(), dialog)

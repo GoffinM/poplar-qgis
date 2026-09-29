@@ -26,6 +26,7 @@ from .indicators import Indicator, create_indicator
 from .nonconvergence import (
     FAILED, SINK, SUCCESS, DmaxProposal, MigrationSettings, NonConvergenceError, Sink, migrate_with_policy,
 )
+from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
@@ -215,6 +216,10 @@ def run(
         with open(os.path.join(out_dir, "calibration.json"), "w", encoding="utf-8") as handle:
             json.dump(model.calibration_report, handle, ensure_ascii=False, indent=1)
         outputs.append(os.path.join(out_dir, "calibration.json"))
+    try:  # the HTML report is a convenience: it never makes a run fail
+        outputs.append(write_html_report(out_dir, language))
+    except Exception:  # pragma: no cover
+        pass
     if scenario.output_per_run:
         finish_run(out_dir, scenario.name, result.status, _output_years(result.outputs))
     return result

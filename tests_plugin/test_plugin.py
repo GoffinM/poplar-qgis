@@ -38,7 +38,7 @@ def test_plugin_loads_and_unloads(iface):
     plugin = poplar.classFactory(iface)
     plugin.initGui()
     assert len(plugin.actions) == 9
-    assert [a.isEnabled() for a in plugin.actions].count(False) == 1  # calibration: phase 6
+    assert all(a.isEnabled() for a in plugin.actions)
     assert QgsApplication.processingRegistry().algorithmById("poplar:run_scenario") is not None
     assert all(a.toolTip() for a in plugin.actions)
     plugin.unload()
@@ -460,6 +460,65 @@ def test_layer_filters_and_other_sources(iface, scenario_copy, tmp_path, monkeyp
     QgsProject.instance().clear()
 
 
+def _with_calibration(scenario_copy):
+    with open(scenario_copy, encoding="utf-8") as handle:
+        data = json.load(handle)
+    data["calibration"] = {
+        "buildings": {"source": os.path.join(MURAMVYA, "buildings_muramvya.gpkg"), "area_field": "area_m2"},
+        "strata": {"source": data["typology"]["source"], "field": "COMMUNES", "group_field": "Type"},
+        "census": {"MURAMVYA  RURAL": 136_759, "MURAMVYA URBAIN": 34_251}, "census_year": 2024,
+    }
+    with open(scenario_copy, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    return scenario_copy
+
+
+def test_calibration_tab(iface, scenario_copy, tmp_path):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(_with_calibration(scenario_copy))
+    page = dialog.page("calibration")
+    assert page.census.rowCount() == 2 and page.census_values()["MURAMVYA URBAIN"] == 34_251
+    assert page.compute(background=False)
+    assert page.group_table.rowCount() == 2 and "38 942" in page.status.text()
+    page.group_table.selectRow(0)                                   # Rural
+    assert page.current == "Rural" and page.editor.isEnabled()
+    assert page.classes.rowCount() == 8 and len(page.chart.edges) == 9
+    assert "écart +0,05" in page.totals.text() or "gap +0.05" in page.totals.text()
+
+    page.n_classes.setValue(6)                                      # recut and refit at once
+    assert page.classes.rowCount() == 6 and page.settings["Rural"].n_classes == 6
+    page.chart.move_edge(2, 45)                                     # a limit dragged: manual cut
+    assert page.settings["Rural"].cut == "manual" and 45 in page.settings["Rural"].edges
+    value = float(page.classes.item(5, 6).text()) + 1
+    page.classes.item(5, 6).setText(f"{value:g}")                  # one value changed by hand
+    assert page.settings["Rural"].overrides == {5: value}
+    assert page.classes.item(5, 6).text() == f"{value:g}"
+    page._set_view("cumulative")
+    page.chart.grab()                                               # both views draw without error
+    page._set_view("distribution")
+    page.chart.grab()
+
+    page.use_roofs.setChecked(True)
+    data = dialog.collect()
+    assert data["base_population"]["source"] == "buildings"
+    groups = data["calibration"]["groups"]
+    assert groups["Rural"]["classes"]["method"] == "manual" and groups["Rural"]["overrides"] == {"5": value}
+    assert groups["Urbain1"]["area_per_person"] > 0
+    path = page.export_calibration(str(tmp_path / "calage.json"))
+    page.settings = {}
+    page.import_calibration(path)
+    assert page.settings["Rural"].overrides == {5: value}
+
+    directory = _run_in_dialog(dialog)
+    with open(os.path.join(directory, "calibration.json"), encoding="utf-8") as handle:
+        report = json.load(handle)
+    assert report["groups"]["Rural"]["overridden"] == [5]
+    assert dialog.page("report").refresh() is None
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
@@ -503,14 +562,14 @@ def test_help_and_about(iface):
     from poplar.ui.help_dialog import HelpDialog
 
     help_dialog = HelpDialog()
-    assert help_dialog.toc.count() == 5
+    assert help_dialog.toc.count() == 6
     help_dialog.show_page("non_convergence")
     assert "Non-convergence" in help_dialog.browser.toPlainText()
     help_dialog.search.setText("rendement")
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
-    assert visible and len(visible) < 5
-    assert version() == "0.2.2"
+    assert visible and len(visible) < 6
+    assert version() == "0.3.0"
     AboutDialog()
 
 

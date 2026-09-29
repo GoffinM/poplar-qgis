@@ -1,0 +1,79 @@
+# Calage : des toits à la population
+
+L'onglet **Calage** calcule la population de départ à partir des **toits**, au lieu d'un raster préparé à part. Pour chaque toit, l'outil donne un **nombre entier d'habitants** selon sa surface. La somme par maille donne la carte de densité de départ.
+
+## 1. Les toits
+
+| Réglage | Rôle |
+|---|---|
+| Couche des toits | Polygones, dont la surface est calculée, ou points avec un champ de surface, depuis un fichier ou une base de données (bouton **…**) |
+| Fichier Open Buildings | Tuile CSV de Google Open Buildings, lue directement. Ce fichier est prioritaire sur la couche |
+| Surface | Champ en m² ; vide : surface calculée dans le système de calcul |
+| Usage | Champ de catégories, avec un **coefficient** par catégorie (habitation = 1, mixte = 0,5, commerce = 0…). Les catégories absentes du tableau comptent 1 et sont listées dans le rapport |
+| Confiance | Seuil **désactivé par défaut** ; activé, il écarte les toits douteux |
+
+Chaque toit est rattaché à une maille et à une strate par son **centroïde**.
+
+## 2. Strates et population connue
+
+- Une **strate** est un polygone qui a sa propre population connue (commune, colline…). Sans couche de strates, toute la zone d'étude forme une seule strate.
+- Le **groupe de régression** regroupe les strates qui partagent une même courbe (par exemple : rural, urbain). Sans groupe, chaque strate a sa courbe.
+- La **population connue** vient du recensement ou d'une projection validée. Elle se lit dans un champ de la couche ou se saisit dans le tableau.
+- Si l'**année visée** diffère de l'année de la population connue, celle-ci y est ramenée avec un **TCAM de décalage** (par défaut, celui du scénario).
+
+Cliquez sur **Calculer le calage** : les toits sont lus une fois. Ensuite, tous les réglages du groupe réagissent immédiatement.
+
+## 3. Les classes de surface
+
+| Réglage | Rôle | Défaut |
+|---|---|---|
+| Plancher | Les toits plus petits comptent 0 habitant (abris, annexes) | 1er percentile des surfaces |
+| Plafond | Fin de la dernière classe ; les toits plus grands prennent la valeur de la dernière classe | 90e percentile |
+| Exclusion | Au-delà, un toit compte 0 habitant (bâtiment non résidentiel) | 450 m² |
+| Classes | Nombre de classes, entre plancher et plafond | 8 |
+| Découpage | Ruptures naturelles, surfaces égales, effectifs égaux (percentiles), ou manuel | ruptures naturelles |
+
+Plancher, plafond et exclusion peuvent être un percentile, une valeur en m², ou « aucun ».
+
+Le graphique a deux vues :
+- **Distribution** : nombre de toits par m² de surface, courbe des habitants par toit et limites des classes ;
+- **Cumul** : part cumulée des toits et part cumulée de la population, avec la part de chaque classe.
+
+Les limites de classe se **font glisser** sur le graphique : le découpage passe alors en « manuel ».
+
+**Quel découpage choisir ?**
+- Les ruptures naturelles suivent les creux de la distribution des surfaces.
+- Les surfaces égales sont les plus simples à expliquer.
+- Les effectifs égaux donnent le même poids à chaque classe : c'est le meilleur choix pour une régression sur plusieurs strates.
+
+## 4. Habitants par toit
+
+- **Habitants proposés** pour une classe = arrondi(surface moyenne des toits de la classe ÷ **surface de toit par habitant**). Le résultat reste entre le minimum et le maximum par toit, et une classe n'a jamais moins d'habitants que la précédente.
+- **Ajuster au recensement** cherche la surface de toit par habitant qui redonne au mieux la population connue du groupe.
+- La colonne **Habitants retenus** se modifie à la main. Chaque modification est notée dans le rapport, avec la valeur proposée.
+
+L'**écart** à la population connue est affiché ; au-delà de **±2 %**, il est signalé.
+
+Le **recalage** ramène exactement chaque strate à sa population connue. Son facteur est toujours calculé et affiché, mais il n'est appliqué que si la case est cochée (facteur 1 par défaut).
+
+## 5. TCAM suggéré
+
+Avec une **surface de toit par habitant de référence** venue d'ailleurs (autre commune calée, étude antérieure), l'année des images et celle de la population connue, l'outil suggère un TCAM :
+
+`TCAM suggéré = (population connue ÷ population des toits)^(1 ÷ écart d'années) − 1`
+
+S'il est très différent du TCAM par défaut, l'une des deux hypothèses est à revoir.
+
+## 6. Mode des anciens classeurs
+
+Pour comparer avec les anciens résultats, le mode `legacy` reproduit exactement les classeurs Excel : 139 100 habitants en rural et 33 253 en urbain à Muramvya. Il n'est accessible que par le fichier de scénario (voir la spécification, §3 ter).
+
+## 7. Rapport
+
+Le fichier `calibration.json`, écrit avec les résultats, contient pour chaque groupe :
+- les limites et les classes ;
+- les habitants proposés et retenus ;
+- la surface par habitant ;
+- les écarts ;
+- les distributions et les cumuls ;
+- les diagnostics.

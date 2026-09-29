@@ -13,7 +13,7 @@ ICONS = os.path.join(os.path.dirname(__file__), "icons")
 # (page or command, icon, available)
 BUTTONS = [
     ("scenario", "scenario", True), ("data", "data", True), ("parameters", "parameters", True),
-    ("calibration", "calibration", False), ("run", "run", True), ("results", "results", True),
+    ("calibration", "calibration", True), ("run", "run", True), ("results", "results", True),
     ("report", "report", True), (None, None, None), ("help", "help", True), ("about", "about", True),
 ]
 

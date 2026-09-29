@@ -30,7 +30,7 @@ INFORMATION = {"crs_used", "raster_reprojected", "start_from_projection", "roofs
 ICONS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario",
               "parameters": "parametres_et_scenario", "indicators": "resultats_et_indicateurs",
-              "calibration": "prise_en_main", "run": "non_convergence", "results": "resultats_et_indicateurs",
+              "calibration": "calage", "run": "non_convergence", "results": "resultats_et_indicateurs",
               "report": "resultats_et_indicateurs"}
 
 
@@ -120,8 +120,6 @@ class MainDialog(QDialog):
         for page in self.pages:
             item = QListWidgetItem(state_icon("empty", self.colours), tr(f"tab.{page.key}"))
             item.setToolTip(tip(f"tab.{page.key}"))
-            if page.key == "calibration":
-                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
             self.tabs.addItem(item)
             scroll = QScrollArea()
             scroll.setWidgetResizable(True)
@@ -195,11 +193,13 @@ class MainDialog(QDialog):
         states = {
             "scenario": "ok" if data.get("name") and output else "warn",
             "data": "ok" if data.get("study_area") and data.get("typology") and
-                    (data.get("base_population") or {}).get("raster") else "warn",
+                    ((data.get("base_population") or {}).get("raster")
+                     or (data.get("base_population") or {}).get("source") == "buildings") else "warn",
             "parameters": "ok" if all(w.store() for w in parameters.values()) and
                           not any(w.unused_keys() for w in parameters.values()) else "warn",
             "indicators": "ok" if data.get("indicators") else "empty",
-            "calibration": "empty",
+            "calibration": ("ok" if (data.get("calibration") or {}).get("census") else "warn")
+            if data.get("calibration") else "empty",
             "run": {None: "empty", True: "ok", False: "warn"}[self.last_check],
             "results": "ok" if has_runs else "empty",
             "report": "ok" if has_runs else "empty",

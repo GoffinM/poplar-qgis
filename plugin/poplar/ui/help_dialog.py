@@ -11,7 +11,7 @@ from qgis.PyQt.QtWidgets import (
 from ..i18n import DEFAULT, current_language, tr
 
 HELP_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "help")
-ORDER = ["prise_en_main", "parametres_et_scenario", "croissance_plafonds_migration", "non_convergence",
+ORDER = ["prise_en_main", "parametres_et_scenario", "calage", "croissance_plafonds_migration", "non_convergence",
          "resultats_et_indicateurs"]
 
 

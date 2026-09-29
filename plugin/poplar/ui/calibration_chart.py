@@ -20,7 +20,7 @@ DISTRIBUTION, CUMULATIVE = "distribution", "cumulative"
 class CalibrationChart(QWidget):
     edgesChanged = pyqtSignal(list)
 
-    MARGINS = (46, 14, 50, 34)  # left, top, right, bottom
+    MARGINS = (30, 26, 58, 34)  # left, top, right, bottom
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -115,13 +115,14 @@ class CalibrationChart(QWidget):
             if count:
                 h = count / top * rect.height()
                 painter.drawRect(QRectF(rect.left() + i * width, rect.bottom() - h, max(width - 0.6, 0.5), h))
-        ymax = max(max(self.values, default=1) + 1, 5)
+        top_value = max(max(self.values, default=1), 1)
+        step = 1 if top_value <= 5 else (2 if top_value <= 12 else 5)
+        ymax = float(step * int(np.ceil((top_value + 0.5) / step)))
         painter.setPen(QColor(t["muted"]))
-        for i in range(6):
-            value = ymax * i / 5
-            painter.drawText(QRectF(rect.right() + 4, rect.bottom() - i / 5 * rect.height() - 7, 44, 14),
-                             Qt.AlignmentFlag.AlignLeft, f"{value:.0f}")
-        painter.drawText(QRectF(rect.right() + 4, rect.top() - 14, 46, 14), Qt.AlignmentFlag.AlignLeft,
+        for value in np.arange(0, ymax + step / 2, step):
+            y = rect.bottom() - value / ymax * rect.height()
+            painter.drawText(QRectF(rect.right() + 4, y - 7, 44, 14), Qt.AlignmentFlag.AlignLeft, f"{value:.0f}")
+        painter.drawText(QRectF(rect.right() + 16, rect.top() - 14, 40, 14), Qt.AlignmentFlag.AlignLeft,
                          self.labels["people"])
 
         def y(value):
@@ -155,7 +156,7 @@ class CalibrationChart(QWidget):
         people = cumulated[np.searchsorted(areas, xs, side="right")] / max(cumulated[-1], 1e-12)
         painter.setPen(QColor(t["muted"]))
         for i in range(6):
-            painter.drawText(QRectF(rect.right() + 4, rect.bottom() - i / 5 * rect.height() - 7, 44, 14),
+            painter.drawText(QRectF(rect.right() + 4, rect.bottom() - i / 5 * rect.height() - 7, 54, 14),
                              Qt.AlignmentFlag.AlignLeft, f"{i * 20} %")
         for share, colour, width in ((roofs, t["muted"], 2), (people, t["teal"], 2.5)):
             painter.setPen(QPen(QColor(colour), width))
@@ -171,7 +172,7 @@ class CalibrationChart(QWidget):
             members = (areas >= low) & (areas < high)
             text = f"{100 * members.mean():.0f} / {100 * population[members].sum() / total_people:.0f} %"
             middle = min((low + min(self.edges[k + 1], self.xmax)) / 2, self.xmax - 2)
-            painter.drawText(QRectF(self._x(middle) - 30, rect.top() + (k % 2) * 12, 60, 12),
+            painter.drawText(QRectF(self._x(middle) - 45, rect.top() - 24 + (k % 2) * 12, 90, 12),
                              Qt.AlignmentFlag.AlignCenter, text)
 
     def _draw_edges(self, painter, rect, t):

@@ -17,7 +17,19 @@ def main(argv=None) -> int:
     run_parser = commands.add_parser("run", help="run a scenario file")
     run_parser.add_argument("scenario")
     run_parser.add_argument("--language", choices=available_languages())
+    report_parser = commands.add_parser("report", help="write report.html for a run folder")
+    report_parser.add_argument("folder")
+    report_parser.add_argument("--language", choices=available_languages())
     args = parser.parse_args(argv)
+    if args.command == "report":
+        from .html_report import write_html_report
+
+        try:
+            print(write_html_report(args.folder, args.language))
+        except FileNotFoundError as error:
+            print(f"no report.json in this folder: {error}", file=sys.stderr)
+            return 1
+        return 0
 
     try:
         scenario = load_scenario(args.scenario)

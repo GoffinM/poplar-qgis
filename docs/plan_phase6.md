@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Validé le 29/09/2026, avec les compléments du §5 |
+| **Statut** | Validé le 29/09/2026 (§5 et §6) ; étapes 6.1 à 6.6 réalisées (version 0.3.0) |
 | **Références** | Spécification §3 bis et §3 ter ; état des lieux §11 (classeurs de Lionel, fragilités F20 à F27) |
 | **Déjà en place** | Lecture rapide des toits par paquets (`engine/buildings.py`) : polygones, points avec champ de surface, CSV Google Open Buildings, filtre spatial sur l'emprise, un million de toits lus en 3 à 19 s, affectation aux mailles |
 | **Durée estimée** | 3 à 4 jours, en quatre étapes testées séparément |
@@ -122,3 +122,7 @@ Chaque étape passe tous les tests avant la suivante, et je vous signale tout é
 
 - Chaque exécution et chaque calage écrivent un rapport JSON complet (`report.json`, `calibration.json`) : données d'entrée, paramètres, bilans par pas, avertissements, calage et indicateurs de qualité.
 - Une commande `python -m engine report <dossier>` produit à partir de ces fichiers un **rapport HTML autonome** (tableaux et graphiques SVG, sans dépendance), lisible dans un navigateur et imprimable en PDF.
+
+## 6. Modèle final (29/09/2026, après la maquette de l'onglet Calage)
+
+Habitants **entiers par toit** selon la classe de surface ; classes entre plancher et plafond (percentile, valeur ou aucun ; 1er et 90e percentiles par défaut) ; découpage par ruptures naturelles, surfaces égales, percentiles ou à la main ; un seul paramètre ajusté au recensement, la **surface de toit par habitant** ; valeurs modifiables ; recalage proposé mais non appliqué (facteur 1), alerte à ±2 % ; vues Distribution et Cumul. Détail : spécification §3 ter.3.
