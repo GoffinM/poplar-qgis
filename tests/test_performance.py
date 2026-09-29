@@ -111,3 +111,24 @@ def test_migration_on_2_25_million_units():
     assert result.converged
     assert result.population.sum() == pytest.approx(population.sum(), rel=1e-12)
     assert elapsed < 60.0
+
+
+def test_36_year_simulation_on_one_million_cells(tmp_path):
+    from engine.scenario import load_scenario
+    from engine.simulation import run
+    from world import box, make_world
+
+    rng = np.random.default_rng(3)
+    density = rng.gamma(1.2, 800.0, (1000, 1000))  # 100 m cells over 100 x 100 km
+    zones = [(box(0, 0, 500, 1000), "Rural"), (box(500, 0, 1000, 1000), "Urbain")]
+    path = make_world(str(tmp_path), density, zones=zones,
+                      parameters={"growth_rate": 2.5, "dmax": {"Rural": 3000, "Urbain": 8000}},
+                      time={"base_year": 2024, "end_year": 2060, "time_step": 5,
+                            "output_years": [2030, 2040, 2050, 2060]})
+    start = time.perf_counter()
+    result = run(load_scenario(path))
+    elapsed = time.perf_counter() - start
+    moved = sum(s.moved for s in result.steps)
+    print(f"\n36-year simulation, 1M cells: {elapsed:.1f} s ({moved:,.0f} inhabitants moved)")
+    assert result.status == "success"
+    assert elapsed < 600

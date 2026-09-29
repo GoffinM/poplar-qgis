@@ -86,7 +86,8 @@ class StepReport:
             lines.append(line("report_unallocated", fmt(self.unallocated)))
         if self.dmax_factor != 1.0:
             lines.append(line("report_dmax_factor", f"{format_number((self.dmax_factor - 1) * 100, language)} %"))
+        balance = self.balance_error if abs(self.balance_error) >= 5e-7 else 0.0
         lines.append(line("report_balance_error",
-                          f"{format_number(self.balance_error, language, decimals=6)} {translate('report_inhabitant', language)}"))
+                          f"{format_number(balance, language, decimals=6)} {translate('report_inhabitant', language)}"))
         lines.extend(f"  • {m.render(language)}" for m in self.messages)
         return "\n".join(lines)
