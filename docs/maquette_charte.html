@@ -1,0 +1,219 @@
+<title>Charte Poplar</title>
+<style>
+/* Layout: one mock plugin window (sidebar + page), view switcher above, charter notes below. Qt-feasible only (QSS). */
+:root {
+  --ground: #eef2f1;
+  --window: #ffffff;
+  --panel: #f6f8f7;
+  --line: #d5dedc;
+  --ink: #1d2b2a;
+  --muted: #5c6e6c;
+  --teal: #1f6f6a;
+  --teal-soft: #dcecea;
+  --ochre: #c98a36;
+  --ochre-soft: #f6e7cf;
+  --on-teal: #ffffff;
+  --danger: #a4452a;
+  --ui: "Segoe UI", system-ui, -apple-system, "Noto Sans", sans-serif;
+  --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ground: #151b1b; --window: #1e2626; --panel: #242e2e; --line: #36443f; --ink: #e4ecea; --muted: #9aaeab;
+  --teal: #4fa9a1; --teal-soft: #22403d; --ochre: #e0a85a; --ochre-soft: #3f3322; --on-teal: #0f1c1b; --danger: #e08a6c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --ground: #151b1b; --window: #1e2626; --panel: #242e2e; --line: #36443f; --ink: #e4ecea; --muted: #9aaeab;
+  --teal: #4fa9a1; --teal-soft: #22403d; --ochre: #e0a85a; --ochre-soft: #3f3322; --on-teal: #0f1c1b; --danger: #e08a6c; color-scheme: dark }
+
+body { background: var(--ground); color: var(--ink); font-family: var(--ui); font-size: 14px; }
+.wrap { max-width: 1060px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 48px; display: grid; gap: 20px; }
+h1 { font-size: 20px; margin: 0; text-wrap: balance; }
+.lead { color: var(--muted); margin: 4px 0 0; max-width: 70ch; line-height: 1.5; }
+.switch { display: flex; gap: 6px; flex-wrap: wrap; }
+.switch button { font: inherit; border: 1px solid var(--line); background: var(--window); color: var(--ink); padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+.switch button[aria-pressed="true"] { background: var(--teal); color: var(--on-teal); border-color: var(--teal); }
+button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--ochre); outline-offset: 2px; }
+
+.win { background: var(--window); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; box-shadow: 0 8px 30px rgb(0 0 0 / .08); }
+.bar { display: flex; align-items: center; gap: 12px; background: var(--teal); color: var(--on-teal); padding: 10px 14px; }
+.bar svg { flex: none; }
+.bar .t { font-weight: 600; font-size: 15px; }
+.bar .s { opacity: .85; font-size: 12px; }
+.bar .help { margin-left: auto; width: 24px; height: 24px; border-radius: 50%; border: 1px solid currentColor; display: grid; place-items: center; font-weight: 600; }
+.body { display: grid; grid-template-columns: 190px minmax(0, 1fr); min-height: 520px; }
+.side { background: var(--panel); border-right: 1px solid var(--line); padding: 10px 0; display: grid; align-content: start; }
+.side div { padding: 8px 16px; display: flex; gap: 10px; align-items: center; color: var(--ink); border-left: 3px solid transparent; }
+.side div.on { background: var(--teal-soft); border-left-color: var(--teal); font-weight: 600; }
+.side div.off { color: var(--muted); opacity: .6; }
+.side .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--teal); }
+.side .dot.warn { background: var(--ochre); }
+.side .dot.none { background: transparent; border: 1px solid var(--line); }
+.page { padding: 18px 20px; display: grid; gap: 18px; align-content: start; min-width: 0; }
+.sec h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--teal); margin: 0 0 8px; font-weight: 700; }
+.sec p.hint { color: var(--muted); margin: 6px 0 0; font-size: 12.5px; line-height: 1.45; }
+.box { border: 1px solid var(--line); border-radius: 4px; padding: 12px; display: grid; gap: 10px; background: var(--window); }
+.row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 10px; align-items: center; }
+.row label { color: var(--muted); }
+.pair { display: flex; gap: 8px; flex-wrap: wrap; }
+.field { border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; background: var(--window); color: var(--ink); min-width: 0; display: flex; justify-content: space-between; gap: 12px; }
+.field.layer { flex: 2 1 200px; } .field.attr { flex: 1 1 120px; }
+.field .c { color: var(--muted); }
+.check { display: flex; gap: 8px; align-items: center; }
+.box-check { width: 14px; height: 14px; border: 1px solid var(--muted); border-radius: 2px; display: inline-grid; place-items: center; flex: none; }
+.box-check.on { background: var(--teal); border-color: var(--teal); }
+.box-check.on::after { content: ""; width: 7px; height: 4px; border: 2px solid var(--on-teal); border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+th, td { border-bottom: 1px solid var(--line); padding: 6px 8px; text-align: right; white-space: nowrap; }
+th { background: var(--panel); color: var(--muted); font-weight: 600; font-size: 12.5px; }
+th:first-child, td:first-child { text-align: left; }
+td.def { color: var(--muted); font-style: italic; }
+td.src { color: var(--muted); font-size: 12px; }
+.tools { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn { font: inherit; font-size: 13px; border: 1px solid var(--line); background: var(--window); color: var(--ink); padding: 5px 10px; border-radius: 3px; }
+.btn.primary { background: var(--teal); color: var(--on-teal); border-color: var(--teal); font-weight: 600; }
+.btn.warn { color: var(--danger); border-color: var(--danger); }
+.spacer { flex: 1; }
+.chip { display: inline-block; font-size: 11.5px; padding: 1px 7px; border-radius: 10px; background: var(--teal-soft); color: var(--teal); font-weight: 600; }
+.chip.o { background: var(--ochre-soft); color: var(--ochre); }
+.foot { display: flex; gap: 8px; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.note h3 { margin: 0 0 6px; font-size: 14px; }
+.note p, .note li { color: var(--muted); line-height: 1.5; margin: 0; }
+.note ul { margin: 0; padding-left: 18px; }
+.sw { display: flex; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.sw span { width: 44px; height: 30px; border-radius: 3px; border: 1px solid var(--line); display: grid; place-items: end start; font: 10px var(--mono); padding: 2px 3px; color: var(--ink); }
+
+@media (max-width: 720px) {
+  .body { grid-template-columns: 1fr; }
+  .side { grid-auto-flow: column; overflow-x: auto; border-right: 0; border-bottom: 1px solid var(--line); padding: 0; }
+  .side div { border-left: 0; border-bottom: 3px solid transparent; white-space: nowrap; }
+  .side div.on { border-bottom-color: var(--teal); }
+  .row { grid-template-columns: 1fr; gap: 4px; }
+}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Poplar : proposition de charte graphique</h1>
+    <p class="lead">Maquette de la fenêtre du plugin avec la nouvelle charte, réalisable avec une feuille de style Qt. Elle montre aussi l'onglet Paramètres refondu (deux tableaux liés à des couches) et la fenêtre de nettoyage des sorties. Exemple : Muramvya.</p>
+  </header>
+
+  <div class="switch" role="group" aria-label="Écran affiché">
+    <button id="v-params" aria-pressed="true" data-view="params">Paramètres</button>
+    <button id="v-clean" aria-pressed="false" data-view="clean">Nettoyage des sorties</button>
+  </div>
+
+  <div class="win">
+    <div class="bar">
+      <svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true"><rect x="2" y="2" width="20" height="20" rx="3" fill="#ffffff" fill-opacity=".15"/><g fill="#f3e3b0"><rect x="5" y="13" width="4" height="4"/><rect x="10" y="13" width="4" height="4" fill="#e0a85a"/><rect x="15" y="13" width="4" height="4"/><rect x="10" y="8" width="4" height="4"/><rect x="5" y="8" width="4" height="4" fill="#e0a85a"/><rect x="15" y="8" width="4" height="4" fill="#b8623a"/></g></svg>
+      <div><div class="t">Poplar</div><div class="s">Muramvya – exemple · 2024 → 2060</div></div>
+      <div class="help" aria-label="Aide">?</div>
+    </div>
+    <div class="body">
+      <nav class="side" aria-label="Onglets">
+        <div><span class="dot"></span>Scénario</div>
+        <div><span class="dot"></span>Données</div>
+        <div class="on"><span class="dot warn"></span>Paramètres</div>
+        <div><span class="dot none"></span>Indicateurs</div>
+        <div class="off"><span class="dot none"></span>Calage</div>
+        <div><span class="dot none"></span>Lancer</div>
+        <div><span class="dot none"></span>Résultats</div>
+        <div><span class="dot none"></span>Rapport</div>
+      </nav>
+
+      <main class="page" id="params">
+        <section class="sec">
+          <h2>Taux de croissance (TCAM, % par an)</h2>
+          <div class="box">
+            <div class="row"><label>Zones du TCAM</label>
+              <div class="pair"><span class="field layer">commune_muramvya <span class="c">▾</span></span><span class="field attr">COMMUNES <span class="c">▾</span></span></div></div>
+            <div class="row"><label></label><span class="check"><span class="box-check"></span>Croiser avec une seconde couche</span></div>
+            <div class="tbl"><table>
+              <thead><tr><th>Zone</th><th>2024,5</th><th>2027,5</th><th>2032,5</th><th>2037,5</th><th>2042,5</th><th>…</th></tr></thead>
+              <tbody>
+                <tr><td>MURAMVYA RURAL</td><td>2,199</td><td>2,231</td><td>2,137</td><td>1,917</td><td>1,706</td><td>…</td></tr>
+                <tr><td>MURAMVYA URBAIN</td><td>2,199</td><td>2,231</td><td>2,137</td><td>1,917</td><td>1,706</td><td>…</td></tr>
+                <tr><td class="def">Hors zones (défaut)</td><td>2,199</td><td>2,231</td><td>2,137</td><td>1,917</td><td>1,706</td><td>…</td></tr>
+              </tbody></table></div>
+            <div class="tools"><button class="btn">+ Année charnière</button><button class="btn">Importer xlsx / csv…</button><button class="btn">Exporter…</button><span class="spacer"></span><span class="chip">3 zones lues dans la couche</span></div>
+          </div>
+          <p class="hint">Les lignes sont créées automatiquement à partir des valeurs du champ choisi. Entre deux années charnières, le taux est interpolé.</p>
+        </section>
+
+        <section class="sec">
+          <h2>Densités maximales (hab/km²)</h2>
+          <div class="box">
+            <div class="row"><label>Zones des densités</label>
+              <div class="pair"><span class="field layer">commune_muramvya <span class="c">▾</span></span><span class="field attr">Type <span class="c">▾</span></span></div></div>
+            <div class="row"><label></label><span class="check"><span class="box-check"></span>Croiser avec une seconde couche</span></div>
+            <div class="tbl"><table>
+              <thead><tr><th>Zone</th><th>Constante</th><th>2040</th><th>Dans la couche</th></tr></thead>
+              <tbody>
+                <tr><td>Rural</td><td>2 500</td><td></td><td class="src">oui</td></tr>
+                <tr><td>Urbain1</td><td>10 000</td><td></td><td class="src">oui</td></tr>
+                <tr><td class="def">Hors zones (défaut)</td><td>2 500</td><td></td><td class="src">–</td></tr>
+              </tbody></table></div>
+            <div class="tools"><button class="btn">+ Année charnière</button><button class="btn">Importer xlsx / csv…</button><button class="btn">Exporter…</button><span class="spacer"></span><span class="chip o">Urbain2 absent de la couche</span></div>
+          </div>
+        </section>
+      </main>
+
+      <main class="page" id="clean" hidden>
+        <section class="sec">
+          <h2>Sorties de cette session</h2>
+          <div class="box">
+            <div class="tbl"><table>
+              <thead><tr><th>Exécution</th><th>Statut</th><th>Années</th><th>Taille</th><th>Supprimer</th></tr></thead>
+              <tbody>
+                <tr><td>2026-09-29_1402</td><td><span class="chip o">non-convergence</span></td><td>2025–2060</td><td>184 Mo</td><td><span class="box-check on"></span></td></tr>
+                <tr><td>2026-09-29_1415</td><td><span class="chip">réussi</span></td><td>2025–2060</td><td>212 Mo</td><td><span class="box-check on"></span></td></tr>
+                <tr><td>2026-09-29_1431</td><td><span class="chip">réussi</span></td><td>2025–2060</td><td>212 Mo</td><td><span class="box-check on"></span></td></tr>
+                <tr><td>2026-09-29_1448 ★ à conserver</td><td><span class="chip">réussi</span></td><td>2025–2060</td><td>212 Mo</td><td><span class="box-check"></span></td></tr>
+              </tbody></table></div>
+            <div class="tools"><span class="check"><span class="box-check on"></span>Tout cocher sauf les exécutions à conserver</span><span class="spacer"></span><strong>608 Mo libérés</strong></div>
+          </div>
+          <p class="hint">Proposé à la fermeture de la fenêtre Poplar, et à tout moment depuis l'onglet Résultats. Les couches concernées sont d'abord retirées du projet QGIS, ce qui évite l'erreur « permission denied » sous Windows.</p>
+        </section>
+      </main>
+    </div>
+    <div class="foot">
+      <button class="btn">Ouvrir…</button><button class="btn">Enregistrer…</button><button class="btn">Bibliothèque…</button>
+      <span class="spacer"></span>
+      <button class="btn warn" id="clean-btn" hidden>Supprimer la sélection</button>
+      <button class="btn">Fermer</button><button class="btn primary">Lancer ▶</button>
+    </div>
+  </div>
+
+  <section class="notes">
+    <div class="note">
+      <h3>Couleurs</h3>
+      <p>Pétrole et ocre, reprises de l'icône. Le pétrole sert à la navigation et à l'action principale, l'ocre aux avertissements. Une variante sombre suit le thème « Night Mapping » de QGIS.</p>
+      <div class="sw"><span style="background:var(--teal);color:var(--on-teal)">pétrole</span><span style="background:var(--ochre-soft)">ocre</span><span style="background:var(--panel)">fond</span></div>
+    </div>
+    <div class="note">
+      <h3>Structure</h3>
+      <ul>
+        <li>Bandeau titre avec le scénario et sa période.</li>
+        <li>Pastille d'état par onglet : complet, à vérifier, vide.</li>
+        <li>Titres de section courts, en capitales.</li>
+      </ul>
+    </div>
+    <div class="note">
+      <h3>Contraintes techniques</h3>
+      <p>Tout passe par une feuille de style Qt (QSS) et la police du système. Aucune dépendance n'est ajoutée. Le rendu est identique sous QGIS 3.40 et QGIS 4.</p>
+    </div>
+  </section>
+</div>
+
+<script>
+document.querySelectorAll(".switch button").forEach(function (b) {
+  b.addEventListener("click", function () {
+    var view = b.dataset.view;
+    document.querySelectorAll(".switch button").forEach(function (o) { o.setAttribute("aria-pressed", String(o === b)); });
+    document.getElementById("params").hidden = view !== "params";
+    document.getElementById("clean").hidden = view !== "clean";
+    document.getElementById("clean-btn").hidden = view !== "clean";
+  });
+});
+</script>
