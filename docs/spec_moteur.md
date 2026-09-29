@@ -136,6 +136,38 @@ Ce mode sert à vérifier qu'on retrouve 139 100 et 33 253 habitants sur Muramvy
 - **recalage optionnel** sur la population administrative de chaque strate (F24), avec un rapport des écarts ;
 - toutes les strates dans un seul calage (F27).
 
+### 3 ter.1 Strates de calage : combien de régressions ?
+
+L'utilisateur choisit le **nombre de régressions** au moyen d'une couche de **strates de calage** (polygones), par exemple un shapefile de communes découpées en rural et urbain.
+
+| Champ | Rôle |
+|---|---|
+| `stratum_id` | Identifiant de la strate. **Chaque strate a sa propre population administrative** et son recalage |
+| `regression_group` (optionnel) | Strates qui **partagent une même régression**. Par défaut, chaque strate a la sienne |
+| `census_pop` (optionnel) | Population administrative de la strate, qui sert au calage et au recalage |
+
+Exemples :
+- **Muramvya aujourd'hui** : 2 strates (rural, urbain), donc 2 régressions ;
+- **plusieurs communes, une régression par commune et par type** : `regression_group` = commune + type ;
+- **plusieurs communes, une régression rurale et une urbaine communes à toutes** : `regression_group` = type. On ajuste la courbe sur l'ensemble des communes, puis chaque commune est recalée sur sa propre population.
+
+**Garde-fou** : une strate qui a trop peu de bâtiments, ou pas de population administrative, est signalée. L'utilisateur choisit alors la régression d'un autre groupe à lui appliquer.
+
+### 3 ter.2 Ajustement manuel des régressions
+
+Pour chaque régression, l'utilisateur peut, au choix :
+1. **accepter** la régression calculée par l'outil ;
+2. **modifier** les points de calage (habitants par classe de surface), puis relancer l'ajustement. C'est l'équivalent de la colonne « valeur de solveur » d'Excel ;
+3. **saisir directement** la forme et les coefficients de la courbe ;
+4. **modifier les seuils** : surfaces minimale et maximale, surface de plafonnement.
+
+Le plugin affiche pour chaque régression :
+- la courbe et les points de calage ;
+- l'écart avec la population administrative ;
+- des diagnostics : monotonie, valeurs négatives, part des bâtiments plafonnés.
+
+Chaque modification manuelle est **enregistrée dans le fichier de scénario et signalée dans le rapport** (qui, quoi, valeurs avant et après). Un calage peut être sauvegardé, puis réutilisé pour une autre commune.
+
 ## 4. Capacité
 
 À l'instant *t*, la capacité en habitants de chaque unité vaut :
@@ -404,3 +436,29 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 |---|---|
 | `reference_outputs/muramvya/p2023_entree` | Comparaison chiffrée de la préparation (densité par maille, `Pmax` par classe). Tolérances : 1 % sur la population par maille et 0,5 % sur le total, pour tenir compte de F19 (surface arrondie dans la référence) |
 | `reference_outputs/muramvya/pentree_final` | Référence qualitative (état des lieux §10.5). On relance le moteur avec les taux par période du §10.3, puis on compare les totaux, l'absence de dépassement et la répartition urbain/rural. Les écarts dus à RF3 et F19 sont attendus et documentés |
+
+---
+
+## 13. Intégration dans QGIS (phase 5, aperçu)
+
+Le moteur est livré sous forme de **plugin QGIS**, compatible avec QGIS 3.40 LTR et QGIS 4.
+
+**Installation.** Le plugin tient dans un fichier zip, qu'on installe depuis le menu *Extensions → Installer depuis un ZIP*. Il peut aussi être publié sur un dépôt de plugins interne.
+
+**Barre d'outils et menu « Population »**
+
+| Bouton | Contenu |
+|---|---|
+| **Scénario** | Créer, ouvrir ou enregistrer un scénario (fichier JSON). Régler les années, le pas de temps, la fréquence de migration, la taille de maille et l'unité de densité |
+| **Données** | Choisir les couches d'entrée dans le projet ou sur disque : bâtiments (dont Google Open Buildings), raster de population, zone d'étude, typologie, zones sans migration, strates de calage |
+| **Paramètres** | Taux de croissance et densités max, par classe, par zone et par année charnière, avec un aperçu des valeurs interpolées |
+| **Calage** | Régressions par strate : courbes, diagnostics, ajustement manuel (§3 ter) |
+| **Lancer** | Calcul en tâche de fond, avec barre de progression, journal et possibilité d'annuler. En cas de non-convergence, une fenêtre propose les solutions (§7) |
+| **Résultats** | Chargement des rasters produits dans le projet, avec des styles prêts à l'emploi, et choix de l'année affichée |
+| **Rapport** | Affichage du rapport d'exécution : statut, bilans, avertissements |
+
+**Algorithmes Processing.** Les mêmes fonctions sont disponibles dans la boîte à outils de traitement de QGIS, pour les traitements par lots et le Model Builder.
+
+**Hors QGIS.** Le moteur fonctionne aussi en ligne de commande, à partir d'un fichier de scénario. C'est utile pour les tests et les longs calculs.
+
+Une maquette des fenêtres sera proposée pour validation avant de développer la phase 5.
