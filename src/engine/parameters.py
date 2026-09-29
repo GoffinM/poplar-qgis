@@ -91,6 +91,8 @@ class ParameterTable:
 
     name: str
     series: Dict[str, TimeSeries] = field(default_factory=dict)
+    layers: Tuple[str, ...] = ()
+    """Unit layers whose values are the keys (the parameter's own zones); empty: typology classes."""
 
     def for_key(self, key: Optional[str]) -> TimeSeries:
         if key is not None and key in self.series:
@@ -153,34 +155,60 @@ def load_parameters_csv(path: str, extrapolation: str = CONSTANT) -> Dict[str, P
     return tables
 
 
-def unit_series(table: ParameterTable, units, zone_layer: Optional[str] = "param_zone") -> Tuple[List[TimeSeries], np.ndarray]:
-    """Series of each distinct (zone, class) combination, and the combination of each unit.
+KEY_SEPARATOR = "|"
+"""Joins the two values of a crossed key: ``"Province A|Urbain1"``; ``"Province A|*"`` covers every class."""
 
-    A value given for a zone takes precedence over the value of the class,
-    which takes precedence over the default ``*`` (spec §2.3).
+
+def crossed_key(first: Optional[str], second: Optional[str]) -> str:
+    return f"{DEFAULT_KEY if first is None else first}{KEY_SEPARATOR}{DEFAULT_KEY if second is None else second}"
+
+
+def unit_series(table: ParameterTable, units, zone_layer: Optional[str] = "param_zone") -> Tuple[List[TimeSeries], np.ndarray]:
+    """Series of each distinct combination of zones, and the combination of each unit.
+
+    Without ``table.layers`` (older scenarios), a value given for a parameter
+    zone takes precedence over the value of the typology class, which takes
+    precedence over the default ``*`` (spec §2.3). With ``table.layers``, the
+    keys are the values of the parameter's own layer, or of its two crossed
+    layers: ``a|b``, then ``a|*``, then ``*|b``, then ``*`` (spec §2.3 bis).
     """
-    combos, inverse = _combinations(units, zone_layer)
+    names = tuple(table.layers) if table.layers else (zone_layer, "class")
+    combos, inverse = _combinations(units, names)
+    labels = [units.labels.get(name) if name is not None else None for name in names]
+
+    def label(i, code):
+        return None if code < 0 or labels[i] is None else str(labels[i][code])
+
     series = []
-    for zone_code, class_code in combos:
-        zone = units.labels[zone_layer][zone_code] if zone_code >= 0 else None
-        cls = units.labels["class"][class_code] if class_code >= 0 else None
-        series.append(table.for_keys([None if zone is None else str(zone), cls]))
+    for combo in combos:
+        values = [label(i, code) for i, code in enumerate(combo)]
+        if not table.layers:
+            keys = values
+        elif len(values) == 1:
+            keys = values
+        else:
+            first, second = values
+            keys = [crossed_key(first, second) if first is not None and second is not None else None,
+                    crossed_key(first, None) if first is not None else None,
+                    crossed_key(None, second) if second is not None else None]
+        series.append(table.for_keys(keys))
     return series, inverse
 
 
-def _combinations(units, zone_layer: Optional[str]) -> Tuple[np.ndarray, np.ndarray]:
-    """Distinct (zone, class) pairs and the pair of each unit, computed once per set of units."""
+def _combinations(units, names: Tuple[Optional[str], ...]) -> Tuple[np.ndarray, np.ndarray]:
+    """Distinct combinations of the codes of ``names`` and the combination of each unit (cached)."""
     cache = units.__dict__.setdefault("_combination_cache", {})
-    if zone_layer not in cache:
-        class_codes = units.codes["class"].astype(np.int64)
-        has_zone = zone_layer is not None and zone_layer in units.codes
-        zone_codes = units.codes[zone_layer].astype(np.int64) if has_zone else np.full(len(units), -1, np.int64)
-        width = int(class_codes.max(initial=0)) + 2
-        keys = (zone_codes + 1) * width + (class_codes + 1)
-        unique_keys, inverse = np.unique(keys, return_inverse=True)
-        combos = np.stack([unique_keys // width - 1, unique_keys % width - 1], axis=1)
-        cache[zone_layer] = (combos, inverse.ravel())
-    return cache[zone_layer]
+    if names not in cache:
+        n = len(units)
+        columns = [units.codes[name].astype(np.int64) if name is not None and name in units.codes
+                   else np.full(n, -1, np.int64) for name in names]
+        keys = np.zeros(n, dtype=np.int64)
+        for codes in columns:
+            keys = keys * (int(codes.max(initial=0)) + 2) + (codes + 1)
+        _, first, inverse = np.unique(keys, return_index=True, return_inverse=True)
+        combos = np.stack([codes[first] for codes in columns], axis=1)
+        cache[names] = (combos, inverse.ravel())
+    return cache[names]
 
 
 def unit_values(table: ParameterTable, units, year: float, zone_layer: Optional[str] = "param_zone") -> np.ndarray:

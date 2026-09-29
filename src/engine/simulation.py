@@ -13,7 +13,7 @@ import json
 import os
 import time as clock
 from dataclasses import dataclass, field
-from typing import Callable, Dict, List, Optional
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
 from osgeo import gdal
@@ -29,7 +29,7 @@ from .nonconvergence import (
 )
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
-from .parameters import TimeSeries, to_hab_per_km2, unit_means, unit_values
+from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
 from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
@@ -263,6 +263,21 @@ class _Model:
             features = _read(scenario, spec, crs)
             layers.append(Layer("param_zone", [f.geometry for f in features],
                                 [str(f.attributes[spec.field]) for f in features]))
+        # Parameters linked to their own zones (spec §2.3 bis); a layer used twice is read once.
+        parameter_layers: Dict[str, Tuple[str, ...]] = {}
+        zone_layers: Dict[Tuple, str] = {}
+        for name in scenario.parameters:
+            names = []
+            for spec in scenario.parameter_zones_of(name):
+                key = (scenario.path(spec.source), spec.layer, spec.where, spec.field)
+                if key not in zone_layers:
+                    zone_layers[key] = f"zones_{len(zone_layers)}"
+                    features = _read(scenario, spec, crs)
+                    layers.append(Layer(zone_layers[key], [f.geometry for f in features],
+                                        [str(f.attributes[spec.field]) for f in features]))
+                names.append(zone_layers[key])
+            if names:
+                parameter_layers[name] = tuple(names)
         if scenario.admin_units is not None:
             spec = scenario.admin_units
             features = _read(scenario, spec, crs)
@@ -282,6 +297,9 @@ class _Model:
         self.p0, _ = base_population_from_density(self.units, self.raster, "hab/km2", scenario.boundary_mode)
 
         self.tables = scenario.parameter_tables()
+        for name, names in parameter_layers.items():
+            self.tables[name].layers = names
+            self.warnings.extend(_unused_keys(self.tables[name], self.units))
         self.density_unit = scenario.density_unit
         for name in ("growth_rate", "dmax"):
             try:
@@ -352,6 +370,19 @@ class _Model:
         if scenario.time.migration_frequency == PER_STEP and scenario.time.time_step > 1:
             warnings.append(message("resolution_coarse_time", step=scenario.time.time_step))
         return warnings
+
+
+def _unused_keys(table, units) -> List[Message]:
+    """Keys of a parameter that match no zone of its layers (a typo, or a class absent from the area)."""
+    present = [set(map(str, units.labels.get(name, []))) for name in table.layers]
+    unused = []
+    for key in table.series:
+        if key == DEFAULT_KEY:
+            continue
+        parts = key.split(KEY_SEPARATOR) if len(present) > 1 else [key]
+        if len(parts) != len(present) or any(p != DEFAULT_KEY and p not in values for p, values in zip(parts, present)):
+            unused.append(key)
+    return [message("parameter_key_unused", parameter=table.name, key=key) for key in unused]
 
 
 def _check_file(path: str) -> None:

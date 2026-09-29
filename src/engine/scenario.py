@@ -6,6 +6,11 @@ and optionally per pivot year::
 
     "growth_rate": {"*": {"2026": 3.0, "2040": 2.0}, "Urbain1": 4.0}
 
+or linked to their own zones, one layer or two crossed layers (spec §2.3 bis)::
+
+    "dmax": {"zones": [{"source": "types.shp", "field": "Type"}],
+             "values": {"Rural": 2500, "Urbain1": 10000, "*": 2500}}
+
 Loading checks the whole file and reports every problem at once, as
 translatable messages (:class:`ScenarioError`).
 """
@@ -125,6 +130,10 @@ class Scenario:
 
     # --- parameters ---------------------------------------------------------------
 
+    def parameter_zones_of(self, name: str) -> List[VectorInput]:
+        """Zone layers of a parameter linked to its own zones (empty for typology classes)."""
+        return parameter_zone_inputs(self.parameters.get(name))
+
     def parameter_tables(self) -> Dict[str, ParameterTable]:
         """Growth rate and maximum density (and any other entry), as parameter tables."""
         tables: Dict[str, ParameterTable] = {}
@@ -155,7 +164,22 @@ class Scenario:
             json.dump(self.to_dict(), handle, ensure_ascii=False, indent=2)
 
 
+def parameter_zone_inputs(spec: Any) -> List[VectorInput]:
+    if not isinstance(spec, dict) or "values" not in spec:
+        return []
+    zones = spec.get("zones") or []
+    if isinstance(zones, dict):
+        zones = [zones]
+    return [VectorInput(z.get("source", ""), z.get("layer"), z.get("where"), z.get("field")) for z in zones]
+
+
 def parse_parameter(name: str, spec: Any, extrapolation: str = CONSTANT) -> ParameterTable:
+    if isinstance(spec, dict) and "values" in spec:
+        zones = spec.get("zones") or []
+        count = 1 if isinstance(zones, dict) else len(zones)
+        if count > 2:
+            raise ValueError(f"parameter {name!r}: one or two zone layers are expected")
+        return parse_parameter(name, spec["values"], extrapolation)
     if isinstance(spec, (int, float)):
         return ParameterTable(name, {DEFAULT_KEY: TimeSeries.constant(float(spec))})
     if not isinstance(spec, dict):
@@ -315,6 +339,10 @@ def validate(scenario: Scenario) -> List[Message]:
         scenario.parameter_tables() if "csv" not in scenario.parameters else None
     except ValueError as error:
         errors.append(message("scenario_invalid_parameter", detail=str(error)))
+    for name, spec in scenario.parameters.items():
+        for i, zone in enumerate(parameter_zone_inputs(spec)):
+            if not zone.source or not zone.field:
+                errors.append(message("scenario_missing_key", key=f"parameters.{name}.zones[{i}].source/field"))
     for spec in scenario.indicators:
         from .indicators import REGISTRY
 

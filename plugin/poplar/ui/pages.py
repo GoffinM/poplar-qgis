@@ -22,6 +22,7 @@ from ..engine.i18n import available_languages
 from ..i18n import tip, tr
 from ..engine import runs
 from ..results import QUANTITIES, available_outputs
+from .parameter_table import ParameterTableWidget
 from .widgets import (
     add_row, choice_combo, find_or_add_layer, format_series, layer_with_field, parse_series, set_combo_value,
     source_of,
@@ -161,8 +162,6 @@ class DataPage(Page):
         add_row(form, "data.typology", widget)
         widget, self.admin, self.admin_field = layer_with_field(POLYGON_FILTER, allow_empty=True)
         add_row(form, "data.admin_units", widget)
-        widget, self.zones, self.zones_field = layer_with_field(POLYGON_FILTER, allow_empty=True)
-        add_row(form, "data.parameter_zones", widget)
         layout.addWidget(box)
 
         box, form = _box("data.population")
@@ -258,8 +257,6 @@ class DataPage(Page):
         self.typology_field.setField((data.get("typology") or {}).get("field", ""))
         select(self.admin, data.get("admin_units"))
         self.admin_field.setField((data.get("admin_units") or {}).get("field", ""))
-        select(self.zones, data.get("parameter_zones"))
-        self.zones_field.setField((data.get("parameter_zones") or {}).get("field", ""))
         population = data.get("base_population") or {}
         if population.get("raster"):
             layer = find_or_add_layer(self.dialog.absolute(population["raster"]), raster=True)
@@ -285,8 +282,7 @@ class DataPage(Page):
         if typology:
             typology["field"] = self.typology_field.currentField()
         data["typology"] = typology
-        for key, combo, field in (("admin_units", self.admin, self.admin_field),
-                                  ("parameter_zones", self.zones, self.zones_field)):
+        for key, combo, field in (("admin_units", self.admin, self.admin_field),):
             spec = source_of(combo.currentLayer())
             if spec:
                 spec["field"] = field.currentField()
@@ -360,31 +356,17 @@ class ParametersPage(Page):
         add_row(form, "time.first_migration_year", self.first_migration)
         layout.addWidget(box)
 
-        box = QGroupBox(tr("parameters.box"))
-        box.setToolTip(tip("parameters.box"))
-        inner = QVBoxLayout(box)
-        self.table = QTableWidget(0, 3)
-        self.table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self.table.setMinimumHeight(170)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        inner.addWidget(self.table)
-        buttons = QHBoxLayout()
-        for key, slot in (("parameters.add_row", self._add_row_clicked), ("parameters.add_year", self._add_year),
-                          ("common.remove", lambda: self.table.removeRow(self.table.currentRow()))):
-            button = QPushButton(tr(key))
-            button.clicked.connect(slot)
-            buttons.addWidget(button)
+        self.tables = {name: ParameterTableWidget(name, dialog) for name in PARAMETERS}
+        for widget in self.tables.values():
+            layout.addWidget(widget)
+        row = QHBoxLayout()
         self.extrapolation = choice_combo([("constant", tr("parameters.extrapolation.constant")),
                                            ("linear", tr("parameters.extrapolation.linear"))])
         self.extrapolation.setToolTip(tip("parameters.extrapolation"))
-        buttons.addStretch(1)
-        buttons.addWidget(QLabel(tr("parameters.extrapolation")))
-        buttons.addWidget(self.extrapolation)
-        inner.addLayout(buttons)
-        note = QLabel(tr("parameters.note"))
-        note.setWordWrap(True)
-        inner.addWidget(note)
-        layout.addWidget(box)
+        row.addWidget(QLabel(tr("parameters.extrapolation")))
+        row.addWidget(self.extrapolation)
+        row.addStretch(1)
+        layout.addLayout(row)
 
         box, form = _box("migration.box")
         self.k = _spin(1, 50, 3)
@@ -399,67 +381,14 @@ class ParametersPage(Page):
         self.sink_width = _spin(1, 50, 4)
         add_row(form, "migration.sink_width_cells", self.sink_width)
         layout.addWidget(box)
-        self.years = []
-        self._set_headers()
 
-    # Table: key | parameter | constant | pivot years...
-    def _set_headers(self):
-        self.table.setColumnCount(3 + len(self.years))
-        headers = [tr("parameters.key"), tr("parameters.parameter"), tr("parameters.constant")] + \
-                  [f"{y:g}" for y in self.years]
-        self.table.setHorizontalHeaderLabels(headers)
-        self.table.horizontalHeaderItem(0).setToolTip(tip("parameters.key"))
+    def refresh(self):
+        self.refresh_titles(self.dialog.collect())
 
-    def _add_year(self):
-        year, ok = QInputDialog.getInt(self, tr("parameters.add_year"), tr("parameters.year"), 2040, 1900, 2300)
-        if ok and year not in self.years:
-            self._insert_year(float(year))
-
-    def _insert_year(self, year):
-        values = self._read_rows()
-        self.years = sorted(set(self.years) | {year})
-        self._fill(values)
-
-    def _add_row_clicked(self):
-        self._append_row("*", "growth_rate", None)
-
-    def _append_row(self, key, parameter, value):
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-        self.table.setItem(row, 0, QTableWidgetItem(key))
-        combo = choice_combo([(p, tr(f"parameter.{p}")) for p in PARAMETERS], parameter)
-        self.table.setCellWidget(row, 1, combo)
-        if isinstance(value, dict):
-            for year, v in value.items():
-                column = 3 + self.years.index(float(year))
-                self.table.setItem(row, column, QTableWidgetItem(f"{v:g}"))
-        elif value is not None:
-            self.table.setItem(row, 2, QTableWidgetItem(f"{value:g}"))
-
-    def _read_rows(self):
-        rows = []
-        for row in range(self.table.rowCount()):
-            key = self.table.item(row, 0).text().strip() if self.table.item(row, 0) else "*"
-            parameter = self.table.cellWidget(row, 1).currentData()
-            cells = {}
-            for column in range(2, self.table.columnCount()):
-                item = self.table.item(row, column)
-                if item and item.text().strip():
-                    cells[column] = float(item.text().replace(",", ".").replace(" ", "").replace(" ", ""))
-            if 2 in cells:
-                value = cells[2]
-            elif cells:
-                value = {f"{self.years[c - 3]:g}": v for c, v in sorted(cells.items())}
-            else:
-                value = None
-            rows.append((key or "*", parameter, value))
-        return rows
-
-    def _fill(self, rows):
-        self.table.setRowCount(0)
-        self._set_headers()
-        for key, parameter, value in rows:
-            self._append_row(key, parameter, value)
+    def refresh_titles(self, data):
+        unit = {"hab/km2": "hab/km²", "hab/ha": "hab/ha"}.get(data.get("density_unit"), "hab/km²")
+        self.tables["growth_rate"].setTitle(tr("parameters.growth_rate"))
+        self.tables["dmax"].setTitle(tr("parameters.dmax", unit=unit))
 
     def load(self, data):
         time = data.get("time", {})
@@ -471,18 +400,9 @@ class ParametersPage(Page):
         set_combo_value(self.frequency, time.get("migration_frequency", "annual"))
         self.first_migration.setValue(int(time.get("first_migration_year") or time.get("base_year", 2024) + 1))
         parameters = data.get("parameters", {})
-        rows, years = [], set()
-        for parameter in PARAMETERS:
-            spec = parameters.get(parameter)
-            if isinstance(spec, (int, float)):
-                rows.append(("*", parameter, spec))
-            elif isinstance(spec, dict):
-                for key, value in spec.items():
-                    if isinstance(value, dict):
-                        years |= {float(y) for y in value}
-                    rows.append((key, parameter, value))
-        self.years = sorted(years)
-        self._fill(rows)
+        for name, widget in self.tables.items():
+            widget.load(parameters.get(name), data.get("typology"), data.get("parameter_zones"))
+        self.refresh_titles(data)
         set_combo_value(self.extrapolation, data.get("extrapolation", "constant"))
         migration = data.get("migration", {})
         self.k.setValue(int(migration.get("k", 3)))
@@ -503,9 +423,11 @@ class ParametersPage(Page):
         else:
             time.pop("output_years", None)
         parameters = {k: v for k, v in data.get("parameters", {}).items() if k not in PARAMETERS}
-        for key, parameter, value in self._read_rows():
-            if value is not None:
-                parameters.setdefault(parameter, {})[key] = value
+        for name, widget in self.tables.items():
+            spec = widget.store()
+            if spec is not None:
+                parameters[name] = spec
+        data.pop("parameter_zones", None)  # replaced by the zones of each parameter
         data["parameters"] = parameters
         data["extrapolation"] = self.extrapolation.currentData()
         data["migration"] = {

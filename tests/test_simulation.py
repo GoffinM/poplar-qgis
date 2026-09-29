@@ -176,3 +176,53 @@ def test_line_exclusion_without_buffer_is_explained(tmp_path):
     with pytest.raises(ScenarioError) as error:
         _run(tmp_path, exclusion_specs=[spec])
     assert [m.code for m in error.value.messages] == ["exclusion_needs_buffer"]
+
+
+def _zones_layer(tmp_path, name, zones, field="zone"):
+    from world import write_polygons
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    write_polygons(str(tmp_path / f"{name}.gpkg"), zones, field=field)
+    return {"source": f"{name}.gpkg", "field": field}
+
+
+def test_growth_rate_linked_to_its_own_zones(tmp_path):
+    halves = _zones_layer(tmp_path, "provinces", [(box(0, 0, 5, 10), "A"), (box(5, 0, 10, 10), "B")])
+    result, _ = _run(tmp_path, parameters={"growth_rate": {"zones": [halves], "values": {"A": 2.0, "B": 0.0, "*": 1.0}}})
+    population = _population(result.directory, 2030)
+    assert population[:, :5].sum() == pytest.approx(500 * 1.02 ** 6, abs=25)
+    assert population[:, 5:].sum() == pytest.approx(500, abs=25)
+    assert result.warnings == [w for w in result.warnings if w.code != "parameter_key_unused"]
+
+
+def test_parameters_on_two_crossed_layers(tmp_path):
+    halves = _zones_layer(tmp_path, "provinces", [(box(0, 0, 5, 10), "A"), (box(5, 0, 10, 10), "B")])
+    bands = _zones_layer(tmp_path, "bands", [(box(0, 0, 10, 5), "T"), (box(0, 5, 10, 10), "U")], field="band")
+    values = {"A|T": 3.0, "A|*": 2.0, "*|U": 1.0, "*": 0.0, "C|T": 9.0}
+    result, _ = _run(tmp_path, parameters={"growth_rate": {"zones": [halves, bands], "values": values}})
+    population = _population(result.directory, 2030)
+    for rows, cols, rate in (((0, 5), (0, 5), 3.0),    # A|T
+                             ((5, 10), (0, 5), 2.0),   # A|U: A|* comes before *|U
+                             ((0, 5), (5, 10), 0.0),   # B|T: default
+                             ((5, 10), (5, 10), 1.0)):  # B|U: *|U
+        quarter = population[rows[0]:rows[1], cols[0]:cols[1]].sum()
+        assert quarter == pytest.approx(250 * (1 + rate / 100) ** 6, abs=13), (rows, cols)
+    unused = [w for w in result.warnings if w.code == "parameter_key_unused"]
+    assert [w.values["key"] for w in unused] == ["C|T"]
+
+
+def test_dmax_linked_to_a_layer_other_than_the_typology(tmp_path):
+    halves = _zones_layer(tmp_path, "provinces", [(box(0, 0, 5, 10), "A"), (box(5, 0, 10, 10), "B")])
+    result, _ = _run(tmp_path, parameters={"growth_rate": 10.0,
+                                           "dmax": {"zones": [halves], "values": {"A": 1000, "*": 5000}}})
+    population = _population(result.directory, 2030)
+    assert population[:, :5].max() <= 10 and population[:, :5].sum() >= 495  # A is full from the start
+    assert population.sum() == round(1000 * 1.1 ** 6)                        # its growth went to B
+
+
+def test_parameter_zones_need_a_source_and_a_field(tmp_path):
+    from engine.scenario import ScenarioError
+
+    with pytest.raises(ScenarioError) as error:
+        _run(tmp_path, parameters={"growth_rate": {"zones": [{"source": "x.gpkg"}], "values": {"*": 1}}})
+    assert "growth_rate.zones[0]" in str(error.value)

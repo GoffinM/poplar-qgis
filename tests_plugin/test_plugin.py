@@ -20,6 +20,9 @@ def scenario_copy(tmp_path):
     data["base_population"]["raster"] = os.path.join(MURAMVYA, data["base_population"]["raster"])
     for exclusion in data["exclusions"]:
         exclusion["source"] = os.path.join(MURAMVYA, exclusion["source"])
+    for spec in data["parameters"].values():
+        for zone in spec.get("zones", []) if isinstance(spec, dict) else []:
+            zone["source"] = os.path.join(MURAMVYA, zone["source"])
     data["time"]["end_year"] = 2030
     data["time"]["output_years"] = [2025, 2030]
     data["output"]["directory"] = str(tmp_path / "out")
@@ -66,8 +69,10 @@ def test_dialog_reads_and_writes_the_scenario(iface, scenario_copy):
     assert data["name"] == "Muramvya – exemple"
     assert data["typology"]["field"] == "Type"
     assert data["exclusions"][0]["behaviour"] == "no_inflow"
-    assert data["parameters"]["dmax"]["Urbain1"] == 10000
-    assert len(data["parameters"]["growth_rate"]["*"]) == 8
+    assert data["parameters"]["dmax"]["values"]["Urbain1"] == 10000
+    assert data["parameters"]["dmax"]["zones"][0]["field"] == "Type"
+    assert len(data["parameters"]["growth_rate"]["values"]["*"]) == 8
+    assert "zones" not in data["parameters"]["growth_rate"]
     water = data["indicators"][0]["parameters"]
     assert water["water_per_capita"]["*"] == 20 and water["network_efficiency"]["*"] == 75
     scenario = scenario_from_dict(data, dialog.base_dir())
@@ -186,6 +191,87 @@ def test_exclusion_made_of_lines_needs_a_buffer(iface, scenario_copy, tmp_path):
     with open(os.path.join(directory, "report.json"), encoding="utf-8") as handle:
         events = json.load(handle)["events"]
     assert any(e["code"] == "exclusion_relocated" and "RN7" in e["text"] for e in events)
+    QgsProject.instance().clear()
+
+
+def _set_cell(widget, key, column, text):
+    from poplar.ui.parameter_table import VALUE
+
+    for row in range(widget.table.rowCount()):
+        if widget.table.item(row, 0).data(VALUE) == key:
+            widget.table.item(row, column).setText(text)
+            return
+    raise KeyError(key)
+
+
+def test_parameters_linked_to_layers(iface, scenario_copy, tmp_path):
+    from poplar.engine.scenario import scenario_from_dict
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("parameters")
+    dmax, growth = page.tables["dmax"], page.tables["growth_rate"]
+    assert set(dmax.values()) == {"Rural", "Urbain1", "Urbain2", "*"}
+    assert dmax.unused_keys() == ["Urbain2"] and "Urbain2" in dmax.status.text()
+    assert list(growth.values()) == ["*"] and growth.layer.currentLayer() is None
+
+    # TCAM per commune: the rows come from the field
+    communes = dmax.layer.currentLayer()
+    growth.layer.setLayer(communes)
+    growth.field.setField("COMMUNES")
+    rural, urban, default = growth.values()                             # « MURAMVYA  RURAL » (two spaces)
+    assert "RURAL" in rural and "URBAIN" in urban and default == "*"
+    assert isinstance(growth.values()["*"], dict)  # the former default series is kept
+    _set_cell(growth, urban, 1, "3,5")
+    spec = dialog.collect()["parameters"]["growth_rate"]
+    assert spec["zones"][0]["field"] == "COMMUNES" and spec["values"][urban] == 3.5
+    assert rural not in spec["values"]                                  # no value: the default applies
+    scenario_from_dict(dialog.collect(), dialog.base_dir())
+
+    # Crossing: communes × type
+    growth.cross.setChecked(True)
+    growth.layer2.setLayer(communes)
+    growth.field2.setField("Type")
+    keys = list(growth.values())
+    assert f"{urban}|Urbain1" in keys and keys[-1] == "*" and len(keys) == 5
+    _set_cell(growth, f"{urban}|Urbain1", 2, "4")
+    spec = dialog.collect()["parameters"]["growth_rate"]
+    assert len(spec["zones"]) == 2 and spec["values"][f"{urban}|Urbain1"] == 4
+
+    # Spreadsheet round trip
+    path = dmax.export_file(str(tmp_path / "dmax.xlsx"))
+    _set_cell(dmax, "Rural", 1, "1")
+    dmax.import_file(path)
+    assert dmax.values()["Rural"] == 2500
+    directory = _run_in_dialog(dialog)
+    with open(os.path.join(directory, "report.json"), encoding="utf-8") as handle:
+        codes = [w["code"] for w in json.load(handle)["warnings"]]
+    assert "parameter_key_unused" in codes                              # Urbain2
+    QgsProject.instance().clear()
+
+
+def test_older_scenarios_are_converted(iface, scenario_copy):
+    from poplar.ui.main_dialog import MainDialog
+
+    with open(scenario_copy, encoding="utf-8") as handle:
+        data = json.load(handle)
+    typology = data["typology"]
+    data["parameters"]["dmax"] = {"Rural": 2500, "Urbain1": 10000}
+    data["parameters"]["growth_rate"] = {"MURAMVYA URBAIN": 3.0, "Rural": 2.5, "*": 2.0}
+    data["parameter_zones"] = {"source": typology["source"], "field": "COMMUNES"}
+    with open(scenario_copy, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("parameters")
+    growth = page.tables["growth_rate"]
+    assert growth.crossed and growth.field.currentField() == "COMMUNES" and growth.field2.currentField() == "Type"
+    values = {k: v for k, v in growth.values().items() if v is not None}
+    assert values == {"MURAMVYA URBAIN|*": 3.0, "*|Rural": 2.5, "*": 2.0}  # zone, then class, then default
+    dmax = page.tables["dmax"]
+    assert dmax.crossed and {k for k, v in dmax.values().items() if v} == {"*|Rural", "*|Urbain1"}
+    assert "parameter_zones" not in dialog.collect()
     QgsProject.instance().clear()
 
 

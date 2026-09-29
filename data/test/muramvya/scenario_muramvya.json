@@ -21,7 +21,8 @@
   "parameters": {
     "growth_rate": {"*": {"2024.5": 2.199, "2027.5": 2.231, "2032.5": 2.137, "2037.5": 1.917,
                           "2042.5": 1.706, "2047.5": 1.599, "2052.5": 1.408, "2057.5": 1.290}},
-    "dmax": {"Rural": 2500, "Urbain1": 10000, "Urbain2": 7500}
+    "dmax": {"zones": [{"source": "commune_muramvya.shp", "field": "Type"}],
+             "values": {"Rural": 2500, "Urbain1": 10000, "Urbain2": 7500}}
   },
   "migration": {"k": 3, "tolerance": 1, "policy": "stop"},
   "indicators": [
