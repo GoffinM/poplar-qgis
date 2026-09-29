@@ -1,0 +1,668 @@
+<title>Maquette du plugin Poplar</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans+Condensed:wght@600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Layout: a document page framing a mock desktop GIS window (menu bar, toolbar, map) with the plugin dialogs opened on top. */
+:root{
+  --bg:#f3f5f4; --paper:#ffffff; --ink:#1d2a2a; --muted:#5b6b69; --line:#d5dddb;
+  --chrome:#e7ecea; --chrome-2:#dde4e2; --accent:#1f6f6a; --accent-ink:#ffffff; --accent-soft:#d8ecea;
+  --warn:#9a5b00; --warn-soft:#fbecd4; --ok:#2f7a3a; --ok-soft:#dcefdc; --bad:#a3322a; --bad-soft:#f6dcd9;
+  --disabled:#9aa6a4; --shadow:0 12px 32px rgba(20,40,40,.18);
+  --map-1:#f7f3e3; --map-2:#e9d9a6; --map-3:#d9a55a; --map-4:#b8623a; --map-5:#7c2f2a;
+  --font-ui:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-display:"IBM Plex Sans Condensed","IBM Plex Sans",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141b1b; --paper:#1b2424; --ink:#e3ecea; --muted:#9db0ad; --line:#2f3d3c;
+  --chrome:#223030; --chrome-2:#2a3a39; --accent:#4fb3a9; --accent-ink:#0c1a19; --accent-soft:#1f3b39;
+  --warn:#f0b35a; --warn-soft:#3a2e18; --ok:#7cc987; --ok-soft:#1d3322; --bad:#f08d82; --bad-soft:#3d2220;
+  --disabled:#5d6f6d; --shadow:0 12px 32px rgba(0,0,0,.5);
+  --map-1:#2a2a22; --map-2:#5a4f2e; --map-3:#8d6a33; --map-4:#b8623a; --map-5:#e39a74; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#141b1b; --paper:#1b2424; --ink:#e3ecea; --muted:#9db0ad; --line:#2f3d3c;
+  --chrome:#223030; --chrome-2:#2a3a39; --accent:#4fb3a9; --accent-ink:#0c1a19; --accent-soft:#1f3b39;
+  --warn:#f0b35a; --warn-soft:#3a2e18; --ok:#7cc987; --ok-soft:#1d3322; --bad:#f08d82; --bad-soft:#3d2220;
+  --disabled:#5d6f6d; --shadow:0 12px 32px rgba(0,0,0,.5);
+  --map-1:#2a2a22; --map-2:#5a4f2e; --map-3:#8d6a33; --map-4:#b8623a; --map-5:#e39a74; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:14px/1.5 var(--font-ui);padding-inline:16px;padding-block:24px 48px}
+.page{max-width:1180px;margin:0 auto;display:grid;gap:20px}
+h1{font:600 28px/1.2 var(--font-display);margin:0;text-wrap:balance}
+h2{font:600 18px/1.3 var(--font-display);margin:0}
+h3{font:600 14px/1.3 var(--font-ui);margin:0}
+p{margin:0;max-width:72ch}
+.lead{color:var(--muted)}
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.note{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:4px}
+.note b{font-weight:600}
+.eyebrow{font:600 11px/1 var(--font-ui);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+
+/* Mock desktop window */
+.stage{overflow-x:auto;border-radius:8px}
+.app{min-width:1040px;background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);position:relative;overflow:hidden}
+.menubar{display:flex;gap:2px;padding:4px 8px;background:var(--chrome);border-bottom:1px solid var(--line);font-size:13px}
+.menubar span{padding:3px 8px;border-radius:4px;color:var(--muted)}
+.menubar span.plugin{color:var(--ink);font-weight:600;background:var(--accent-soft);cursor:pointer;position:relative}
+.menu-pop{position:absolute;top:26px;left:0;background:var(--paper);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:6px;padding:4px;min-width:220px;z-index:30;font-weight:400}
+.menu-pop button{display:block;width:100%;text-align:left;background:none;border:0;padding:6px 10px;border-radius:4px;color:var(--ink);font:inherit;cursor:pointer}
+.menu-pop button:hover,.menu-pop button:focus-visible{background:var(--accent-soft);outline:none}
+.menu-pop hr{border:0;border-top:1px solid var(--line);margin:4px 0}
+.toolbar{display:flex;align-items:center;gap:4px;padding:6px 8px;background:var(--chrome-2);border-bottom:1px solid var(--line)}
+.toolbar .sep{width:1px;height:28px;background:var(--line);margin:0 6px}
+.toolbar .ghost{width:28px;height:28px;border-radius:4px;background:var(--chrome);opacity:.6}
+.tb{display:flex;flex-direction:column;align-items:center;gap:2px;min-width:64px;padding:4px 6px;border:1px solid transparent;border-radius:5px;background:none;color:var(--ink);font:12px/1.2 var(--font-ui);cursor:pointer;position:relative}
+.tb svg{width:22px;height:22px;stroke:var(--accent);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.tb:hover,.tb:focus-visible{background:var(--paper);border-color:var(--line);outline:none}
+.tb.active{background:var(--accent-soft);border-color:var(--accent)}
+.tb[disabled]{color:var(--disabled);cursor:not-allowed}
+.tb[disabled] svg{stroke:var(--disabled)}
+.workspace{display:grid;grid-template-columns:220px 1fr;height:640px}
+.layers{border-right:1px solid var(--line);padding:8px;font-size:12.5px;display:grid;align-content:start;gap:4px;background:var(--paper)}
+.layers .row{display:flex;gap:6px;align-items:center}
+.layers .sw{width:12px;height:12px;border:1px solid var(--line);border-radius:2px}
+.map{position:relative;background:var(--bg)}
+.map canvas{width:100%;height:100%;display:block}
+.statusbar{display:flex;justify-content:space-between;padding:3px 10px;font:12px var(--font-mono);color:var(--muted);background:var(--chrome);border-top:1px solid var(--line)}
+
+/* Tooltips */
+[data-tip]{position:relative}
+.tip{position:fixed;z-index:100;max-width:320px;background:var(--ink);color:var(--paper);padding:8px 10px;border-radius:6px;font:12.5px/1.45 var(--font-ui);box-shadow:var(--shadow);pointer-events:none}
+.tip b{display:block;margin-bottom:2px}
+
+/* Dialogs */
+.overlay{position:absolute;inset:92px 0 26px 0;display:flex;align-items:flex-start;justify-content:center;padding-top:14px;z-index:20}
+.dialog{background:var(--paper);border:1px solid var(--line);border-radius:8px;box-shadow:var(--shadow);width:880px;max-width:calc(100% - 32px);display:grid;grid-template-rows:auto 1fr auto;max-height:540px}
+.dialog.small{width:560px}
+.dlg-title{display:flex;align-items:center;justify-content:space-between;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--chrome)}
+.dlg-title h2{font-size:15px}
+.dlg-title .icons{display:flex;gap:6px}
+.iconbtn{width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--paper);color:var(--ink);font:600 13px var(--font-ui);cursor:pointer}
+.iconbtn:hover,.iconbtn:focus-visible{border-color:var(--accent);outline:none}
+.dlg-body{display:grid;grid-template-columns:170px 1fr;min-height:0}
+.tabs{border-right:1px solid var(--line);padding:8px;display:grid;align-content:start;gap:2px;background:var(--chrome)}
+.tab{text-align:left;border:0;background:none;padding:7px 10px;border-radius:5px;color:var(--ink);font:13px var(--font-ui);cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+.tab:hover,.tab:focus-visible{background:var(--paper);outline:none}
+.tab.active{background:var(--paper);box-shadow:inset 3px 0 0 var(--accent);font-weight:600}
+.tab[disabled]{color:var(--disabled);cursor:not-allowed}
+.badge{font:600 10px/1 var(--font-ui);padding:3px 5px;border-radius:3px;background:var(--chrome-2);color:var(--muted)}
+.pane{padding:14px 16px;overflow:auto;display:grid;align-content:start;gap:14px;min-width:0}
+fieldset{border:1px solid var(--line);border-radius:6px;padding:10px 12px 12px;margin:0;display:grid;gap:8px;min-width:0}
+legend{font:600 12px var(--font-ui);padding:0 4px;color:var(--muted);letter-spacing:.03em;text-transform:uppercase}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 16px}
+.field{display:grid;grid-template-columns:minmax(0,190px) minmax(0,1fr);align-items:center;gap:8px}
+.field label{color:var(--ink);font-size:13px;display:flex;align-items:center;gap:5px}
+.info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font:600 10px var(--font-ui);cursor:help}
+input,select{font:13px var(--font-ui);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:4px 6px;min-width:0;width:100%}
+input:focus-visible,select:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+input[type=checkbox],input[type=radio]{width:auto}
+.inline{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.btn{font:13px var(--font-ui);padding:5px 12px;border-radius:5px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.btn:hover,.btn:focus-visible{border-color:var(--accent);outline:none}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.btn[disabled]{color:var(--disabled);cursor:not-allowed}
+.dlg-foot{display:flex;justify-content:space-between;gap:8px;padding:8px 12px;border-top:1px solid var(--line);background:var(--chrome)}
+.dlg-foot .inline{gap:8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px;font-variant-numeric:tabular-nums}
+th,td{border:1px solid var(--line);padding:4px 6px;text-align:left}
+th{background:var(--chrome);font-weight:600}
+td input{border:0;padding:2px;background:transparent}
+.tablewrap{overflow-x:auto}
+.check{display:grid;gap:4px;font-size:13px}
+.check div{display:flex;gap:8px;align-items:flex-start}
+.pill{font:600 11px/1 var(--font-ui);padding:3px 6px;border-radius:10px;white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.progress{height:10px;background:var(--chrome);border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.progress div{height:100%;width:0;background:var(--accent);transition:width .2s linear}
+pre.log{margin:0;background:var(--chrome);border:1px solid var(--line);border-radius:5px;padding:8px 10px;font:12px/1.5 var(--font-mono);max-height:170px;overflow:auto;white-space:pre-wrap}
+.placeholder{border:1px dashed var(--line);border-radius:6px;padding:16px;color:var(--muted);display:grid;gap:6px}
+.chart svg{width:100%;height:150px;display:block}
+.chart text{fill:var(--muted);font:11px var(--font-ui)}
+.help-body{display:grid;grid-template-columns:230px 1fr;min-height:0}
+.toc{border-right:1px solid var(--line);padding:10px;display:grid;align-content:start;gap:2px;background:var(--chrome)}
+.toc input{margin-bottom:6px}
+.toc button{text-align:left;border:0;background:none;padding:5px 8px;border-radius:4px;color:var(--ink);font:13px var(--font-ui);cursor:pointer}
+.toc button.active{background:var(--paper);font-weight:600}
+.article{padding:14px 18px;overflow:auto;display:grid;align-content:start;gap:10px}
+.article h3{font:600 16px var(--font-display)}
+.example{border-left:3px solid var(--accent);background:var(--accent-soft);padding:8px 10px;border-radius:0 5px 5px 0;font-size:13px}
+.about{padding:16px 18px;display:grid;gap:10px}
+.about dl{display:grid;grid-template-columns:150px 1fr;gap:6px 12px;margin:0}
+.about dt{color:var(--muted)}
+.about dd{margin:0}
+.todo{background:var(--warn-soft);color:var(--warn);padding:0 4px;border-radius:3px}
+.radios{display:grid;gap:6px}
+.radios label{display:flex;gap:8px;align-items:flex-start;font-size:13px}
+.radios small{display:block;color:var(--muted)}
+.decisions{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:14px 16px;display:grid;gap:8px}
+.decisions ol{margin:0;padding-left:20px;display:grid;gap:6px}
+@media (max-width:640px){.field{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.progress div{transition:none}}
+</style>
+
+<div class="page">
+  <header style="display:grid;gap:8px">
+    <span class="eyebrow">BUR71 · Phase 5 · maquette à valider</span>
+    <h1>Maquette du plugin Poplar</h1>
+    <p class="lead">Aperçu cliquable de l'interface du futur plugin QGIS. Les boutons de la barre d'outils et le menu « Population » ouvrent les fenêtres. Passez la souris sur un bouton, un libellé ou un <span class="info">i</span> pour voir la bulle d'aide. Les valeurs affichées sont celles du scénario d'exemple de Muramvya.</p>
+  </header>
+
+  <section class="notes" aria-label="Principes">
+    <div class="note"><b>Une seule fenêtre, plusieurs onglets</b><span>Chaque bouton ouvre la même fenêtre sur l'onglet voulu. Le scénario reste ainsi cohérent d'un onglet à l'autre.</span></div>
+    <div class="note"><b>Calcul en arrière-plan</b><span>QGIS reste utilisable pendant le calcul. La progression s'affiche, et le calcul peut être annulé.</span></div>
+    <div class="note"><b>Aide à trois niveaux</b><span>Des bulles au survol, un bouton « ? » par fenêtre et un menu Aide navigable, qui fonctionne hors ligne.</span></div>
+    <div class="note"><b>Aussi dans Processing</b><span>Un algorithme « Lancer un scénario » dans la boîte à outils, pour les traitements par lots et le Model Builder.</span></div>
+  </section>
+
+  <div class="stage">
+    <div class="app" id="app">
+      <div class="menubar">
+        <span>Projet</span><span>Éditer</span><span>Vue</span><span>Couche</span><span>Extensions</span><span>Vecteur</span><span>Raster</span>
+        <span class="plugin" id="menuPlugin" tabindex="0" data-tip="Menu du plugin|Toutes les fenêtres du plugin, plus l'aide et la fiche À propos.">Population ▾</span>
+        <span>Traitement</span><span>Aide</span>
+      </div>
+      <div class="toolbar" id="toolbar" aria-label="Barre d'outils Population">
+        <div class="ghost"></div><div class="ghost"></div><div class="ghost"></div><div class="sep"></div>
+      </div>
+      <div class="workspace">
+        <div class="layers" aria-label="Couches du projet">
+          <span class="eyebrow" style="margin-bottom:4px">Couches</span>
+          <div class="row"><input type="checkbox" checked aria-label="afficher"><span class="sw" style="background:var(--map-4)"></span>population_2060</div>
+          <div class="row"><input type="checkbox" aria-label="afficher"><span class="sw" style="background:var(--map-3)"></span>population_2040</div>
+          <div class="row"><input type="checkbox" aria-label="afficher"><span class="sw" style="background:var(--map-2)"></span>population_2024</div>
+          <div class="row"><input type="checkbox" checked aria-label="afficher"><span class="sw" style="background:transparent;border-color:var(--ok)"></span>zone_sans_migration</div>
+          <div class="row"><input type="checkbox" checked aria-label="afficher"><span class="sw" style="background:transparent;border-color:var(--ink)"></span>commune_muramvya</div>
+          <div class="row"><input type="checkbox" aria-label="afficher"><span class="sw" style="background:var(--chrome-2)"></span>pop2023_muramvya</div>
+        </div>
+        <div class="map"><canvas id="map" width="820" height="640" aria-label="Carte de la population 2060 (illustration)"></canvas></div>
+      </div>
+      <div class="statusbar"><span>EPSG:32735 · WGS 84 / UTM 35S</span><span id="statusText">Prêt</span><span>1:100 000</span></div>
+      <div class="overlay" id="overlay" hidden></div>
+    </div>
+  </div>
+
+  <section class="decisions" aria-label="Points à valider">
+    <h2>Points à valider</h2>
+    <ol>
+      <li><b>Nom du plugin</b> : « Poplar », repris du nom du dépôt, ou un autre nom ?</li>
+      <li><b>Organisation</b> : une seule fenêtre à onglets, que chaque bouton ouvre sur le bon onglet, plutôt qu'une fenêtre par bouton.</li>
+      <li><b>Boutons de la barre</b> : Scénario, Données, Paramètres, Calage (disponible en phase 6), Lancer, Résultats, Rapport, Aide, À propos.</li>
+      <li><b>Fiche À propos</b> : auteurs, organisme, licence et contact à confirmer (champs surlignés).</li>
+      <li><b>Chargement des résultats</b> : ajout automatique des rasters au projet, avec des styles prêts à l'emploi, dans un groupe par scénario.</li>
+    </ol>
+  </section>
+</div>
+
+<template id="tpl-main">
+  <div class="dialog" role="dialog" aria-label="Population – scénario">
+    <div class="dlg-title"><h2>Population — Muramvya – exemple</h2><div class="icons"><button class="iconbtn" data-help="current" data-tip="Aide de cet onglet|Ouvre la page d'aide qui correspond à l'onglet affiché.">?</button><button class="iconbtn" data-close aria-label="Fermer">×</button></div></div>
+    <div class="dlg-body">
+      <nav class="tabs" aria-label="Onglets">
+        <button class="tab" data-tab="scenario">Scénario</button>
+        <button class="tab" data-tab="donnees">Données</button>
+        <button class="tab" data-tab="parametres">Paramètres</button>
+        <button class="tab" data-tab="indicateurs">Indicateurs</button>
+        <button class="tab" data-tab="calage" disabled>Calage <span class="badge">phase 6</span></button>
+        <button class="tab" data-tab="lancer">Lancer</button>
+        <button class="tab" data-tab="resultats">Résultats</button>
+        <button class="tab" data-tab="rapport">Rapport</button>
+      </nav>
+      <div class="pane" id="pane"></div>
+    </div>
+    <div class="dlg-foot">
+      <div class="inline"><button class="btn" data-tip="Ouvrir un scénario|Charge un fichier de scénario (.json) enregistré précédemment.">Ouvrir…</button><button class="btn" data-tip="Enregistrer le scénario|Enregistre tous les réglages dans un fichier .json, pour refaire exactement le même calcul plus tard.">Enregistrer…</button></div>
+      <div class="inline"><button class="btn" data-close>Fermer</button><button class="btn primary" data-goto="lancer">Lancer ▶</button></div>
+    </div>
+  </div>
+</template>
+
+<script>
+(function(){
+  const $ = (s, r=document) => r.querySelector(s);
+  const $$ = (s, r=document) => Array.from(r.querySelectorAll(s));
+  const overlay = $('#overlay');
+  const statusText = $('#statusText');
+
+  /* ---------- Toolbar ---------- */
+  const icons = {
+    scenario:'<path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 12h7M9 16h7"/>',
+    donnees:'<path d="M12 3l9 4.5-9 4.5-9-4.5z"/><path d="M3 12l9 4.5 9-4.5"/><path d="M3 16.5l9 4.5 9-4.5"/>',
+    parametres:'<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
+    calage:'<path d="M4 20V4M4 20h16"/><path d="M7 16c3-1 5-4 7-8 1-2 3-3 5-3"/><circle cx="9" cy="14" r="1"/><circle cx="13" cy="10" r="1"/><circle cx="16" cy="7" r="1"/>',
+    lancer:'<path d="M7 4l12 8-12 8z"/>',
+    resultats:'<rect x="3" y="3" width="18" height="18" rx="1"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>',
+    rapport:'<path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+    aide:'<circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.3-1 .9-1 1.7"/><path d="M12 17h0"/>',
+    apropos:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7h0"/>'
+  };
+  const buttons = [
+    ['scenario','Scénario','Scénario|Nom, langue, taille de maille, dossier des résultats. Ouvrir ou enregistrer un scénario.'],
+    ['donnees','Données','Données d\'entrée|Zone d\'étude, typologie, unités administratives, population de base, zones d\'exclusion, projections.'],
+    ['parametres','Paramètres','Paramètres|Années, pas de temps, TCAM et densités maximales par zone et dans le temps, réglages de la migration.'],
+    ['calage','Calage','Calage bâti → population|Disponible en phase 6 : régressions par strate à partir des toits (Google Open Buildings…).', true],
+    ['lancer','Lancer','Lancer le calcul|Vérifie le scénario puis lance le calcul en arrière-plan. QGIS reste utilisable.'],
+    ['resultats','Résultats','Résultats|Charge dans le projet les cartes des années calculées : population, densité, eau potable…'],
+    ['rapport','Rapport','Rapport d\'exécution|Statut, bilans par pas de temps, avertissements et ajustements appliqués.'],
+    null,
+    ['aide','Aide','Aide|Menu d\'aide navigable : prise en main, données, paramètres, méthode, questions fréquentes.'],
+    ['apropos','À propos','À propos|Qui a créé l\'outil, comment et pourquoi ; version et licence.']
+  ];
+  const tb = $('#toolbar');
+  buttons.forEach(b => {
+    if(!b){ const s=document.createElement('div'); s.className='sep'; tb.appendChild(s); return; }
+    const [id,label,tip,disabled] = b;
+    const el = document.createElement('button');
+    el.className='tb'; el.dataset.open=id; el.dataset.tip=tip; if(disabled) el.disabled=true;
+    el.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${icons[id]}</svg><span>${label}</span>`;
+    tb.appendChild(el);
+  });
+
+  /* ---------- Plugin menu ---------- */
+  const menu = $('#menuPlugin');
+  let pop = null;
+  function closeMenu(){ if(pop){ pop.remove(); pop=null; } }
+  menu.addEventListener('click', e => {
+    e.stopPropagation();
+    if(pop){ closeMenu(); return; }
+    pop = document.createElement('div'); pop.className='menu-pop';
+    pop.innerHTML = `
+      <button data-open="scenario">Nouveau scénario…</button>
+      <button data-open="scenario">Ouvrir un scénario…</button>
+      <hr>
+      <button data-open="donnees">Données d'entrée</button>
+      <button data-open="parametres">Paramètres</button>
+      <button data-open="lancer">Lancer le calcul</button>
+      <button data-open="resultats">Résultats</button>
+      <button data-open="rapport">Rapport d'exécution</button>
+      <hr>
+      <button data-open="aide">Aide</button>
+      <button data-open="apropos">À propos</button>`;
+    menu.appendChild(pop);
+  });
+  document.addEventListener('click', closeMenu);
+
+  /* ---------- Tooltips ---------- */
+  let tipEl = null;
+  function showTip(target){
+    const raw = target.dataset.tip; if(!raw) return;
+    const [title, body] = raw.split('|');
+    hideTip();
+    tipEl = document.createElement('div'); tipEl.className='tip';
+    tipEl.innerHTML = body ? `<b>${title}</b>${body}` : title;
+    document.body.appendChild(tipEl);
+    const r = target.getBoundingClientRect(), t = tipEl.getBoundingClientRect();
+    let x = Math.min(Math.max(8, r.left + r.width/2 - t.width/2), window.innerWidth - t.width - 8);
+    let y = r.bottom + 8; if(y + t.height > window.innerHeight - 8) y = r.top - t.height - 8;
+    tipEl.style.left = x+'px'; tipEl.style.top = y+'px';
+  }
+  function hideTip(){ if(tipEl){ tipEl.remove(); tipEl=null; } }
+  document.addEventListener('mouseover', e => { const t=e.target.closest('[data-tip]'); if(t) showTip(t); });
+  document.addEventListener('mouseout', e => { if(e.target.closest('[data-tip]')) hideTip(); });
+  document.addEventListener('focusin', e => { const t=e.target.closest('[data-tip]'); if(t) showTip(t); });
+  document.addEventListener('focusout', hideTip);
+  window.addEventListener('scroll', hideTip, true);
+
+  /* ---------- Helpers for form rows ---------- */
+  const f = (label, control, tip) => `<div class="field"><label>${label}${tip?` <span class="info" tabindex="0" data-tip="${tip}">i</span>`:''}</label>${control}</div>`;
+  const sel = (id, opts, selected) => `<select id="${id}">${opts.map(o=>`<option${o===selected?' selected':''}>${o}</option>`).join('')}</select>`;
+  const layerOpts = ['commune_muramvya','zone_sans_migration','pop2023_muramvya','(aucune)'];
+
+  /* ---------- Tab contents ---------- */
+  const panes = {
+    scenario: () => `
+      <fieldset><legend>Scénario</legend>
+        ${f('Nom','<input id="s-name" value="Muramvya – exemple">','Nom du scénario|Repris dans le rapport et dans le nom du groupe de couches.')}
+        ${f('Langue du rapport', sel('s-lang',['Français','English'],'Français'),'Langue|Langue du rapport et des en-têtes de tableaux. Les noms de fichiers restent en anglais.')}
+        ${f('Dossier des résultats','<div class="inline" style="flex-wrap:nowrap"><input id="s-out" value="…/BUR71/resultats/muramvya"><button class="btn">…</button></div>','Dossier des résultats|Rasters, tableau et rapport y sont écrits ; une copie du scénario aussi.')}
+      </fieldset>
+      <fieldset><legend>Grille de calcul</legend>
+        <div class="grid2">
+          ${f('Taille de maille','<div class="inline" style="flex-wrap:nowrap"><input id="s-cell" type="number" value="250" style="width:90px"> m</div>','Taille de maille|250 m par défaut. Plus grand pour un premier calcul rapide sur une grande emprise ; rarement moins de 250 m (plusieurs bâtiments par maille).')}
+          ${f('Unité des densités', sel('s-unit',['hab/km²','hab/ha'],'hab/km²'),'Unité des densités|Unité des densités saisies et publiées. Le calcul interne reste cohérent quelle que soit l\'unité.')}
+        </div>
+      </fieldset>`,
+    donnees: () => `
+      <fieldset><legend>Territoire</legend>
+        ${f('Zone d\'étude', sel('d-study',layerOpts,'commune_muramvya'),'Zone d\'étude|Limites administratives du territoire à simuler.')}
+        <div class="grid2">
+          ${f('Typologie', sel('d-typ',layerOpts,'commune_muramvya'),'Typologie|Couche des zones (rural, urbain, haut standing…). Les noms de classes sont libres.')}
+          ${f('Champ de la classe', sel('d-typf',['Type','Cat','COMMUNES'],'Type'))}
+          ${f('Unités administratives', sel('d-adm',layerOpts,'commune_muramvya'),'Unités administratives|Pour les bilans par unité et le recalage sur les projections.')}
+          ${f('Champ du nom', sel('d-admf',['COMMUNES','Communes2'],'COMMUNES'))}
+          ${f('Zones de paramètres', sel('d-pz',layerOpts,'(aucune)'),'Zones de paramètres|Facultatif : si le TCAM ou les densités max varient selon des limites différentes de la typologie.')}
+        </div>
+      </fieldset>
+      <fieldset><legend>Population de départ</legend>
+        <div class="grid2">
+          ${f('Raster de densité', sel('d-rast',['pop2023_muramvya'],'pop2023_muramvya'),'Population de départ|Raster de densité à l\'année de base. En phase 6 : calcul direct à partir des toits.')}
+          ${f('Pixels en bordure', sel('d-border',['Découper (surface dans la zone)','Tout attribuer à la zone'],'Découper (surface dans la zone)'),'Pixels en bordure|Un pixel à cheval sur la limite est découpé : seule la surface située dans la zone est comptée.')}
+        </div>
+        ${f('Toits (bâti)','<select id="d-roofs" disabled><option>Disponible en phase 6</option></select>','Toits|Google Open Buildings, PostGIS, GeoPackage… Utilisé par le calage (phase 6).')}
+      </fieldset>
+      <fieldset><legend>Zones d'exclusion</legend>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Nom</th><th>Couche</th><th>Comportement <span class="info" tabindex="0" data-tip="Comportement|Hors calcul : retirée (hors pays, lac). Sans nouvel arrivant : ses habitants restent, sa croissance part ailleurs. Relocalisation : tous ses habitants sont déplacés (barrage).">i</span></th><th>À partir de</th><th>Tampon (m)</th></tr></thead>
+          <tbody>
+            <tr><td><input value="Forêt" aria-label="nom"></td><td>zone_sans_migration</td><td>Sans nouvel arrivant</td><td><input value="" placeholder="dès le départ" aria-label="année"></td><td><input value="" aria-label="tampon"></td></tr>
+            <tr><td><input value="Barrage (exemple)" aria-label="nom"></td><td>retenue_projet</td><td>Relocalisation</td><td><input value="2032" aria-label="année"></td><td><input value="" aria-label="tampon"></td></tr>
+          </tbody>
+        </table></div>
+        <div class="inline"><button class="btn">+ Ajouter</button><button class="btn">Supprimer</button></div>
+      </fieldset>
+      <fieldset><legend>Projections démographiques (facultatif)</legend>
+        <div class="grid2">
+          ${f('Fichier CSV','<div class="inline" style="flex-wrap:nowrap"><input id="d-proj" placeholder="admin, year, population"><button class="btn">…</button></div>','Projections|Totaux par unité administrative et par année. Facultatif.')}
+          ${f('Utilisation', sel('d-proju',['Comparaison seulement','Recaler chaque année','Partir d\'une année de projection'],'Comparaison seulement'))}
+        </div>
+      </fieldset>`,
+    parametres: () => `
+      <fieldset><legend>Temps</legend>
+        <div class="grid2">
+          ${f('Année de base','<input id="p-base" type="number" value="2024">','Année de base|Année que représente la population de départ (année du recensement).')}
+          ${f('Horizon final','<input id="p-end" type="number" value="2060">')}
+          ${f('Pas de temps','<div class="inline" style="flex-wrap:nowrap"><input id="p-step" type="number" value="5" step="0.5" style="width:80px"> ans</div>','Pas de temps|10, 5, 1 an ou moins. Les années de sortie sont toujours atteintes exactement.')}
+          ${f('Années de sortie','<input id="p-out" value="2025, 2030, 2035, …, 2060">')}
+          ${f('Migration', sel('p-freq',['Chaque année (précis)','Une fois par pas (rapide)'],'Chaque année (précis)'),'Fréquence de migration|Chaque année : meilleure répartition. Une fois par pas : plus rapide, pour un premier essai ; signalé dans le rapport.')}
+          ${f('Première migration','<input id="p-first" type="number" value="2025">','Première année de migration|Avant cette année, seule la croissance s\'applique.')}
+        </div>
+      </fieldset>
+      <fieldset><legend>TCAM et densités maximales</legend>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Classe / zone</th><th>Paramètre</th><th>2026</th><th>2040</th><th>2060</th></tr></thead>
+          <tbody>
+            <tr><td>* (défaut)</td><td>TCAM (%/an)</td><td><input value="2,23"></td><td><input value="1,81"></td><td><input value="1,29"></td></tr>
+            <tr><td>Rural</td><td>Densité max (hab/km²)</td><td><input value="2 500"></td><td><input value="2 500"></td><td><input value="2 500"></td></tr>
+            <tr><td>Urbain1</td><td>Densité max (hab/km²)</td><td><input value="10 000"></td><td><input value="10 000"></td><td><input value="12 000"></td></tr>
+          </tbody>
+        </table></div>
+        <div class="inline"><button class="btn">+ Ligne</button><button class="btn">+ Année charnière</button><button class="btn" data-tip="Importer|Importer un tableau CSV (clé, année, paramètre, valeur).">Importer CSV…</button>
+          <span style="color:var(--muted);font-size:12.5px">Entre deux années, interpolation linéaire ; au-delà, valeur constante.</span></div>
+        <div class="chart" aria-label="Aperçu du TCAM interpolé">${rateChart()}</div>
+      </fieldset>
+      <fieldset><legend>Migration</legend>
+        <div class="grid2">
+          ${f('Voisins','<input id="m-k" type="number" value="3">','Nombre de voisins|L\'excès d\'une maille part à parts égales vers les N mailles les plus proches qui ont de la place.')}
+          ${f('Tolérance','<div class="inline" style="flex-wrap:nowrap"><input id="m-tol" type="number" value="1" style="width:80px"> habitant</div>','Tolérance|Excès minimal (nombre entier) pour déclencher un déplacement. Les zones sans migration exportent tout leur excès.')}
+        </div>
+        ${f('En cas de manque de place', sel('m-pol',['Arrêter et me demander','Relever les densités max (avec validation)','Couronne de mailles puits','Enregistrer les non relocalisés'],'Arrêter et me demander'),'Non-convergence|Réponse quand la population ne tient plus dans les plafonds. Voir l\'aide « Non-convergence ».')}
+      </fieldset>`,
+    indicateurs: () => `
+      <fieldset><legend>Demande en eau potable</legend>
+        <label class="inline"><input type="checkbox" id="w-on" checked> Calculer la demande en eau potable</label>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Classe</th><th>Dotation (l/hab/j)</th><th>Non domestique (%)</th><th>Rendement (%)</th><th>Pointe jour.</th><th>Pointe hor.</th></tr></thead>
+          <tbody>
+            <tr><td>Rural</td><td><input value="20"></td><td><input value="10"></td><td><input value="75"></td><td><input value="1,3"></td><td><input value="1,8"></td></tr>
+            <tr><td>Urbain1</td><td><input value="40"></td><td><input value="15"></td><td><input value="75"></td><td><input value="1,3"></td><td><input value="1,8"></td></tr>
+          </tbody>
+        </table></div>
+        <p style="color:var(--muted);font-size:12.5px">Résultats : consommation domestique et moyenne, production moyenne (rendement appliqué), jour de pointe, heure de pointe (sans rendement).</p>
+      </fieldset>
+      <fieldset><legend>Autres indicateurs</legend>
+        <div class="placeholder">D'autres usages (déchets, énergie, places scolaires…) pourront être ajoutés ici sur le même modèle.</div>
+      </fieldset>`,
+    lancer: () => `
+      <fieldset><legend>Vérifications</legend>
+        <div class="check">
+          <div><span class="pill ok">OK</span>Zone d'étude, typologie (Rural, Urbain1) et unités administratives lues</div>
+          <div><span class="pill ok">OK</span>Paramètres complets pour toutes les classes</div>
+          <div><span class="pill ok">OK</span>Capacité 2060 suffisante (671 146 places pour 320 361 habitants)</div>
+          <div><span class="pill warn">Info</span>Forêt : 9 746 habitants conservés, sans nouvel arrivant</div>
+        </div>
+      </fieldset>
+      <fieldset><legend>Calcul</legend>
+        <div class="inline"><button class="btn primary" id="run">Lancer le calcul</button><button class="btn" id="cancel" disabled>Annuler</button>
+          <label class="inline" style="font-size:12.5px;color:var(--muted)"><input type="checkbox" id="simulateNC"> simuler un manque de place (démonstration)</label></div>
+        <div class="progress" aria-label="Progression"><div id="bar"></div></div>
+        <pre class="log" id="log">En attente.</pre>
+      </fieldset>`,
+    resultats: () => `
+      <fieldset><legend>Charger dans le projet</legend>
+        <div class="grid2">
+          <div class="check">
+            <div><input type="checkbox" checked id="r1"><label for="r1">Population (habitants)</label></div>
+            <div><input type="checkbox" checked id="r2"><label for="r2">Densité (hab/km²)</label></div>
+            <div><input type="checkbox" id="r3"><label for="r3">Capacité</label></div>
+            <div><input type="checkbox" id="r4"><label for="r4">Non relocalisés</label></div>
+            <div><input type="checkbox" checked id="r5"><label for="r5">Eau – production moyenne (m³/j)</label></div>
+          </div>
+          <div class="check">
+            <div><input type="checkbox" checked id="y1"><label for="y1">2024 (départ)</label></div>
+            <div><input type="checkbox" id="y2"><label for="y2">2030</label></div>
+            <div><input type="checkbox" checked id="y3"><label for="y3">2040</label></div>
+            <div><input type="checkbox" checked id="y4"><label for="y4">2060</label></div>
+          </div>
+        </div>
+        <div class="inline"><button class="btn primary">Charger les couches</button><button class="btn" data-tip="Tableau|Ouvre summary.csv : population, surface, densité et eau par unité administrative et par année.">Ouvrir le tableau</button></div>
+      </fieldset>
+      <fieldset><legend>Synthèse</legend>
+        <div class="tablewrap"><table>
+          <thead><tr><th>Année</th><th>Unité</th><th>Population</th><th>Densité (hab/km²)</th><th>Eau – production moy. (m³/j)</th></tr></thead>
+          <tbody>
+            <tr><td>2024</td><td>MURAMVYA RURAL</td><td>138 121</td><td>584</td><td>4 052</td></tr>
+            <tr><td>2024</td><td>MURAMVYA URBAIN</td><td>32 444</td><td>1 612</td><td>952</td></tr>
+            <tr><td>2060</td><td>Total</td><td>320 361</td><td>1 249</td><td>9 398</td></tr>
+          </tbody>
+        </table></div>
+      </fieldset>`,
+    rapport: () => `
+      <fieldset><legend>Rapport d'exécution</legend>
+        <div class="inline"><span class="pill ok">Réussi</span><span style="color:var(--muted)">Muramvya – exemple · 7,2 s · 6 297 unités, 4 378 mailles de 250 m</span></div>
+<pre class="log" style="max-height:300px">Population : 170 565 au départ, 320 361 à l'horizon final
+
+Pas 2024 → 2025 : réussi
+  Population avant croissance   : 170 565
+  Population après croissance   : 174 318
+  Population après migration    : 174 318
+  Habitants déplacés            : 775 (1 itérations)
+  Écart de bilan                : 0 habitant
+Pas 2025 → 2026 : réussi
+  …
+Pas 2059 → 2060 : réussi
+  Population après migration    : 320 361
+  Habitants déplacés            : 1 914 (2 itérations)
+  Écart de bilan                : 0 habitant</pre>
+        <div class="inline"><button class="btn">Ouvrir report.txt</button><button class="btn">Ouvrir le dossier</button></div>
+      </fieldset>`
+  };
+
+  function rateChart(){
+    // TCAM pivots 2026: 2.23, 2040: 1.81, 2060: 1.29 ; axis 2024..2060, 1.0..2.5 %
+    const W=640,H=150,L=40,R=12,T=12,B=26;
+    const x=y=>L+(y-2024)/(2060-2024)*(W-L-R), yv=v=>T+(2.5-v)/(2.5-1.0)*(H-T-B);
+    const pts=[[2024,2.23],[2026,2.23],[2040,1.81],[2060,1.29]];
+    const path=pts.map((p,i)=>(i?'L':'M')+x(p[0]).toFixed(1)+' '+yv(p[1]).toFixed(1)).join(' ');
+    let s=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="TCAM interpolé de 2024 à 2060">`;
+    [1.0,1.5,2.0,2.5].forEach(v=>{s+=`<line x1="${L}" x2="${W-R}" y1="${yv(v)}" y2="${yv(v)}" stroke="var(--line)"/><text x="${L-6}" y="${yv(v)+4}" text-anchor="end">${v.toFixed(1).replace('.',',')} %</text>`});
+    [2024,2030,2040,2050,2060].forEach(y=>{s+=`<text x="${x(y)}" y="${H-8}" text-anchor="middle">${y}</text>`});
+    s+=`<path d="${path}" fill="none" stroke="var(--accent)" stroke-width="2"/>`;
+    pts.slice(1).forEach(p=>{s+=`<circle cx="${x(p[0])}" cy="${yv(p[1])}" r="4" fill="var(--paper)" stroke="var(--accent)" stroke-width="2"/>`});
+    return s+'</svg>';
+  }
+
+  const helpPages = [
+    ['Prise en main','Un premier calcul pas à pas sur le jeu d\'exemple de Muramvya : ouvrir le scénario, vérifier les données, lancer, charger les résultats.'],
+    ['Données d\'entrée','Zone d\'étude, typologie, unités administratives, raster de population, zones d\'exclusion, projections : formats attendus et exemples.'],
+    ['Paramètres et scénario','Années, pas de temps, TCAM et densités maximales par classe, par zone et par année charnière ; interpolation linéaire.'],
+    ['Calage bâti → population','(Phase 6) Régressions par strate à partir des surfaces de toit, ajustement manuel, diagnostics.'],
+    ['Croissance, plafonds et migration','CROISSANCE'],
+    ['Non-convergence : que faire','Quatre réponses possibles quand la population ne tient plus dans les plafonds : arrêter, relever les densités, couronne de mailles puits, non relocalisés.'],
+    ['Résultats et indicateurs','Fichiers produits, lecture du rapport, formules de la demande en eau potable.'],
+    ['Questions fréquentes','Messages d\'erreur courants et leur solution.'],
+    ['Note méthodologique','Formules, hypothèses et conventions, à joindre aux études.']
+  ];
+  const croissance = `
+    <h3>Croissance, plafonds et migration</h3>
+    <p>Chaque année, l'outil applique deux étapes à chaque maille : la <b>croissance</b> (TCAM de sa zone), puis la <b>migration</b> de l'excès au-delà de son plafond.</p>
+    <p>Le plafond d'une maille vaut sa surface × la densité maximale de sa classe. Une maille déjà au-dessus au départ garde sa densité de départ comme plafond. Une zone sans migration n'accueille personne.</p>
+    <div class="example">Exemple : une maille de plafond 10 compte 46 habitants, ses voisines sont vides. Elle envoie 12 habitants à chacune de ses 3 voisines les plus proches, qui débordent de 2 ; ces 6 habitants partent vers la maille libre suivante. Résultat : 10, 10, 10, 10 et 6 — les 46 habitants sont tous là.</div>
+    <p><b>Garanti :</b> aucun habitant ne disparaît ; personne ne s'installe dans une zone sans migration ; le résultat est reproductible.</p>`;
+
+  /* ---------- Opening windows ---------- */
+  let currentTab = 'scenario';
+  function openMain(tab){
+    overlay.hidden=false; overlay.innerHTML='';
+    overlay.appendChild($('#tpl-main').content.cloneNode(true));
+    selectTab(tab);
+    $$('.tab', overlay).forEach(t => t.addEventListener('click', () => selectTab(t.dataset.tab)));
+    wireCommon();
+  }
+  function selectTab(tab){
+    currentTab = tab;
+    $$('.tab', overlay).forEach(t => t.classList.toggle('active', t.dataset.tab===tab));
+    $$('.tb').forEach(b => b.classList.toggle('active', b.dataset.open===tab));
+    $('#pane', overlay).innerHTML = panes[tab]();
+    if(tab==='lancer') wireRun();
+  }
+  function wireCommon(){
+    $$('[data-close]', overlay).forEach(b => b.addEventListener('click', closeAll));
+    $$('[data-goto]', overlay).forEach(b => b.addEventListener('click', () => selectTab(b.dataset.goto)));
+    $$('[data-help]', overlay).forEach(b => b.addEventListener('click', () => openHelp(currentTab)));
+  }
+  function closeAll(){ overlay.hidden=true; overlay.innerHTML=''; $$('.tb').forEach(b=>b.classList.remove('active')); hideTip(); }
+
+  function openHelp(fromTab){
+    const map = {parametres:2, donnees:1, lancer:5, resultats:6, rapport:6, indicateurs:6, scenario:2};
+    let index = fromTab in map ? map[fromTab] : 4;
+    overlay.hidden=false; overlay.innerHTML=`
+      <div class="dialog" role="dialog" aria-label="Aide">
+        <div class="dlg-title"><h2>Aide — Population</h2><div class="icons"><button class="iconbtn" data-close aria-label="Fermer">×</button></div></div>
+        <div class="help-body">
+          <nav class="toc"><input id="h-search" placeholder="Rechercher dans l'aide" aria-label="Rechercher">${helpPages.map((p,i)=>`<button data-page="${i}">${p[0]}</button>`).join('')}</nav>
+          <article class="article" id="article"></article>
+        </div>
+        <div class="dlg-foot"><span style="color:var(--muted);font-size:12.5px">Pages fournies avec le plugin : consultables hors ligne. Langue : celle de QGIS.</span><button class="btn" data-close>Fermer</button></div>
+      </div>`;
+    const show = i => {
+      $$('.toc button', overlay).forEach(b => b.classList.toggle('active', +b.dataset.page===i));
+      $('#article', overlay).innerHTML = helpPages[i][1]==='CROISSANCE' ? croissance : `<h3>${helpPages[i][0]}</h3><p>${helpPages[i][1]}</p>`;
+    };
+    $$('.toc button', overlay).forEach(b => b.addEventListener('click', () => show(+b.dataset.page)));
+    $('#h-search', overlay).addEventListener('input', e => {
+      const q = e.target.value.toLowerCase();
+      $$('.toc button', overlay).forEach(b => b.hidden = q && !(helpPages[+b.dataset.page].join(' ').toLowerCase().includes(q)));
+    });
+    show(index); wireCommon();
+    $$('.tb').forEach(b => b.classList.toggle('active', b.dataset.open==='aide'));
+  }
+
+  function openAbout(){
+    overlay.hidden=false; overlay.innerHTML=`
+      <div class="dialog small" role="dialog" aria-label="À propos">
+        <div class="dlg-title"><h2>À propos</h2><div class="icons"><button class="iconbtn" data-close aria-label="Fermer">×</button></div></div>
+        <div class="about">
+          <h2>Poplar — croissance et migration de population</h2>
+          <p>Projette l'évolution spatiale de la population, par croissance et migration sous contraintes de densité, puis la traduit en besoins (eau potable…).</p>
+          <dl>
+            <dt>Version</dt><dd>0.1.0 (phase 5)</dd>
+            <dt>Origine</dt><dd>Outil SHER (modèle QGIS et script PyQGIS), refondu en 2026 pour le projet BUR71</dd>
+            <dt>Auteurs</dt><dd><span class="todo">à confirmer</span> — outil d'origine : Keyvan ; refonte : Michel, avec développement assisté par IA</dd>
+            <dt>Méthode</dt><dd>Code validé par des tests automatiques et par comparaison avec l'outil d'origine</dd>
+            <dt>Organisme</dt><dd><span class="todo">SHER Ingénierie-Conseil ? à confirmer</span></dd>
+            <dt>Licence</dt><dd><span class="todo">à définir (usage interne ou GPL)</span></dd>
+            <dt>Contact</dt><dd><span class="todo">à définir</span></dd>
+            <dt>Dépendances</dt><dd>Aucune en dehors de QGIS 3.40 ou 4</dd>
+          </dl>
+        </div>
+        <div class="dlg-foot"><span></span><button class="btn" data-close>Fermer</button></div>
+      </div>`;
+    wireCommon();
+    $$('.tb').forEach(b => b.classList.toggle('active', b.dataset.open==='apropos'));
+  }
+
+  function openNonConvergence(){
+    const layer = document.createElement('div');
+    layer.className='overlay'; layer.style.inset='0'; layer.style.paddingTop='90px'; layer.style.zIndex='40';
+    layer.innerHTML=`
+      <div class="dialog small" role="alertdialog" aria-label="Manque de place">
+        <div class="dlg-title"><h2>Manque de place en 2047</h2></div>
+        <div class="about" style="gap:12px">
+          <div class="inline"><span class="pill bad">Arrêt</span><span>1 240 habitants ne peuvent pas être placés avec les densités maximales actuelles.</span></div>
+          <div class="radios">
+            <label><input type="radio" name="nc" checked> <span>Relever les densités maximales de <b>+10 %</b><small>Hausse minimale calculée : 8,4 %, arrondie au palier de 5 % supérieur. Appliquée aussi aux années suivantes.</small></span></label>
+            <label><input type="radio" name="nc"> <span>Seulement sur certaines zones<small>Choisir les zones dans la liste des classes ou des zones de paramètres.</small></span></label>
+            <label><input type="radio" name="nc"> <span>Placer l'excédent dans une couronne de mailles puits<small>4 mailles de large autour de la zone d'étude.</small></span></label>
+            <label><input type="radio" name="nc"> <span>Enregistrer comme population non relocalisée<small>Le calcul continue ; les non relocalisés sont cartographiés.</small></span></label>
+          </div>
+        </div>
+        <div class="dlg-foot"><button class="btn" id="nc-stop">Arrêter le calcul</button><button class="btn primary" id="nc-ok">Appliquer et continuer</button></div>
+      </div>`;
+    $('#app').appendChild(layer);
+    return new Promise(res => {
+      $('#nc-stop', layer).addEventListener('click', () => { layer.remove(); res(false); });
+      $('#nc-ok', layer).addEventListener('click', () => { layer.remove(); res(true); });
+    });
+  }
+
+  function wireRun(){
+    const run=$('#run',overlay), cancel=$('#cancel',overlay), bar=$('#bar',overlay), log=$('#log',overlay);
+    let timer=null, year=2024, canceled=false;
+    run.addEventListener('click', () => {
+      run.disabled=true; cancel.disabled=false; canceled=false; year=2024; log.textContent='Lecture des données… 6 297 unités de calcul.\n';
+      statusText.textContent='Calcul en cours…';
+      const pops={2025:174318,2030:192300,2035:212600,2040:237521,2045:258700,2050:280400,2055:300255,2060:320361};
+      const step = async () => {
+        if(canceled) return;
+        year++;
+        bar.style.width=((year-2024)/36*100)+'%';
+        if(year===2047 && $('#simulateNC',overlay) && $('#simulateNC',overlay).checked){
+          clearInterval(timer);
+          const go = await openNonConvergence();
+          if(!go){ log.textContent+='Calcul arrêté en 2047 : capacité insuffisante (1 240 habitants).\n'; finish('Arrêté'); return; }
+          log.textContent+='2047 : densités maximales relevées de 10 % (validé).\n';
+          timer=setInterval(step,120);
+        }
+        if(pops[year]) log.textContent+=`${year} : ${pops[year].toLocaleString('fr-FR')} habitants — résultats écrits\n`;
+        log.scrollTop=log.scrollHeight;
+        if(year>=2060){ clearInterval(timer); log.textContent+='Terminé en 7,2 s. Statut : réussi.\n'; finish('Terminé'); }
+      };
+      timer=setInterval(step,120);
+    });
+    cancel.addEventListener('click', () => { canceled=true; clearInterval(timer); log.textContent+=`Calcul annulé en ${year}.\n`; finish('Annulé'); });
+    function finish(msg){ run.disabled=false; cancel.disabled=true; statusText.textContent=msg; }
+  }
+
+  document.addEventListener('click', e => {
+    const opener = e.target.closest('[data-open]');
+    if(!opener || opener.disabled) return;
+    closeMenu();
+    const id = opener.dataset.open;
+    if(id==='aide') openHelp('croissance');
+    else if(id==='apropos') openAbout();
+    else openMain(id);
+  });
+
+  /* ---------- Illustrative map ---------- */
+  function drawMap(){
+    const c=$('#map'), ctx=c.getContext('2d');
+    const css=getComputedStyle(document.documentElement);
+    const col=['--map-1','--map-2','--map-3','--map-4','--map-5'].map(v=>css.getPropertyValue(v).trim());
+    const bg=css.getPropertyValue('--bg').trim(), ink=css.getPropertyValue('--ink').trim(), ok=css.getPropertyValue('--ok').trim();
+    ctx.fillStyle=bg; ctx.fillRect(0,0,c.width,c.height);
+    let seed=7; const rnd=()=>{seed=(seed*16807)%2147483647;return seed/2147483647;};
+    const cell=12, cx0=470, cy0=250;
+    const inside=(x,y)=>{const dx=(x-410)/330, dy=(y-330)/260; return dx*dx+dy*dy+0.18*Math.sin(x/40)*Math.cos(y/55)<1;};
+    const forest=(x,y)=>{const dx=(x-220)/110, dy=(y-420)/80; return dx*dx+dy*dy<1;};
+    for(let y=20;y<c.height-20;y+=cell){for(let x=20;x<c.width-20;x+=cell){
+      if(!inside(x,y)) continue;
+      const d=Math.hypot(x-cx0,y-cy0);
+      let v=Math.max(0,1.25-d/260)+rnd()*0.35-0.1;
+      if(forest(x,y)) v*=0.25;
+      if(v<0.08) continue;
+      ctx.fillStyle=col[Math.min(4,Math.floor(v*4))]; ctx.fillRect(x,y,cell-1,cell-1);
+    }}
+    ctx.strokeStyle=ink; ctx.lineWidth=1.5; ctx.beginPath();
+    for(let a=0;a<=Math.PI*2+0.01;a+=0.02){const r=1/Math.sqrt(1/(1+0.18*Math.sin(410/40))) ; const x=410+330*Math.cos(a)*0.97, y=330+260*Math.sin(a)*0.97; a?ctx.lineTo(x,y):ctx.moveTo(x,y);}
+    ctx.stroke();
+    ctx.strokeStyle=ok; ctx.setLineDash([5,4]); ctx.beginPath(); ctx.ellipse(220,420,110,80,0,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle=ink; ctx.font='12px IBM Plex Sans, system-ui, sans-serif';
+    ctx.fillText('Population 2060 (illustration)', 24, 30);
+  }
+  drawMap();
+  if(window.matchMedia) window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawMap);
+  new MutationObserver(drawMap).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
+  openMain('parametres');
+})();
+</script>
