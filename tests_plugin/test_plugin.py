@@ -582,7 +582,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.2"
+    assert version() == "0.3.3"
     AboutDialog()
 
 
@@ -596,3 +596,11 @@ def test_help_html_is_up_to_date(tmp_path):
     after = {n: open(os.path.join(REPO, "plugin/poplar/help/fr", n), encoding="utf-8").read()
              for n in os.listdir(os.path.join(REPO, "plugin/poplar/help/fr"))}
     assert before == after, "run tools/build_help.py after editing docs/aide"
+
+
+def test_a_shapefile_opened_through_its_shx_is_read_from_its_shp(iface):
+    from qgis.core import QgsVectorLayer
+    from poplar.compat import engine_source
+
+    layer = QgsVectorLayer(os.path.join(MURAMVYA, "commune_muramvya.shx"), "communes", "ogr")
+    assert engine_source(layer)["source"].endswith("commune_muramvya.shp")

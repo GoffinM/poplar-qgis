@@ -154,5 +154,15 @@ def test_a_missing_raster_is_ignored_with_roofs_and_named_otherwise(tmp_path):
     scenario.population_source = "raster"
     with pytest.raises(ScenarioError) as error:
         _Model.load(scenario)
-    assert [m.code for m in error.value.messages] == ["file_not_found_raster"]
+    assert [m.code for m in error.value.messages] == ["file_not_found_raster", "file_on_network"]
     assert "onglet Données" in error.value.messages[0].render("fr")
+
+
+def test_network_paths_are_explained():
+    from engine.scenario import ScenarioError
+    from engine.simulation import _check_file
+
+    with pytest.raises(ScenarioError) as error:
+        _check_file("//sher/Transfert_tempo/BUR71/COMMUNE MURAMVYA.shx")
+    assert [m.code for m in error.value.messages] == ["file_not_found_layer", "file_on_network"]
+    _check_file(os.path.join(MURAMVYA, "commune_muramvya.shp"))          # reachable: no error

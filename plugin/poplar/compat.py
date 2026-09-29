@@ -73,7 +73,7 @@ def engine_source(layer):
     provider = layer.providerType()
     parts = QgsProviderRegistry.instance().decodeUri(provider, layer.source())
     if provider in FILE_PROVIDERS:
-        spec = {"source": parts.get("path") or layer.source()}
+        spec = {"source": _main_file(parts.get("path") or layer.source())}
         if parts.get("layerName"):
             spec["layer"] = parts["layerName"]
         subset = parts.get("subset") or (layer.subsetString() if hasattr(layer, "subsetString") else "")
@@ -83,6 +83,27 @@ def engine_source(layer):
     if provider == "postgres":
         return _postgres_source(layer, parts)
     raise UnsupportedSource(provider)
+
+
+SHAPEFILE_PARTS = (".shx", ".dbf", ".prj", ".cpg", ".qix", ".sbn", ".sbx")
+
+
+def _main_file(path):
+    """The file GDAL must open: the .shp of a shapefile opened through one of its other files.
+
+    Paths are written the way the system writes them (on Windows, « //serveur/partage/… »
+    becomes « \\\\serveur\\partage\\… »).
+    """
+    import os
+
+    if "|" not in path and "://" not in path:
+        path = os.path.normpath(path)
+        stem, extension = os.path.splitext(path)
+        if extension.lower() in SHAPEFILE_PARTS:
+            for candidate in (stem + ".shp", stem + ".SHP"):
+                if os.path.exists(candidate):
+                    return candidate
+    return path
 
 
 def _postgres_source(layer, parts):

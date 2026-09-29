@@ -30,7 +30,7 @@ from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
-from ._gdal import srs_from_epsg, srs_from_wkt
+from ._gdal import gdal_exceptions, srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
 from .report import StepReport
@@ -503,13 +503,25 @@ def _unused_keys(table, units) -> List[Message]:
 
 
 def _missing(path: str) -> bool:
-    return not os.path.exists(path) and "://" not in path and not path.upper().startswith(("PG:", "WFS:"))
+    """True when neither the system nor GDAL can reach the file (network shares included)."""
+    if "://" in path or path.upper().startswith(("PG:", "WFS:")) or os.path.exists(path):
+        return False
+    if os.path.exists(os.path.normpath(path)):
+        return False
+    try:  # GDAL sometimes reaches what os.path cannot (UNC variants, /vsi paths)
+        with gdal_exceptions():
+            return gdal.OpenEx(path) is None
+    except RuntimeError:
+        return True
 
 
 def _check_file(path: str, what: str = "layer", **values) -> None:
     """Stop with a message that names the setting (and its tab) whose file cannot be found."""
     if _missing(path):
-        raise ScenarioError([message(f"file_not_found_{what}", path=path, **values)])
+        messages = [message(f"file_not_found_{what}", path=path, **values)]
+        if path.startswith(("//", "\\\\")):
+            messages.append(message("file_on_network", path=path))
+        raise ScenarioError(messages)
 
 
 def _read(scenario: Scenario, spec, crs: str):

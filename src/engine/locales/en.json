@@ -154,5 +154,6 @@
   "input_parameters": "the growth rate and maximum densities (Parameters tab)",
   "input_parameters.growth_rate": "the growth rate (Parameters tab)",
   "input_parameters.dmax": "the maximum densities (Parameters tab)",
-  "input_projections.file": "the projection file (Data tab)"
+  "input_projections.file": "the projection file (Data tab)",
+  "file_on_network": "This file is on a network share. If QGIS shows it but Poplar cannot find it, copy the data to the local disk (for example C:\\\\BUR71) and choose the layers again: this tells whether the network is the cause."
 }
