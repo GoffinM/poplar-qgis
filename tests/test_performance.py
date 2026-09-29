@@ -91,3 +91,23 @@ def test_one_million_open_buildings_rows(tmp_path_factory, units, points, utm35s
     assert len(buildings) == N
     assert (index >= 0).mean() > 0.9999  # points exactly on the outer edge may fall outside
     assert elapsed < TIME_LIMIT_S
+
+
+def test_migration_on_2_25_million_units():
+    from engine.migration import migrate
+
+    side = 1500
+    rng = np.random.default_rng(7)
+    xs, ys = np.meshgrid(np.arange(side, dtype=float) * 100, np.arange(side, dtype=float) * 100)
+    n = side * side
+    cap = np.full(n, 100.0)
+    population = rng.uniform(0, 90, n)
+    overloaded = rng.random(n) < 0.05
+    population[overloaded] = rng.uniform(100, 400, overloaded.sum())
+    start = time.perf_counter()
+    result = migrate(population, cap, np.ones(n, bool), xs.ravel(), ys.ravel())
+    elapsed = time.perf_counter() - start
+    print(f"\nMigration, 2.25M units, 5 % overloaded: {elapsed:.1f} s, {result.iterations} iterations")
+    assert result.converged
+    assert result.population.sum() == pytest.approx(population.sum(), rel=1e-12)
+    assert elapsed < 60.0

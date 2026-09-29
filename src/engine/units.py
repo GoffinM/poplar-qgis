@@ -317,3 +317,27 @@ def _overlaps(envelopes: np.ndarray, env: Tuple[float, float, float, float]) -> 
         (envelopes[:, 0] < xmax) & (envelopes[:, 2] > xmin)
         & (envelopes[:, 1] < ymax) & (envelopes[:, 3] > ymin)
     )
+
+
+SINK_CLASS = "__sink__"
+
+
+def build_sink_units(grid: Grid, study_area: ogr.Geometry, width_cells: int = 4) -> Units:
+    """Units of the ring of sink cells around the study area (spec §7.2, S5).
+
+    The ring is the study area buffered by ``width_cells`` cells, minus the
+    study area itself. The grid must cover the buffered extent.
+    """
+    if width_cells < 1:
+        raise ValueError("the sink ring must be at least one cell wide")
+    with gdal_exceptions():
+        distance = width_cells * grid.cell_size
+        ring = polygonal_part(study_area.Buffer(distance).Difference(study_area))
+        if ring is None:
+            raise ValueError("the sink ring is empty")
+        xmin, ymin, xmax, ymax = _envelope(ring)
+        gxmax = grid.x0 + grid.ncols * grid.cell_size
+        gymin = grid.y0 - grid.nrows * grid.cell_size
+        if xmin < grid.x0 or ymax > grid.y0 or xmax > gxmax or ymin < gymin:
+            raise ValueError("the grid does not cover the sink ring: enlarge its extent by the ring width")
+    return build_units(grid, ring, [Zone(ring, SINK_CLASS)])

@@ -27,18 +27,8 @@ DMAX = ParameterTable("dmax", {"Rural": TimeSeries.constant(2500), "Urbain1": Ti
 
 
 @pytest.fixture(scope="module")
-def case():
-    raster = read_raster(os.path.join(MURAMVYA, "pop2023_muramvya.tif"))
-    communes = read_features(os.path.join(MURAMVYA, "commune_muramvya.shp"), target_crs_wkt=raster.crs_wkt)
-    forest = read_features(os.path.join(MURAMVYA, "zone_sans_migration.shp"), target_crs_wkt=raster.crs_wkt)
-    study = union_all(f.geometry for f in communes)
-    xmin, xmax, ymin, ymax = study.GetEnvelope()
-    grid = Grid.covering(
-        (xmin, ymin, xmax, ymax), 250, raster.crs_wkt, origin=(raster.geotransform[0], raster.geotransform[3])
-    )
-    zones = [Zone(f.geometry, f.attributes["Type"]) for f in communes]
-    units = build_units(grid, study, zones, union_all(f.geometry for f in forest))
-    return raster, grid, units
+def case(muramvya_case):
+    return muramvya_case
 
 
 @pytest.fixture(scope="module")

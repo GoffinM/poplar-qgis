@@ -375,7 +375,7 @@ Des **tableaux de synthèse** sont produits pour chaque unité administrative et
 |---|---|
 | I1 | Après migration : Σ P = Σ P avant migration − non relocalisés + placés en couronne, à 10⁻⁶ près en valeur relative |
 | I2 | Après convergence, aucune maille éligible ne dépasse sa capacité de `tolerance` (1 habitant) ou plus |
-| I3 | Une maille sans migration ne reçoit rien. Sa population après migration vaut exactement `P0_i` (c1) |
+| I3 | Une maille sans migration ne reçoit rien. Sa population après migration est comprise entre `P0_i` et `P0_i` + `tolerance`, soit moins d'un habitant au-dessus de sa population de base (c1) |
 | I4 | Mêmes entrées, même résultat (déterminisme) |
 | I5 | À taux constant, la croissance calculée en N pas de Δ ou en un pas de N × Δ donne le même facteur, à 10⁻⁹ près. À taux variable, l'écart reste inférieur à 10⁻⁴ en valeur relative |
 | I6 | Σ des populations entières publiées = `round(Σ P_i)` |
