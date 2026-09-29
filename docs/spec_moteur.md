@@ -527,3 +527,46 @@ Le moteur est livré sous forme de **plugin QGIS**, compatible avec QGIS 3.40 LT
 **Hors QGIS.** Le moteur fonctionne aussi en ligne de commande, à partir d'un fichier de scénario. C'est utile pour les tests et les longs calculs.
 
 Une maquette des fenêtres sera proposée pour validation avant de développer la phase 5.
+
+---
+
+## 14. Documentation de l'outil (exigence du 29/09/2026)
+
+La documentation fait partie du livrable. Elle doit être accessible **depuis QGIS**, sans connaître le code. Elle comprend deux niveaux.
+
+### 14.1 Fiche « À propos »
+
+Elle répond à trois questions : qui a créé l'outil, comment, et pourquoi. Elle est accessible depuis le menu du plugin et depuis le gestionnaire d'extensions de QGIS (champs `about`, `homepage` et `tracker` du fichier `metadata.txt`).
+
+Contenu :
+- objet de l'outil et contexte (projet BUR71, outil générique SHER) ;
+- auteurs et contributeurs, historique (outil PyQGIS d'origine, refonte en 2026) ;
+- méthode de développement : développement assisté par IA, validé par des tests et des comparaisons avec l'outil d'origine ;
+- version, date, licence, contact ;
+- dépendances : aucune en dehors de QGIS.
+
+### 14.2 Aide détaillée
+
+| Élément | Contenu |
+|---|---|
+| **Infobulles** | Chaque bouton, champ et paramètre affiche une bulle d'aide au survol de la souris : à quoi il sert, son unité, sa valeur par défaut et un exemple |
+| **Bouton « ? »** dans chaque fenêtre | Il ouvre directement la page d'aide de cette fenêtre |
+| **Menu Aide navigable** | Pages HTML fournies avec le plugin, qui fonctionnent donc hors ligne. Elles s'ouvrent dans une fenêtre de QGIS, avec un sommaire, des liens entre pages et une recherche |
+| **Aide des algorithmes Processing** | Texte d'aide affiché dans le panneau de droite de chaque algorithme de la boîte à outils de traitement |
+
+**Pages du menu Aide** :
+1. prise en main : un premier calcul pas à pas sur un jeu d'exemple ;
+2. données d'entrée : formats attendus et exemples ;
+3. paramètres et scénario ;
+4. calage bâti → population ;
+5. croissance, plafonds et migration : explication de la méthode, avec schémas ;
+6. non-convergence : que faire ;
+7. résultats, rapport et indicateurs (eau potable) ;
+8. questions fréquentes et messages d'erreur ;
+9. note méthodologique : formules et hypothèses.
+
+**Source unique.** Les pages d'aide sont écrites en Markdown dans le dépôt (`docs/aide/`), puis converties en HTML lors de la construction du plugin. Les infobulles sont définies au même endroit que les paramètres, pour ne pas diverger du code.
+
+**Langue** : français. Une version anglaise est possible plus tard, avec le système de traduction de QGIS.
+
+**Planning** : la documentation est rédigée au fil des phases, pour chaque fonctionnalité livrée. Elle est intégrée au plugin en phase 5 et relue en phase 8.
