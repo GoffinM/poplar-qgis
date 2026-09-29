@@ -29,6 +29,8 @@ class Buildings:
     y: np.ndarray
     area_m2: np.ndarray
     confidence: Optional[np.ndarray] = None
+    usage: Optional[np.ndarray] = None
+    """Usage category of each roof, as text read from the source (None when no usage field)."""
 
     def __len__(self) -> int:
         return len(self.x)
@@ -37,20 +39,24 @@ class Buildings:
     def concatenate(cls, parts: Sequence["Buildings"]) -> "Buildings":
         if not parts:
             return cls(np.empty(0), np.empty(0), np.empty(0))
-        confidence = None
+        confidence = usage = None
         if all(p.confidence is not None for p in parts):
             confidence = np.concatenate([p.confidence for p in parts])
+        if all(p.usage is not None for p in parts):
+            usage = np.concatenate([p.usage for p in parts])
         return cls(
             np.concatenate([p.x for p in parts]),
             np.concatenate([p.y for p in parts]),
             np.concatenate([p.area_m2 for p in parts]),
             confidence,
+            usage,
         )
 
     def subset(self, mask: np.ndarray) -> "Buildings":
         return Buildings(
             self.x[mask], self.y[mask], self.area_m2[mask],
             None if self.confidence is None else self.confidence[mask],
+            None if self.usage is None else self.usage[mask],
         )
 
 
@@ -63,12 +69,15 @@ def read_footprints(
     point_on_surface: bool = False,
     where: Optional[str] = None,
     batch_size: int = 100_000,
+    usage_field: Optional[str] = None,
+    confidence_field: Optional[str] = None,
 ) -> Buildings:
     """Read footprints from any OGR source (GeoPackage, shapefile, PostGIS, WFS...).
 
     Polygons are reprojected to the grid CRS before their area is measured.
     For a layer of points, ``area_field`` gives the roof area in m2.
     ``extent`` (in the grid CRS) is applied as a spatial filter at the source.
+    ``usage_field`` and ``confidence_field`` are read when given (usage as text).
     """
     with gdal_exceptions():
         datasource = ogr.Open(source)
@@ -94,6 +103,16 @@ def read_footprints(
         xs: List[float] = []
         ys: List[float] = []
         areas: List[float] = []
+        usages: List[str] = []
+        confidences: List[float] = []
+
+        def flush() -> None:
+            parts.append(Buildings(np.array(xs), np.array(ys), np.array(areas),
+                                   np.array(confidences, dtype=np.float32) if confidence_field else None,
+                                   np.array(usages, dtype=object) if usage_field else None))
+            for values in (xs, ys, areas, usages, confidences):
+                values.clear()
+
         for feature in ogr_layer:
             geometry = feature.GetGeometryRef()
             if geometry is None or geometry.IsEmpty():
@@ -112,11 +131,16 @@ def read_footprints(
             xs.append(point.GetX())
             ys.append(point.GetY())
             areas.append(area)
+            if usage_field:
+                usages.append(feature.GetFieldAsString(usage_field).strip()
+                              if feature.IsFieldSetAndNotNull(usage_field) else "")
+            if confidence_field:
+                confidences.append(feature.GetFieldAsDouble(confidence_field)
+                                   if feature.IsFieldSetAndNotNull(confidence_field) else np.nan)
             if len(xs) >= batch_size:
-                parts.append(Buildings(np.array(xs), np.array(ys), np.array(areas)))
-                xs, ys, areas = [], [], []
+                flush()
         if xs:
-            parts.append(Buildings(np.array(xs), np.array(ys), np.array(areas)))
+            flush()
     buildings = Buildings.concatenate(parts)
     return _clip(buildings, extent)
 

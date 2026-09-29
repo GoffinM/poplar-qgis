@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Proposition, à valider (questions T1 à T4 et C1 à C7 ci-dessous) |
+| **Statut** | Validé le 29/09/2026, avec les compléments du §5 |
 | **Références** | Spécification §3 bis et §3 ter ; état des lieux §11 (classeurs de Lionel, fragilités F20 à F27) |
 | **Déjà en place** | Lecture rapide des toits par paquets (`engine/buildings.py`) : polygones, points avec champ de surface, CSV Google Open Buildings, filtre spatial sur l'emprise, un million de toits lus en 3 à 19 s, affectation aux mailles |
 | **Durée estimée** | 3 à 4 jours, en quatre étapes testées séparément |
@@ -101,3 +101,24 @@ Pages d'aide « Calage » (français), spécification, bilan de phase, captures,
 4. 6.4 puis 6.5.
 
 Chaque étape passe tous les tests avant la suivante, et je vous signale tout écart avec les classeurs.
+
+## 5. Décisions du 29/09/2026
+
+| # | Décision |
+|---|---|
+| T1 | Ligne « autres catégories » à 1, catégories listées dans le rapport |
+| T2 | Seuil de confiance **activable**, désactivé par défaut |
+| T3 | Surfaces minimale et maximale réglables par groupe ; **le nombre de strates est réglable** aussi (couche de strates, champ de groupe, ou une seule strate pour toute la zone) |
+| T4 | Centroïde comme critère de rattachement |
+| C1 | Mode amélioré par défaut |
+| C2 | Segments par défaut (plus simples et plus rapides à calculer) ; **polynôme disponible**. Toutes les valeurs du calage sont **exportables dans un rapport JSON** : classes, points, courbes échantillonnées, coefficients, indicateurs de qualité et de précision. Ce format de rapport est étendu à tout le reste, pour produire un **rapport automatique hors de QGIS** (étape 6.6) |
+| C3 | Les classes peuvent être **proposées par une analyse fréquentielle** de la distribution des surfaces (points de rupture naturels), même avec une ou deux strates |
+| C4 | Recalage sur le recensement activé par défaut en mode amélioré |
+| C5 | Recensement : champ de la couche de strates ou tableau |
+| C6 | L'écart entre l'année du recensement et l'année visée est **absorbé par un TCAM** appliqué sur la période de décalage |
+| C7 | Les limites des classes sont **ajustables à la main sur un graphique** montrant la distribution des surfaces (courbe de densité) et les courbes de calage |
+
+### Étape 6.6 : rapport automatique hors de QGIS
+
+- Chaque exécution et chaque calage écrivent un rapport JSON complet (`report.json`, `calibration.json`) : données d'entrée, paramètres, bilans par pas, avertissements, calage et indicateurs de qualité.
+- Une commande `python -m engine report <dossier>` produit à partir de ces fichiers un **rapport HTML autonome** (tableaux et graphiques SVG, sans dépendance), lisible dans un navigateur et imprimable en PDF.
