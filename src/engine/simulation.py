@@ -30,7 +30,7 @@ from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
-from ._gdal import gdal_exceptions, srs_from_epsg, srs_from_wkt
+from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
 from .report import StepReport
@@ -508,11 +508,14 @@ def _missing(path: str) -> bool:
         return False
     if os.path.exists(os.path.normpath(path)):
         return False
-    try:  # GDAL sometimes reaches what os.path cannot (UNC variants, /vsi paths)
-        with gdal_exceptions():
-            return gdal.OpenEx(path) is None
-    except RuntimeError:
+    gdal.PushErrorHandler("CPLQuietErrorHandler")  # GDAL sometimes reaches what os.path cannot (UNC, /vsi)
+    try:
+        return gdal.OpenEx(path) is None
+    except RuntimeError:  # when exceptions are enabled (by QGIS or another plugin)
         return True
+    finally:
+        gdal.PopErrorHandler()
+        gdal.ErrorReset()
 
 
 def _check_file(path: str, what: str = "layer", **values) -> None:
