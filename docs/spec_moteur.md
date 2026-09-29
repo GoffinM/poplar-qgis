@@ -160,6 +160,17 @@ Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
 | B3 | La régression est-elle appliquée par bâtiment ou par zone ? | **Par bâtiment**, d'après les classeurs Excel (état des lieux, §11) : population = f(surface), puis somme par pixel. On conserve donc la surface de chaque bâtiment |
 | B4 | Quels attributs lire pour chaque bâtiment ? | Pour l'instant, **la surface seule**. Un champ d'usage (habitat ou non), s'il existe, pourra servir de filtre. Pour Google Open Buildings, le champ `confidence` est lu et un seuil minimal de confiance est proposé en option |
 
+### 3 bis.2 Source des toits et usage de chaque toit (décisions du 29/09/2026, pour la phase 6)
+
+- **Source** : un fichier local (polygones ou points : shapefile, GeoPackage, CSV Google Open Buildings, GeoParquet…) ou une **base de données** (connexion enregistrée dans QGIS, avec un filtre optionnel). Aucun type de base n'est exclu : chaque base utilisée sera testée. Le scénario enregistre le nom de la connexion, jamais le mot de passe.
+- **Surface du toit** : un champ en m², ou calculée à partir du polygone dans le système de calcul.
+- **Usage** : un champ de catégories, avec un **coefficient par catégorie**. Par exemple : habitation = 1, mixte = 0,5, commerce = 0. La population calculée pour le toit est multipliée par ce coefficient.
+- **Règles automatiques**, qui complètent l'usage : surface minimale et maximale (10 et 450 m² par défaut) et seuil de confiance (Google Open Buildings).
+- **Le plugin lit l'usage tel qu'il est dans les données.** Sa modification se fait dans QGIS ou dans la base.
+- **Rapport** : nombre de toits lus, retenus et exclus, avec le motif d'exclusion.
+
+**Plugin** : chaque liste de couches reçoit un bouton « … » pour choisir un fichier ou une base sans passer par le projet. L'ajout au projet reste optionnel, et décoché par défaut.
+
 ## 3 ter. Calage bâti → population (phase 6)
 
 **Mode `legacy`.** Il reproduit exactement la méthode Excel décrite dans l'état des lieux (§11.2), avec pour chaque strate (rural, urbain…) les paramètres suivants :
