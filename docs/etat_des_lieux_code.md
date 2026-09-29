@@ -232,40 +232,53 @@ Décisions recueillies auprès de Michel le 29/09/2026. Les lignes marquées **o
 
 | # | Question | Décision |
 |---|---|---|
-| A1 | Faut-il transférer des habitants ou des densités ? | **Densités.** La maille reste l'unité de travail en densité, ce qui permet de gérer les fragments de surface différente. ⚠️ Voir la remarque R1 ci-dessous : il faut confirmer comment la surface intervient dans le transfert |
+| A1 | Faut-il transférer des habitants ou des densités ? | **On transfère de la population.** La densité reste la grandeur de travail : elle sert à comparer chaque maille à son plafond. Mais la quantité déplacée est une population, qui tient compte de la surface réelle de chaque maille, y compris des mailles incomplètes (voir R1) |
 | A2 | Faut-il garder la règle des « 3 plus proches voisins » ? | **Oui.** Elle a été retenue pour faire converger le modèle et reste pertinente. Le nombre de voisins deviendra un paramètre, avec 3 par défaut |
 | A3 | Que devient l'excédent quand il n'y a plus de capacité ? | Le calcul ne doit plus boucler indéfiniment. Il doit détecter la non-convergence, l'annoncer par un message explicite et proposer des options (détail au §8.4) : augmenter les densités max, de façon globale ou par zone ; déverser l'excédent dans des mailles « puits » en périphérie ; enregistrer la population non relocalisée. **Dans tous les cas**, un rapport d'exécution lisible et un raster par pas de temps indiquent si tout a pu être réparti |
-| A4 | Une maille déjà au-dessus de `dmax` en 2023 garde-t-elle sa densité comme plafond pour tous les horizons (`Pmax = max(densité 2023, dmax)`) ? | **Ouvert** |
+| A4 | Une maille déjà au-dessus de `dmax` à l'année de base garde-t-elle sa densité comme plafond ? | **Oui, par défaut** : le plafond d'une maille déjà en surcharge est sa densité de l'année de base (`Pmax = max(densité de base, dmax)`), comme aujourd'hui. Une option pour ramener progressivement ces mailles vers un seuil plus faible est notée pour plus tard, sans être développée pour l'instant |
 | A5 | Le taux de croissance est-il annuel ou par période ? | La croissance devient un **paramètre**, défini par des valeurs cibles à des années charnières (par exemple 2026, 2040, 2060), avec une **interpolation linéaire** par défaut entre elles. L'exposant de 1 entre 2023 et 2025 compensait un décalage de dates entre le recensement et la base de données du bâti : c'est un bug à corriger. L'année de la population de base doit donc devenir un paramètre explicite |
 | A6 | Un horizon repart-il de la population après ou avant la migration de l'horizon précédent ? | **Après** la migration de l'horizon précédent |
-| A7 | Zones sans migration : faut-il les retirer du calcul ou les garder figées ? | **Ouvert** |
-| A8 | Unité des densités : hab/km² ou hab/ha ? | **Ouvert.** Le code utilise hab/km², la fiche hab/ha |
+| A7 | Que devient la population qui habite dans une zone sans migration ? | **Ouvert, question reformulée ci-dessous** |
+| A8 | Quelle unité pour les densités : hab/km² ou hab/ha ? | **Les deux sont possibles** : l'unité est un paramètre secondaire. L'utilisateur saisit et lit les densités dans l'unité de son choix (hab/km² ou hab/ha). Le moteur convertit tout en interne dans une seule unité, et le rapport rappelle l'unité utilisée. La cohérence est ainsi garantie |
 | A9 | Comment se fait l'étape manuelle (identifiant, colonnes 2030 à 2060) ? | **Sans objet** : cette étape est entièrement automatisée dans le nouvel outil |
 
-### Remarques sur les décisions A1 et arrondis (signalées, non tranchées)
+### A7 reformulée : que faire de la population d'une zone sans migration ?
 
-**R1 – Le transfert de densité doit tenir compte des surfaces pour conserver la population.** Le code actuel retire un excès de X hab/km² à la source, puis ajoute X/3 hab/km² à chacune des 3 destinations, quelle que soit leur surface.
+Aujourd'hui, le modèle **découpe** les zones sans migration (ici la forêt) et les **retire** de la couche de mailles. Il en résulte que :
+- ces zones ne reçoivent jamais de population, ce qui est sans doute le but recherché ;
+- **mais les habitants qui y vivent déjà à l'année de base disparaissent aussi du calcul** : ils sont absents des totaux, ils ne croissent pas et ils ne migrent pas.
+
+À Muramvya, la forêt est probablement presque vide, et l'effet est faible. Sur une autre zone d'exclusion, par exemple une zone inondable déjà habitée, il peut être important. Il faut choisir le comportement par défaut :
+
+| Option | Comportement | Conséquence |
+|---|---|---|
+| a | **Retirer** la zone, comme aujourd'hui | Les habitants existants sortent des totaux |
+| b | **Figer** la zone | Elle ne reçoit personne, mais ses habitants restent comptés, sans croissance ni migration |
+| c | **Garder sans accueil** | Elle ne reçoit personne, mais ses habitants restent comptés et croissent. L'excédent issu de leur croissance est envoyé vers les mailles voisines |
+| d | **Évacuer** | Ses habitants sont redistribués vers les mailles autorisées dès le premier pas |
+
+### Remarques R1 et R2 (validées)
+
+**R1 – Le transfert doit conserver la population.** Le code actuel retire un excès de X hab/km² à la source, puis ajoute X/3 hab/km² à chacune des 3 destinations, quelle que soit leur surface.
 
 Exemple avec une maille source entière de 6,25 ha qui dépasse de 800 hab/km² : l'excédent est de 50 habitants.
 - Si les 3 destinations sont des mailles entières, elles reçoivent 16,7 habitants chacune. Total : 50, la population est conservée.
 - Si l'une d'elles est un fragment de 1 ha, elle ne reçoit que 2,7 habitants. Total : 36, donc **14 habitants disparaissent**.
 - Inversement, un fragment qui émet vers des mailles entières **crée** de la population.
 
-Variante proposée, qui garde le travail en densités :
-- population à déplacer = excès de densité × surface de la source ;
-- chaque destination reçoit sa part de population ;
-- cette part est reconvertie en densité : part ÷ surface de la destination.
+**Décision : le transfert porte sur la population.** Pour chaque source :
+- population à déplacer = excès de densité × surface utile de la source ;
+- cette population est partagée entre les destinations ;
+- chaque part est reconvertie en densité pour la destination : part ÷ surface utile de la destination.
 
-La population est alors conservée exactement. Mais sur les fragments, le résultat diffère de l'outil actuel. **À valider** : doit-on reproduire l'existant (avec un mode « compatibilité ») ou adopter cette variante comme comportement par défaut ?
+La population totale est conservée exactement. L'ancien comportement reste disponible dans un mode « compatibilité », qui sert **uniquement** à la comparaison avec l'outil actuel.
 
-**R2 – L'arrondi actuel porte sur les densités, pas sur les populations.** Le code arrondit des densités en hab/km² à l'entier. Pour une maille de 250 m, 1 hab/km² correspond à 0,0625 habitant : les populations qui en résultent ne sont donc pas entières.
+**R2 – On arrondit les populations, jamais les densités.** Le code actuel arrondit des densités en hab/km² à l'entier. Pour une maille de 250 m, 1 hab/km² correspond à 0,0625 habitant : les populations qui en résultent ne sont donc pas entières.
 
-Proposition :
-- calculer en réels (float32) ;
-- arrondir la **population** de chaque maille à l'entier au moment des sorties, avec une méthode qui conserve le total (répartition des restes) ;
-- produire les rasters de densité à partir de ces populations entières.
-
-**À valider.**
+**Décision :**
+- le calcul se fait en réels (float32) ;
+- la **population** de chaque maille est arrondie à l'entier dans les sorties, avec une méthode qui conserve le total (répartition des restes) ;
+- les densités publiées sont calculées à partir de ces populations entières.
 
 ---
 
@@ -277,9 +290,9 @@ Proposition :
 | **Q2** | Comment fonctionne la migration ? | **Réglé** pour la description (§4.2) : 3 plus proches voisins en déficit, partage égal, itérations jusqu'à ce qu'il n'y ait plus d'excès. Référent : Keyvan. Les évolutions sont celles de A2, A3 et R1 |
 | **Q3** | Les paramètres sont-ils fournis sur une grille ou sur des zones ? | **Réglé.** Les paramètres (densités max, croissance…) sont donnés dans des **couches vectorielles d'entrée** (shapefile ou GeoPackage). Par défaut, une valeur uniforme dans le temps et dans l'espace ; en option, des valeurs qui varient par zone et par année charnière. La **typologie** est libre : ses classes et leurs noms sont définis par l'utilisateur (urbain / périurbain / rural, haut / bas standing, capitale / ville secondaire / ville satellite…) |
 | **Q4** | Quelles années charnières et quels horizons de sortie ? | **Réglé.** Tout devient paramétrable : année de départ, année finale (par exemple 2026 → 2060), **pas de temps libre** (10 ans, 5 ans, 1 an, ou moins d'un an), années de sortie au choix. Le calcul enchaîne automatiquement tous les pas jusqu'à l'horizon final |
-| **Q5** | Faut-il recaler sur les projections démographiques officielles (totaux nationaux ou provinciaux par année) ? Si oui, lesquelles ? | **Ouvert.** Le code ne fait aucun recalage. Le raster 2023 est déjà calé sur les totaux communaux de l'Excel `Pop admin2024` |
+| **Q5** | Faut-il recaler sur les projections démographiques officielles (totaux nationaux ou provinciaux par année) ? Si oui, lesquelles ? | **Réglé : c'est une option.** On ne dispose pas toujours de projections démographiques. Quand elles existent, l'outil peut recaler la population simulée sur ces totaux (national, provincial ou par zone, pour chaque année). Le rapport indique alors les écarts corrigés. Sans projection, la croissance vient uniquement des taux saisis. Aujourd'hui, le code ne fait aucun recalage : le raster 2023 est seulement calé sur les totaux communaux de l'Excel `Pop admin2024` |
 | **Q6** | Quelle résolution cible, sur quelle emprise ? | **Réglé en partie.** La taille de maille devient un **paramètre**. On l'agrandit pour les grandes emprises, afin de limiter la mémoire. On descend rarement sous 250 m, car une maille doit contenir plusieurs bâtiments. L'emprise cible de BUR71 reste à préciser pour dimensionner le traitement par blocs |
-| **Q7** | Quelle est la politique interne sur l'envoi de données vers des API d'IA externes (pour l'assistant de calage de niveau B) ? | **Ouvert.** Le code ne permet pas d'y répondre |
+| **Q7** | Quelle est la politique interne sur l'envoi de données vers des API d'IA externes (pour l'assistant de calage de niveau B) ? | **Reste ouvert.** L'assistant IA n'interviendrait qu'à des étapes précises et limitées. En attendant une règle interne, le principe de la fiche s'applique : seules des statistiques agrégées sont envoyées, et uniquement après accord de l'utilisateur |
 | **Q8** | Quelle définition de l'urbain retenir (seuil de densité, taille minimale de tache, référence nationale) ? | **Ouvert**, à réfléchir. Aujourd'hui l'urbain n'est qu'une typologie d'entrée, qui ne sert qu'à choisir `dmax` |
 
 ---
@@ -298,6 +311,8 @@ Proposition :
 - Une couche vectorielle de zones porte un champ de classe dont les valeurs sont libres. Les densités max, les taux de croissance et les exclusions sont définis par classe ou par zone.
 - Chaque paramètre peut prendre une valeur unique (uniforme dans le temps et dans l'espace, c'est le défaut), une valeur par zone, ou une valeur par zone **et** par année charnière.
 - Entre les années charnières, l'interpolation est linéaire par défaut.
+- **Unité des densités** : c'est un paramètre secondaire (hab/km² ou hab/ha). Les densités sont converties à la lecture vers une unité interne unique, puis reconverties à l'écriture. L'unité figure dans le scénario, dans les noms ou métadonnées des sorties et dans le rapport (A8).
+- **Mailles déjà en surcharge** à l'année de base : leur plafond est leur densité de base (A4). L'option « ramener vers un seuil plus faible » est notée pour plus tard, sans être développée.
 - Fichier de scénario (JSON) qui enregistre tous les paramètres d'un run.
 
 ### 8.3 Déroulé temporel
@@ -305,6 +320,7 @@ Proposition :
 - Paramètres : année de la population de base (2023 pour BUR71), année de départ, année finale, pas de temps (y compris fractionnaire), années de sortie.
 - À chaque pas de temps : croissance avec le taux interpolé et un exposant égal à la durée réelle du pas, puis migration. Le pas suivant repart de la population **après migration**.
 - La croissance entre l'année de base et l'année de départ est calculée explicitement : c'est la correction du bug A5.
+- **Recalage optionnel** sur des projections démographiques (Q5). Quand l'utilisateur fournit une table de totaux par année et par zone (pays, province, commune…), la population simulée est remise à l'échelle de ces totaux après la croissance, avant la migration. Les écarts corrigés sont reportés dans le rapport.
 
 ### 8.4 Non-convergence
 
@@ -328,7 +344,7 @@ Proposition :
 - **Réorganiser le dépôt** selon `CLAUDE.md` : le code dans `legacy/`, les données dans `data/test/muramvya/`. Le contenu des fichiers n'est pas modifié.
 - **Produire les sorties de référence de l'outil actuel sur Muramvya** (modèle, puis migration pour 2025). Je propose d'essayer de lancer QGIS ici, sans interface, pour exécuter le code d'origine. Si ce n'est pas possible, vous l'exécutez de votre côté et versionnez le résultat dans `reference_outputs/`.
 - **Rédiger `docs/spec_moteur.md`** : spécification de la migration et des exigences du §8. Elle inclut des cas de test calculés à la main (grilles de 5 × 5 mailles, fragments, non-convergence).
-- **Décisions à obtenir** : A4, A7, A8, R1, R2, Q5, Q8.
+- **Décisions à obtenir** : A7 (population des zones sans migration) et Q8 (définition de l'urbain, nécessaire seulement pour la phase 6 bis).
 
 ### Phase 1 – Socle du moteur (`src/engine/`, sans import de `qgis`)
 
@@ -342,7 +358,7 @@ Proposition :
 ### Phase 2 – Migration et non-convergence
 
 - Migration vectorisée en numpy/scipy (`cKDTree`), avec k voisins (3 par défaut).
-- Deux modes : « compatibilité » (reproduit l'existant, arrondis compris) et « conservatif » (variante R1 et arrondi final R2, si vous les validez).
+- Mode **par défaut** : transfert de population (R1), calcul en réels et arrondi des populations dans les sorties seulement (R2). Mode **« compatibilité »**, qui reproduit l'existant arrondis compris : il sert uniquement à la non-régression.
 - Contrôle préalable de capacité, garde-fous, les 4 politiques de non-convergence, rapport d'exécution et raster de population non relocalisée.
 - Tests : cas de la spécification, puis Muramvya comparé à `reference_outputs/`.
 
@@ -351,6 +367,7 @@ Proposition :
 - Année de base, année de départ, année finale, pas de temps libre, années de sortie.
 - Enchaînement automatique des pas après migration.
 - Lecture des couches de paramètres (shapefile ou GeoPackage), valeurs par défaut uniformes, interpolation linéaire, contrôles de cohérence.
+- Unité des densités au choix (A8), recalage optionnel sur des projections (Q5).
 - Fichier de scénario JSON. Rapport d'exécution consolidé sur tout le run.
 
 ### Phase 4 – Performance et grandes emprises
