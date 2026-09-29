@@ -11,16 +11,16 @@
 
 ## 1. Inventaire des fichiers fournis
 
-Tous les fichiers sont dans `Donne_COMMUNE_MURAMVYA_BUR71/`.
+Les fichiers ont été rangés le 29/09/2026, sans modification de contenu : le code est dans `legacy/`, les données dans `data/test/muramvya/`. La correspondance avec les noms d'origine figure dans les `README.md` de ces deux dossiers.
 
 | Fichier | Nature | Contenu |
 |---|---|---|
-| `Code/Modeleur de migration_Q 2.model3` | Modèle graphique QGIS (Model Builder), nom interne `ModèleMigration_V2`, groupe `CAM12` | **Préparation** : raster de densité → grille vectorielle de 250 m, densité et capacité (`Pmax`) par maille, exclusions, croissance 2023 → 2025 |
-| `Code/CAM12_migration.py` | Algorithme Processing en Python (modèle exporté puis retouché à la main). En-tête : `Name: Migration`, `Group: NGA03`, QGIS 3.16. Classe `Zefze`, algorithme `OUG05_migration` | **Migration** itérative de l'excédent au-delà de `Pmax` |
-| `Raster/POP2023 MURAMVYA.tif` | GeoTIFF float32, 109 × 98 pixels de **250 m**, EPSG:32735 (UTM 35S), nodata −3,4·10³⁸ | Densité de population 2023 en **hab/km²** (3 109 pixels valides, max 16 597) |
-| `SHAPEFILE DU COMMUNE/COMMUNE MURAMVYA.*` | 2 polygones | `Type` = `Rural` (236 km²) et `Urbain1` (20 km²) : typologie qui détermine la densité max |
-| `SHAPEFILE DU COMMUNE/ZONE SANS MIGRATION.*` | 1 polygone OSM (`fclass` = `Forest`) | Zone d'exclusion |
-| `BUR71_Pop admin2024 1.xlsx` | 1 feuille, 19 communes | Population totale par commune (Muramvya : 171 010). Total `=SUM(B2:B20)` comparé à une valeur saisie (5 751 850), avec leur ratio en E21 |
+| `legacy/Modeleur de migration_Q 2.model3` | Modèle graphique QGIS (Model Builder), nom interne `ModèleMigration_V2`, groupe `CAM12` | **Préparation** : raster de densité → grille vectorielle de 250 m, densité et capacité (`Pmax`) par maille, exclusions, croissance 2023 → 2025 |
+| `legacy/CAM12_migration.py` | Algorithme Processing en Python (modèle exporté puis retouché à la main). En-tête : `Name: Migration`, `Group: NGA03`, QGIS 3.16. Classe `Zefze`, algorithme `OUG05_migration` | **Migration** itérative de l'excédent au-delà de `Pmax` |
+| `data/test/muramvya/pop2023_muramvya.tif` | GeoTIFF float32, 109 × 98 pixels de **250 m**, EPSG:32735 (UTM 35S), nodata −3,4·10³⁸ | Densité de population 2023 en **hab/km²** (3 109 pixels valides, max 16 597) |
+| `data/test/muramvya/commune_muramvya.*` | 2 polygones | `Type` = `Rural` (236 km²) et `Urbain1` (20 km²) : typologie qui détermine la densité max |
+| `data/test/muramvya/zone_sans_migration.*` | 1 polygone OSM (`fclass` = `Forest`) | Zone d'exclusion |
+| `data/test/muramvya/pop_admin2024.xlsx` | 1 feuille, 19 communes | Population totale par commune (Muramvya : 171 010). Total `=SUM(B2:B20)` comparé à une valeur saisie (5 751 850), avec leur ratio en E21 |
 
 **Vérification des unités.** La somme des pixels multipliée par la surface d'un pixel (0,0625 km²) donne **171 280 habitants**, contre 171 010 dans l'Excel (écart de 0,16 %). Cela confirme que le raster est en hab/km² et qu'il est déjà calé sur le total communal.
 
@@ -238,11 +238,11 @@ Décisions recueillies auprès de Michel le 29/09/2026. Les lignes marquées **o
 | A4 | Une maille déjà au-dessus de `dmax` à l'année de base garde-t-elle sa densité comme plafond ? | **Oui, par défaut** : le plafond d'une maille déjà en surcharge est sa densité de l'année de base (`Pmax = max(densité de base, dmax)`), comme aujourd'hui. Une option pour ramener progressivement ces mailles vers un seuil plus faible est notée pour plus tard, sans être développée pour l'instant |
 | A5 | Le taux de croissance est-il annuel ou par période ? | La croissance devient un **paramètre**, défini par des valeurs cibles à des années charnières (par exemple 2026, 2040, 2060), avec une **interpolation linéaire** par défaut entre elles. L'exposant de 1 entre 2023 et 2025 compensait un décalage de dates entre le recensement et la base de données du bâti : c'est un bug à corriger. L'année de la population de base doit donc devenir un paramètre explicite |
 | A6 | Un horizon repart-il de la population après ou avant la migration de l'horizon précédent ? | **Après** la migration de l'horizon précédent |
-| A7 | Que devient la population qui habite dans une zone sans migration ? | **Ouvert, question reformulée ci-dessous** |
+| A7 | Que devient la population qui habite dans une zone sans migration ? | **Option c : ne plus accueillir personne** (plafond d'export à préciser, A7-bis au §8.2). La zone ne reçoit aucune population venue d'ailleurs. Ses habitants restent comptés et croissent, et l'excédent issu de leur croissance migre vers les mailles autorisées. On ne supprime jamais d'habitants déjà présents |
 | A8 | Quelle unité pour les densités : hab/km² ou hab/ha ? | **Les deux sont possibles** : l'unité est un paramètre secondaire. L'utilisateur saisit et lit les densités dans l'unité de son choix (hab/km² ou hab/ha). Le moteur convertit tout en interne dans une seule unité, et le rapport rappelle l'unité utilisée. La cohérence est ainsi garantie |
 | A9 | Comment se fait l'étape manuelle (identifiant, colonnes 2030 à 2060) ? | **Sans objet** : cette étape est entièrement automatisée dans le nouvel outil |
 
-### A7 reformulée : que faire de la population d'une zone sans migration ?
+### A7 : que faire de la population d'une zone sans migration ? (décision : option c)
 
 Aujourd'hui, le modèle **découpe** les zones sans migration (ici la forêt) et les **retire** de la couche de mailles. Il en résulte que :
 - ces zones ne reçoivent jamais de population, ce qui est sans doute le but recherché ;
@@ -312,6 +312,9 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 - Chaque paramètre peut prendre une valeur unique (uniforme dans le temps et dans l'espace, c'est le défaut), une valeur par zone, ou une valeur par zone **et** par année charnière.
 - Entre les années charnières, l'interpolation est linéaire par défaut.
 - **Unité des densités** : c'est un paramètre secondaire (hab/km² ou hab/ha). Les densités sont converties à la lecture vers une unité interne unique, puis reconverties à l'écriture. L'unité figure dans le scénario, dans les noms ou métadonnées des sorties et dans le rapport (A8).
+- **Zones sans migration** (A7, option c) : elles ne sont jamais destinataires d'une migration. Leurs habitants restent comptés et croissent. Le plafond au-delà duquel leur excédent part ailleurs reste à préciser (sous-question A7-bis ci-dessous) :
+  - **c1** : le plafond est la population de l'année de base. Toute la croissance est exportée, et la population de la zone reste constante ;
+  - **c2** : le plafond est calculé comme pour les autres mailles (`max(densité de base, dmax de la classe)`). La zone croît jusqu'à ce plafond, puis exporte l'excédent.
 - **Mailles déjà en surcharge** à l'année de base : leur plafond est leur densité de base (A4). L'option « ramener vers un seuil plus faible » est notée pour plus tard, sans être développée.
 - Fichier de scénario (JSON) qui enregistre tous les paramètres d'un run.
 
@@ -341,10 +344,10 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 
 ### Phase 0 – Référence et spécification
 
-- **Réorganiser le dépôt** selon `CLAUDE.md` : le code dans `legacy/`, les données dans `data/test/muramvya/`. Le contenu des fichiers n'est pas modifié.
+- ~~Réorganiser le dépôt~~ : **fait** le 29/09/2026.
 - **Produire les sorties de référence de l'outil actuel sur Muramvya** (modèle, puis migration pour 2025). Je propose d'essayer de lancer QGIS ici, sans interface, pour exécuter le code d'origine. Si ce n'est pas possible, vous l'exécutez de votre côté et versionnez le résultat dans `reference_outputs/`.
 - **Rédiger `docs/spec_moteur.md`** : spécification de la migration et des exigences du §8. Elle inclut des cas de test calculés à la main (grilles de 5 × 5 mailles, fragments, non-convergence).
-- **Décisions à obtenir** : A7 (population des zones sans migration) et Q8 (définition de l'urbain, nécessaire seulement pour la phase 6 bis).
+- **Décisions encore à obtenir** : A7-bis (plafond des zones sans migration, c1 ou c2) ; Q8 (définition de l'urbain), nécessaire seulement pour la phase 6 bis.
 
 ### Phase 1 – Socle du moteur (`src/engine/`, sans import de `qgis`)
 
