@@ -19,13 +19,12 @@ from ..results import load_rasters
 from ..task import RunTask
 from .cleanup_dialog import CleanupDialog, run_title
 from .nonconvergence_dialog import NonConvergenceDialog
+from .style import state_icon, stylesheet, tokens
 from .pages import (
     CalibrationPage, DataPage, IndicatorsPage, ParametersPage, ReportPage, ResultsPage, RunPage, ScenarioPage,
 )
 
 ICONS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
-PAGE_ICONS = {"scenario": "scenario", "data": "data", "parameters": "parameters", "indicators": "results",
-              "calibration": "calibration", "run": "run", "results": "results", "report": "report"}
 HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario",
               "parameters": "parametres_et_scenario", "indicators": "resultats_et_indicateurs",
               "calibration": "prise_en_main", "run": "non_convergence", "results": "resultats_et_indicateurs",
@@ -58,26 +57,46 @@ class MainDialog(QDialog):
         self.setWindowTitle(tr("main.title"))
         self.resize(980, 720)
 
+        self.colours = tokens(self)
+        self.setStyleSheet(stylesheet(self.colours))
+        self.last_check = None
         layout = QVBoxLayout(self)
-        header = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        header_frame = QFrame()
+        header_frame.setObjectName("header")
+        header = QHBoxLayout(header_frame)
+        header.setContentsMargins(14, 10, 14, 10)
+        logo = QLabel()
+        logo.setPixmap(QIcon(os.path.join(ICONS, "poplar.svg")).pixmap(28, 28))
+        header.addWidget(logo)
+        titles = QVBoxLayout()
+        titles.setSpacing(0)
         self.title = QLabel()
-        self.title.setStyleSheet("font-weight: 600; font-size: 14px")
-        header.addWidget(self.title, 1)
+        self.title.setObjectName("title")
+        self.subtitle = QLabel()
+        self.subtitle.setObjectName("subtitle")
+        titles.addWidget(self.title)
+        titles.addWidget(self.subtitle)
+        header.addLayout(titles, 1)
         help_button = QToolButton()
+        help_button.setObjectName("help")
         help_button.setText("?")
         help_button.setToolTip(tip("main.help"))
         help_button.clicked.connect(lambda: self.help_opener(HELP_PAGES.get(self.current_key(), "prise_en_main")))
         header.addWidget(help_button)
-        layout.addLayout(header)
+        layout.addWidget(header_frame)
 
         body = QHBoxLayout()
+        body.setSpacing(0)
         self.tabs = QListWidget()
+        self.tabs.setObjectName("tabs")
         self.tabs.setFixedWidth(180)
         self.stack = QStackedWidget()
         self.pages = [ScenarioPage(self), DataPage(self), ParametersPage(self), IndicatorsPage(self),
                       CalibrationPage(self), RunPage(self), ResultsPage(self), ReportPage(self)]
         for page in self.pages:
-            item = QListWidgetItem(QIcon(os.path.join(ICONS, f"{PAGE_ICONS[page.key]}.svg")), tr(f"tab.{page.key}"))
+            item = QListWidgetItem(state_icon("empty", self.colours), tr(f"tab.{page.key}"))
             item.setToolTip(tip(f"tab.{page.key}"))
             if page.key == "calibration":
                 item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
@@ -89,10 +108,14 @@ class MainDialog(QDialog):
             self.stack.addWidget(scroll)
         self.tabs.currentRowChanged.connect(self._show_row)
         body.addWidget(self.tabs)
+        self.stack.setContentsMargins(8, 4, 8, 4)
         body.addWidget(self.stack, 1)
         layout.addLayout(body, 1)
 
-        footer = QHBoxLayout()
+        footer_frame = QFrame()
+        footer_frame.setObjectName("footer")
+        footer = QHBoxLayout(footer_frame)
+        footer.setContentsMargins(12, 8, 12, 8)
         for key, slot in (("main.open", self.open_scenario), ("main.save", self.save_scenario)):
             button = QPushButton(tr(key))
             button.setToolTip(tip(key))
@@ -102,11 +125,12 @@ class MainDialog(QDialog):
         close = QPushButton(tr("common.close"))
         close.clicked.connect(self.close)
         run = QPushButton(tr("main.run"))
+        run.setObjectName("primary")
         run.setDefault(True)
         run.clicked.connect(lambda: (self.show_page("run"), self.run()))
         footer.addWidget(close)
         footer.addWidget(run)
-        layout.addLayout(footer)
+        layout.addWidget(footer_frame)
 
         for page in self.pages:
             page.load(self.data)
@@ -132,8 +156,36 @@ class MainDialog(QDialog):
         self.pages[row].refresh()
 
     def _update_title(self):
-        name = self.data.get("name") or tr("main.untitled")
-        self.title.setText(tr("main.heading", name=name))
+        data = self.data
+        self.title.setText(data.get("name") or tr("main.untitled"))
+        time = data.get("time") or {}
+        if time.get("base_year") and time.get("end_year"):
+            self.subtitle.setText(tr("main.period", start=f"{float(time['base_year']):g}",
+                                     end=f"{float(time['end_year']):g}"))
+        self._update_states(data)
+
+    def _update_states(self, data):
+        """Dot of each tab: complete, to check, or empty."""
+        parameters = self.page("parameters").tables
+        output = self.absolute((data.get("output") or {}).get("directory", ""))
+        has_runs = bool(output) and bool(runs.list_runs(output) or os.path.exists(os.path.join(output, "report.txt")))
+        states = {
+            "scenario": "ok" if data.get("name") and output else "warn",
+            "data": "ok" if data.get("study_area") and data.get("typology") and
+                    (data.get("base_population") or {}).get("raster") else "warn",
+            "parameters": "ok" if all(w.store() for w in parameters.values()) and
+                          not any(w.unused_keys() for w in parameters.values()) else "warn",
+            "indicators": "ok" if data.get("indicators") else "empty",
+            "calibration": "empty",
+            "run": {None: "empty", True: "ok", False: "warn"}[self.last_check],
+            "results": "ok" if has_runs else "empty",
+            "report": "ok" if has_runs else "empty",
+        }
+        for row, page in enumerate(self.pages):
+            item = self.tabs.item(row)
+            if item.data(Qt.ItemDataRole.UserRole) != states[page.key]:
+                item.setData(Qt.ItemDataRole.UserRole, states[page.key])
+                item.setIcon(state_icon(states[page.key], self.colours))
 
     # --- scenario file ------------------------------------------------------------
 
@@ -203,6 +255,8 @@ class MainDialog(QDialog):
             scenario = self.scenario()
         except ScenarioError as error:
             page.show_checks([(False, m.render(language)) for m in error.messages])
+            self.last_check = False
+            self._update_states(self.data)
             return False
         items = [(True, tr("check.scenario_ok"))]
         for name in self.page("data").exclusions_without_buffer():
@@ -210,7 +264,9 @@ class MainDialog(QDialog):
         if not scenario.output_directory:
             items.append((False, tr("check.no_output")))
         page.show_checks(items)
-        return all(ok for ok, _ in items)
+        self.last_check = all(ok for ok, _ in items)
+        self._update_states(self.data)
+        return self.last_check
 
     def run(self):
         if self.task is not None or not self.check():

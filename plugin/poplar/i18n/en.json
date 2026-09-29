@@ -55,7 +55,6 @@
  "tab.report.tip.title": "Report",
  "tab.report.tip": "Run report of the last run.",
  "main.title": "Population – scenario",
- "main.heading": "Population — {name}",
  "main.untitled": "new scenario",
  "main.help": "?",
  "main.help.tip.title": "?",
@@ -363,5 +362,6 @@
  "parameters.absent": "Not in the layer: this value is not used.",
  "parameters.status_absent": "Not in the layer: {keys}",
  "parameters.status_zones": "{count} zones read from the layer",
- "parameters.status_uniform": "Same value everywhere"
+ "parameters.status_uniform": "Same value everywhere",
+ "main.period": "Poplar · {start} → {end}"
 }

@@ -27,7 +27,9 @@ def run_title(run) -> str:
 
 
 def format_size(size_bytes: int) -> str:
-    return tr("cleanup.size", size=f"{size_bytes / 1e6:,.0f}".replace(",", " "))
+    megabytes = size_bytes / 1e6
+    text = f"{megabytes:,.0f}".replace(",", " ") if megabytes >= 10 else f"{megabytes:.1f}".replace(".", ",")
+    return tr("cleanup.size", size=text)
 
 
 class CleanupDialog(QDialog):
@@ -39,7 +41,7 @@ class CleanupDialog(QDialog):
         self.deleted = []
         self.failed = []
         self.setWindowTitle(tr("cleanup.title"))
-        self.resize(760, 420)
+        self.resize(920, 420)
 
         layout = QVBoxLayout(self)
         intro = QLabel(tr(intro_key, folder=root))
@@ -50,7 +52,7 @@ class CleanupDialog(QDialog):
         self.table.setHorizontalHeaderLabels([tr(f"cleanup.column.{c}") for c in COLUMNS])
         self.table.verticalHeader().setVisible(False)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        self.table.horizontalHeader().setStretchLastSection(True)
         proposed = runs.default_deletion(self.runs)
         for row, run in enumerate(self.runs):
             texts = [run_title(run), run.name, tr(f"cleanup.status.{run.status}"),

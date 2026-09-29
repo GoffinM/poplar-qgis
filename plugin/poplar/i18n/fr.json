@@ -55,7 +55,6 @@
  "tab.report.tip.title": "Rapport",
  "tab.report.tip": "Rapport d'exécution du dernier calcul.",
  "main.title": "Population – scénario",
- "main.heading": "Population — {name}",
  "main.untitled": "nouveau scénario",
  "main.help": "?",
  "main.help.tip.title": "?",
@@ -363,5 +362,6 @@
  "parameters.absent": "Absente de la couche : cette valeur n'est pas utilisée.",
  "parameters.status_absent": "Absent de la couche : {keys}",
  "parameters.status_zones": "{count} zones lues dans la couche",
- "parameters.status_uniform": "Même valeur partout"
+ "parameters.status_uniform": "Même valeur partout",
+ "main.period": "Poplar · {start} → {end}"
 }

@@ -87,10 +87,13 @@ class ParameterTableWidget(QGroupBox):
             button.clicked.connect(slot)
             buttons.addWidget(button)
         buttons.addStretch(1)
+        layout.addLayout(buttons)
+        row = QHBoxLayout()
         self.status = QLabel()
         self.status.setObjectName("chip")
-        buttons.addWidget(self.status)
-        layout.addLayout(buttons)
+        row.addWidget(self.status)
+        row.addStretch(1)
+        layout.addLayout(row)
 
         self.cross.toggled.connect(self._cross_toggled)
         for combo in (self.layer, self.layer2):
@@ -238,8 +241,13 @@ class ParameterTableWidget(QGroupBox):
                 if key in unused:
                     item.setForeground(QBrush(MISSING))
                     item.setToolTip(tr("parameters.absent"))
+        self.status.setProperty("state", "warn" if unused else "ok")
+        self.status.style().unpolish(self.status)
+        self.status.style().polish(self.status)
         if unused:
-            self.status.setText(tr("parameters.status_absent", keys=", ".join(sorted(unused))))
+            keys = sorted(unused)
+            self.status.setText(tr("parameters.status_absent",
+                                   keys=", ".join(keys[:4]) + (f" (+{len(keys) - 4})" if len(keys) > 4 else "")))
         elif self.layer.currentLayer():
             self.status.setText(tr("parameters.status_zones", count=self.table.rowCount() - 1))
         else:

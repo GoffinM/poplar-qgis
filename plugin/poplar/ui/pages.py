@@ -191,6 +191,8 @@ class DataPage(Page):
         header = self.exclusions.horizontalHeader()
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
+        self.exclusions.setColumnWidth(1, 190)
         self.exclusions.setMinimumHeight(110)
         inner.addWidget(self.exclusions)
         buttons = QHBoxLayout()
