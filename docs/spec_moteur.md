@@ -29,7 +29,7 @@
 | Zones d'exclusion | Une ou plusieurs couches vectorielles (polygones, lignes ou points) | non | Forêts, lacs, rivières, routes, forages, domaines militaires, périmètres de sécurité… Chaque couche, ou chaque catégorie, a un comportement (§2.4). Les lignes et les points sont transformés en polygones avec une largeur de tampon obligatoire (`buffer_m`, en mètres du système de calcul) ; pour des polygones, le tampon est facultatif et les élargit |
 | Toits (bâti) | Vecteur (polygones, ou points avec un champ de surface) lu directement depuis sa source : Google Open Buildings en priorité, puis PostGIS, GeoPackage, shapefile, WFS, GeoParquet | oui pour le calage | Empreintes des bâtiments (§3 bis) |
 | Recensement | Table ou champ d'une couche de limites administratives, **avec son année** | oui pour le calage | Population par unité administrative. Elle sert au calage (§3 ter) et fixe `base_year` |
-| Projections démographiques | Table : unité, année, total | non | Totaux cibles pour une ou plusieurs années, qui servent au recalage (§5.2) |
+| Projections démographiques | Table CSV, xlsx, xls ou ods : une ligne par unité et par année, ou une colonne par année (lecture par GDAL, `engine.tables`) | non | Totaux cibles pour une ou plusieurs années, qui servent au recalage (§5.2) |
 | Population de base déjà calculée | Raster GDAL | non | Alternative au calage : densité de population à l'année de base, comme le raster `POP2023` actuel |
 | Zones de typologie | Vecteur (polygones) | oui | Un champ de classe à valeurs libres (par exemple `Rural`, `Urbain1`, ou `haut standing`, `ville satellite`…) |
 | Strates de calage | Vecteur (polygones) | non | Nombre et regroupement des régressions (§3 ter.1). Par défaut, les limites administratives croisées avec la typologie |
@@ -76,6 +76,21 @@ Chaque paramètre peut être donné sous l'une de ces formes, de la plus simple 
 - Avec **deux ou plus**, la valeur est interpolée linéairement entre elles.
 - Avant la première et après la dernière année charnière, la valeur est constante par défaut, ou prolongée linéairement si `extrapolation = linear`.
 - Une extrapolation linéaire peut donner un taux ou une densité aberrants (négatifs par exemple). Le moteur borne alors les valeurs (`dmax > 0`, `growth_rate > −100 %`) et signale le cas dans le rapport.
+
+### 2.3 bis Paramètres liés à leurs propres couches (décision du 29/09/2026)
+
+Chaque paramètre peut être lié à **sa propre couche** de polygones et à un champ, indépendamment de la typologie et de l'autre paramètre, ou au **croisement de deux couches** :
+
+```json
+"growth_rate": {"zones": [{"source": "provinces.shp", "field": "PROVINCE"}, {"source": "typo.shp", "field": "Type"}],
+                "values": {"A|Urbain1": 4.0, "A|*": 2.0, "*|Rural": 1.5, "*": 2.2}}
+```
+
+- Les couches sont découpées avec les mailles comme les autres couches (unités de calcul, §3) ; une couche citée par deux paramètres n'est lue qu'une fois.
+- Une seule couche : clé = valeur du champ, puis `*`.
+- Deux couches : clé `a|b`, puis `a|*`, puis `*|b`, puis `*`.
+- Une clé qui ne correspond à aucune zone présente dans la zone d'étude est signalée (`parameter_key_unused`) et ignorée.
+- Sans `zones` (ancien format), les clés sont les classes de la typologie, avec priorité à `parameter_zones` : format toujours accepté ; le plugin le convertit en croisement `parameter_zones × typologie`.
 
 ### 2.4 Comportement des zones d'exclusion (validé)
 

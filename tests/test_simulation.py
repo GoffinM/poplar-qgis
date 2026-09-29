@@ -87,6 +87,34 @@ def test_start_on_a_projection_year_with_recalibration(tmp_path):
     assert totals[("2030", "A")] == 1000 and totals[("2030", "B")] == 700
 
 
+def test_projections_from_a_wide_spreadsheet(tmp_path):
+    from engine.tables import write_table
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    write_table(str(tmp_path / "projections.xlsx"), ["Unité", "2026", "2030"], [["A", 800.0, 1000.0], ["B", 600.0, 700.0]])
+    result, scenario = _run(
+        tmp_path,
+        admin=[(box(0, 0, 5, 10), "A"), (box(5, 0, 10, 10), "B")],
+        projections={"file": "projections.xlsx", "recalibrate": True},
+        time={"start_mode": "projection", "start_year": 2026},
+    )
+    assert scenario.to_dict()["projections"]["file"] == "projections.xlsx"
+    with open(os.path.join(result.directory, "summary.csv"), encoding="utf-8-sig") as handle:
+        rows = list(csv.reader(handle, delimiter=";"))[1:]
+    totals = {(r[0], r[1]): int(r[2]) for r in rows}
+    assert totals[("2028", "A")] == 900 and totals[("2030", "B")] == 700
+
+
+def test_unreadable_projections_are_explained(tmp_path):
+    from engine.scenario import ScenarioError
+
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    (tmp_path / "projections.csv").write_text("x;y\n1;2\n", encoding="utf-8")
+    with pytest.raises(ScenarioError) as error:
+        _run(tmp_path, admin=[(box(0, 0, 10, 10), "A")], projections={"file": "projections.csv"})
+    assert [m.code for m in error.value.messages] == ["projections_unreadable"]
+
+
 def test_non_convergence_stops_the_run_and_is_reported(tmp_path):
     result, _ = _run(tmp_path, parameters={"growth_rate": 2.0, "dmax": 500})
     assert result.status == "failed"

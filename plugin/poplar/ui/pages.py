@@ -70,6 +70,8 @@ class ScenarioPage(Page):
         box, form = _box("scenario.box")
         self.name = QLineEdit()
         add_row(form, "scenario.name", self.name)
+        self.description = QLineEdit()
+        add_row(form, "scenario.description", self.description)
         self.language = choice_combo([(code, tr(f"language.{code}")) for code in available_languages()])
         add_row(form, "scenario.language", self.language)
         self.output = QgsFileWidget()
@@ -100,6 +102,7 @@ class ScenarioPage(Page):
 
     def load(self, data):
         self.name.setText(data.get("name", ""))
+        self.description.setText(data.get("description", ""))
         set_combo_value(self.language, data.get("language", "fr"))
         self.output.setFilePath(self.dialog.absolute(data.get("output", {}).get("directory", "")))
         self.cell.setValue(float(data.get("cell_size", 250)))
@@ -115,6 +118,7 @@ class ScenarioPage(Page):
 
     def store(self, data):
         data["name"] = self.name.text().strip()
+        data["description"] = self.description.text().strip()
         data["language"] = self.language.currentData()
         output = data.setdefault("output", {})
         output["directory"] = self.output.filePath()
@@ -208,8 +212,28 @@ class DataPage(Page):
 
         box, form = _box("data.projections")
         self.projections = QgsFileWidget()
-        self.projections.setFilter("CSV (*.csv)")
+        self.projections.setFilter(tr("parameters.table_filter"))
         add_row(form, "data.projections.file", self.projections)
+        self.sheet = QComboBox()
+        add_row(form, "data.projections.sheet", self.sheet)
+        columns = QWidget()
+        row = QHBoxLayout(columns)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.projection_columns = {}
+        for key in ("unit", "year", "value"):
+            combo = QComboBox()
+            combo.setToolTip(tip(f"data.projections.{key}_column"))
+            self.projection_columns[key] = combo
+            row.addWidget(QLabel(tr(f"data.projections.{key}_column")))
+            row.addWidget(combo, 1)
+        add_row(form, "data.projections.columns", columns)
+        self.projection_preview = QLabel()
+        self.projection_preview.setObjectName("chip")
+        form.addRow("", self.projection_preview)
+        self.projections.fileChanged.connect(lambda *args: self._projection_file_changed())
+        self.sheet.activated.connect(lambda *args: self._projection_file_changed(keep_sheet=True))
+        for combo in self.projection_columns.values():
+            combo.activated.connect(lambda *args: self._update_projection_preview())
         self.projection_use = choice_combo([("compare", tr("data.projections.compare")),
                                             ("recalibrate", tr("data.projections.recalibrate")),
                                             ("start", tr("data.projections.start"))])
@@ -235,6 +259,58 @@ class DataPage(Page):
         self.exclusions.setItem(row, 3, QTableWidgetItem("" if year is None else f"{year:g}"))
         buffer = item.get("buffer_m")
         self.exclusions.setItem(row, 4, QTableWidgetItem("" if buffer is None else f"{buffer:g}"))
+
+    # --- projections --------------------------------------------------------------
+
+    def _projection_file_changed(self, keep_sheet=False, selected=None):
+        """Fill the sheet and column lists from the file, then show what will be read."""
+        from ..engine.tables import TableError, read_table, sheets
+
+        path = self.projections.filePath()
+        selected = selected or {}
+        sheet = self.sheet.currentText() if keep_sheet else selected.get("sheet")
+        self.sheet.clear()
+        headers = []
+        if path and os.path.exists(path):
+            try:
+                names = sheets(path)
+                self.sheet.addItems(names)
+                if sheet in names:
+                    self.sheet.setCurrentText(sheet)
+                headers = read_table(path, self.sheet.currentText() or None).headers
+            except (TableError, RuntimeError, ValueError):
+                headers = []
+        self.sheet.setEnabled(self.sheet.count() > 1)
+        for key, combo in self.projection_columns.items():
+            current = selected.get(f"{key}_column") or (combo.currentData() if keep_sheet else None)
+            combo.clear()
+            combo.addItem(tr("data.projections.auto"), None)
+            for header in headers:
+                combo.addItem(header, header)
+            set_combo_value(combo, current)
+        self._update_projection_preview()
+
+    def _update_projection_preview(self):
+        from ..engine.tables import WIDE, TableError, read_projections
+
+        path = self.projections.filePath()
+        self.projection_preview.setVisible(bool(path))
+        if not path:
+            return
+        columns = {f"{k}_column": c.currentData() for k, c in self.projection_columns.items()}
+        try:
+            table = read_projections(path, self.sheet.currentText() or None, **columns)
+        except (TableError, RuntimeError, ValueError, OSError) as error:
+            self.projection_preview.setProperty("state", "warn")
+            self.projection_preview.setText(tr("data.projections.error", error=str(error)))
+        else:
+            years = table.years()
+            self.projection_preview.setProperty("state", "ok")
+            self.projection_preview.setText(tr(
+                "data.projections.preview", layout=tr(f"data.projections.layout.{'wide' if table.layout == WIDE else 'long'}"),
+                units=len(table.series), column=table.unit_column, start=f"{years[0]:g}", end=f"{years[-1]:g}"))
+        self.projection_preview.style().unpolish(self.projection_preview)
+        self.projection_preview.style().polish(self.projection_preview)
 
     def exclusions_without_buffer(self):
         """Names of the exclusion layers made of lines or points that have no buffer width."""
@@ -270,7 +346,10 @@ class DataPage(Page):
         for item in data.get("exclusions", []):
             self._add_exclusion(item)
         projections = data.get("projections") or {}
-        self.projections.setFilePath(self.dialog.absolute(projections.get("csv", "")))
+        self.projections.blockSignals(True)
+        self.projections.setFilePath(self.dialog.absolute(projections.get("file") or projections.get("csv", "")))
+        self.projections.blockSignals(False)
+        self._projection_file_changed(selected=projections)
         time = data.get("time", {})
         if time.get("start_mode") == "projection":
             set_combo_value(self.projection_use, "start")
@@ -316,7 +395,12 @@ class DataPage(Page):
         path = self.projections.filePath()
         use = self.projection_use.currentData()
         if path:
-            data["projections"] = {"csv": path, "recalibrate": use == "recalibrate"}
+            data["projections"] = {"file": path, "recalibrate": use == "recalibrate"}
+            if self.sheet.count() > 1:
+                data["projections"]["sheet"] = self.sheet.currentText()
+            for key, combo in self.projection_columns.items():
+                if combo.currentData():
+                    data["projections"][f"{key}_column"] = combo.currentData()
         else:
             data.pop("projections", None)
         if path and use == "start":

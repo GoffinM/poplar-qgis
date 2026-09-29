@@ -212,3 +212,86 @@ def parameter_values(table: Table, crossed: bool = False) -> dict:
 
 def _year_label(year: float) -> str:
     return f"{year:g}"
+
+
+# --- population projections -----------------------------------------------------------
+
+UNIT_NAMES = ("admin", "unit", "unité", "unite", "admin_unit", "commune", "communes", "zone", "name", "nom")
+YEAR_NAMES = ("year", "année", "annee", "an")
+VALUE_NAMES = ("population", "pop", "value", "valeur", "habitants")
+LONG, WIDE = "long", "wide"
+
+
+@dataclass
+class ProjectionTable:
+    series: dict
+    """{unit: [(year, population), …]}"""
+    layout: str
+    unit_column: str
+
+    def years(self) -> List[float]:
+        return sorted({y for points in self.series.values() for y, _ in points})
+
+
+def read_projections(path: str, sheet: Optional[str] = None, unit_column: Optional[str] = None,
+                     year_column: Optional[str] = None, value_column: Optional[str] = None) -> ProjectionTable:
+    """Projections by administrative unit, from a CSV or a spreadsheet.
+
+    Long layout: one row per unit and year (columns unit, year, population).
+    Wide layout: one row per unit and one column per year, as statistics
+    offices usually publish them. The layout is detected from the headers.
+    """
+    table = read_table(path, sheet)
+    unit = table.column(unit_column) if unit_column else _find(table, UNIT_NAMES, 0)
+    year_columns = [(i, _as_year(h)) for i, h in enumerate(table.headers) if i != unit and _as_year(h) is not None]
+    series: dict = {}
+    if year_columns and not year_column and not value_column:
+        layout = WIDE
+        for row in table.rows:
+            key = _key(row[unit])
+            for i, year in year_columns:
+                value = number(row[i])
+                if key and value is not None:
+                    series.setdefault(key, []).append((year, value))
+    else:
+        layout = LONG
+        year = table.column(year_column) if year_column else _find(table, YEAR_NAMES)
+        value = table.column(value_column) if value_column else _find(table, VALUE_NAMES)
+        for row in table.rows:
+            key, when, amount = _key(row[unit]), number(row[year]), number(row[value])
+            if key and when is not None and amount is not None:
+                series.setdefault(key, []).append((when, amount))
+    if not series:
+        raise TableError(f"{path}: no projection found")
+    for key, points in series.items():
+        years = [y for y, _ in points]
+        if len(set(years)) != len(years):
+            raise TableError(f"{path}: unit {key!r} has the same year twice")
+    return ProjectionTable(series, layout, table.headers[unit])
+
+
+def _find(table: Table, names: Sequence[str], default: Optional[int] = None) -> int:
+    lower = [h.strip().lower() for h in table.headers]
+    for name in names:
+        if name in lower:
+            return lower.index(name)
+    if default is not None:
+        return default
+    raise TableError(f"no column among {', '.join(names)} (columns: {', '.join(table.headers)})")
+
+
+def _as_year(header: Any) -> Optional[float]:
+    try:
+        year = float(str(header).strip().replace(",", "."))
+    except ValueError:
+        return None
+    return year if 1800 <= year <= 2300 else None
+
+
+def _key(value: Any) -> str:
+    """Unit names as the engine reads them from the layer (1.0 read by a spreadsheet is « 1 »)."""
+    if value is None:
+        return ""
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value).strip()

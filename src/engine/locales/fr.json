@@ -66,5 +66,6 @@
   "crs_area_distortion": "Ce système de coordonnées déforme les surfaces jusqu'à {distortion} % sur la zone d'étude. Un système à surfaces conservées est recommandé (« crs » : « auto-equal-area »).",
   "raster_reprojected": "Raster de population reprojeté dans {name} (pixels de {pixel} m) par moyenne pondérée des densités ; écart de population totale dû aux bords du raster : {correction} %.",
   "exclusion_needs_buffer": "Zone d'exclusion « {name} » : la couche contient des lignes ou des points ; indiquez une largeur de tampon en mètres.",
-  "parameter_key_unused": "Paramètre « {parameter} » : la valeur « {key} » ne correspond à aucune zone de sa couche dans la zone d'étude ; elle n'est pas utilisée."
+  "parameter_key_unused": "Paramètre « {parameter} » : la valeur « {key} » ne correspond à aucune zone de sa couche dans la zone d'étude ; elle n'est pas utilisée.",
+  "projections_unreadable": "Projections illisibles ({path}) : {detail}"
 }

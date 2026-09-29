@@ -45,3 +45,25 @@ def test_sheets_and_errors(tmp_path):
         read_table(str(tmp_path / "t.docx"))
     assert number("2 500,5") == 2500.5 and number("") is None
 
+
+
+def test_projections_long_and_wide(tmp_path):
+    from engine.tables import LONG, WIDE, read_projections
+
+    long = tmp_path / "long.csv"
+    long.write_text("Commune;Année;Population\nA;2026;800\nA;2030;1000\nB;2026;600\n", encoding="utf-8")
+    table = read_projections(str(long))
+    assert table.layout == LONG and table.unit_column == "Commune"
+    assert table.series == {"A": [(2026, 800), (2030, 1000)], "B": [(2026, 600)]}
+
+    wide = str(tmp_path / "wide.xlsx")
+    write_table(wide, ["Code", "Commune", "2026", "2030"], [[101.0, "A", 800.0, 1000.0], [102.0, "B", 600.0, 700.0]])
+    table = read_projections(wide, unit_column="Commune")
+    assert table.layout == WIDE and table.series["B"] == [(2026, 600), (2030, 700)] and table.years() == [2026, 2030]
+    assert set(read_projections(wide).series) == {"A", "B"}      # « Commune » is recognised as the unit column
+    coded = str(tmp_path / "coded.xlsx")
+    write_table(coded, ["Code", "Libellé", "2026"], [[101.0, "A", 800.0], [102.0, "B", 600.0]])
+    assert set(read_projections(coded).series) == {"101", "102"}  # numeric codes read as the layer shows them
+
+    with pytest.raises(TableError):
+        read_projections(str(long), year_column="absent")

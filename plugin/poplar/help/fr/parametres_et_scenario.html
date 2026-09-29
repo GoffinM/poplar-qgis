@@ -16,7 +16,7 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>typology</code></td><td>Couche des zones et champ qui porte leur classe (<code>Rural</code>, <code>Urbain1</code>, <i>haut standing</i>…). Les noms de classes sont libres</td><td>oui</td></tr>
 <tr><td><code>base_population</code></td><td>Raster de densité de population à l'année de base</td><td>oui</td></tr>
 <tr><td><code>admin_units</code></td><td>Unités administratives et champ de leur nom, pour les bilans et le recalage</td><td>non</td></tr>
-<tr><td><code>parameter_zones</code></td><td>Zones de paramètres, si les taux ou densités varient selon des limites différentes de la typologie</td><td>non</td></tr>
+<tr><td><code>parameter_zones</code></td><td>Ancien format : zones de paramètres communes au TCAM et aux densités. Remplacé par les zones propres à chaque paramètre (voir plus bas)</td><td>non</td></tr>
 <tr><td><code>exclusions</code></td><td>Zones d'exclusion (voir plus bas)</td><td>non</td></tr>
 <tr><td><code>projections</code></td><td>Projections démographiques (voir plus bas)</td><td>non</td></tr>
 </table>
@@ -33,11 +33,18 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>start_mode</code></td><td><code>census</code> : départ du recensement (prudent) ; <code>projection</code> : départ d'une année de projection</td><td><code>census</code></td></tr>
 </table>
 <h2>Paramètres : TCAM et densités maximales</h2>
-<p>Chaque paramètre peut prendre l'une de ces formes :</p>
-<pre>&quot;growth_rate&quot;: 2.2
-&quot;growth_rate&quot;: {&quot;Rural&quot;: 2.0, &quot;Urbain1&quot;: 3.5}
-&quot;growth_rate&quot;: {&quot;*&quot;: {&quot;2026&quot;: 3.0, &quot;2040&quot;: 2.0}, &quot;Urbain1&quot;: 4.0}</pre>
-<ul><li><code>*</code> désigne la valeur par défaut, qui s'applique aux classes et aux zones non citées.</li><li>Avec des années, les valeurs sont <b>interpolées en ligne droite</b> entre les années citées. Avant la première et après la dernière année, elles restent <b>constantes</b>, sauf si <code>"extrapolation": "linear"</code> est indiqué.</li><li>Une valeur donnée pour une <b>zone de paramètres</b> l'emporte sur celle de la <b>classe</b>, qui l'emporte sur la valeur <b>par défaut</b>.</li><li><code>growth_rate</code> est en % par an. <code>dmax</code> est dans l'unité choisie par <code>density_unit</code> (<code>hab/km2</code> ou <code>hab/ha</code>).</li></ul>
+<p>Le TCAM (<code>growth_rate</code>, en % par an) et les densités maximales (<code>dmax</code>, dans l'unité <code>density_unit</code>) ont <b>chacun leur tableau</b>, lié à <b>sa propre couche</b> de polygones et à un champ. Les deux couches peuvent être différentes : par exemple le TCAM par province et les densités par type urbain/rural.</p>
+<p>Dans l'onglet <b>Paramètres</b> :</p>
+<ol><li>choisissez la couche et le champ des <b>zones</b> : le tableau affiche une ligne par valeur du champ ;</li><li>remplissez une <b>constante</b>, ou des valeurs aux <b>années charnières</b> (bouton « + Année charnière ») ;</li><li>la ligne <b>Hors zones (défaut)</b> s'applique aux mailles hors des zones et aux zones laissées vides ;</li><li>sans couche, la valeur par défaut s'applique partout.</li></ol>
+<p>Une valeur saisie pour une zone qui n'existe pas dans la couche est signalée en ocre et dans le rapport : elle n'est pas utilisée.</p>
+<p><b>Croiser deux couches</b> : cochez « Croiser avec une seconde couche » pour donner une valeur par combinaison, par exemple province × type. Pour chaque maille, l'outil cherche dans l'ordre la paire exacte (<code>A|Urbain1</code>), puis la zone de la première couche seule (<code>A|<i></code>), puis celle de la seconde (<code></i>|Urbain1</code>), puis la valeur par défaut.</p>
+<p><b>Tableur</b> : « Exporter… » enregistre le tableau en xlsx, ods ou csv ; « Importer… » le relit. Colonnes : <code>zone</code> (et <code>zone_2</code> en cas de croisement), <code>constant</code>, puis une colonne par année.</p>
+<p>Dans le fichier de scénario :</p>
+<pre>&quot;growth_rate&quot;: {&quot;zones&quot;: [{&quot;source&quot;: &quot;provinces.shp&quot;, &quot;field&quot;: &quot;PROVINCE&quot;}],
+                &quot;values&quot;: {&quot;Muramvya&quot;: {&quot;2025&quot;: 2.2, &quot;2040&quot;: 1.9}, &quot;*&quot;: 2.0}},
+&quot;dmax&quot;: {&quot;zones&quot;: [{&quot;source&quot;: &quot;typologie.shp&quot;, &quot;field&quot;: &quot;Type&quot;}],
+         &quot;values&quot;: {&quot;Rural&quot;: 2500, &quot;Urbain1&quot;: 10000, &quot;*&quot;: 2500}}</pre>
+<ul><li>Avec des années, les valeurs sont <b>interpolées en ligne droite</b> entre les années citées. Avant la première et après la dernière année, elles restent <b>constantes</b>, sauf si <code>"extrapolation": "linear"</code> est indiqué.</li><li>L'ancien format reste accepté : <code>"growth_rate": 2.2</code>, ou des valeurs par classe de typologie (<code>{"Rural": 2.0, "*": 2.5}</code>), avec priorité à <code>parameter_zones</code> sur la classe. Le plugin le convertit à l'ouverture.</li></ul>
 <h2>Zones d'exclusion</h2>
 <table>
 <tr><th>Comportement</th><th>Effet</th></tr>
@@ -47,8 +54,11 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 </table>
 <p>Une exclusion peut porter une <b>année</b> (<code>"year": 2030</code>) : elle s'applique alors à partir de cette année, et les résultats de l'année 2030 en tiennent déjà compte. Les couches de <b>lignes</b> (routes, rivières) et de <b>points</b> (forages, sources) reçoivent obligatoirement une largeur de tampon en mètres (<code>"buffer_m": 50</code>, colonne « Tampon (m) » de l'onglet Données). Pour une couche de polygones, le tampon est facultatif et élargit la zone, par exemple un lac et ses 100 m de berge. Le tampon est appliqué dans le système de calcul, donc toujours en mètres, même si la couche est en degrés.</p>
 <h2>Projections démographiques (optionnel)</h2>
-<p>Il s'agit d'un fichier CSV à trois colonnes : <code>admin</code>, <code>year</code>, <code>population</code>.</p>
-<ul><li><code>"recalibrate": true</code> recale chaque année la population de chaque unité administrative sur la projection, avec interpolation entre les années du fichier.</li><li><code>"start_mode": "projection"</code> avec <code>"start_year"</code> fait partir le calcul d'une année de projection.</li></ul>
+<p>Le fichier peut être un <b>CSV</b>, un classeur <b>Excel</b> (xlsx, xls) ou <b>OpenDocument</b> (ods), sous l'une de ces deux formes :</p>
+<ul><li><b>une ligne par unité et par année</b> : colonnes unité, année, population ;</li><li><b>une ligne par unité et une colonne par année</b>, comme dans les publications des instituts de statistique.</li></ul>
+<p>La forme et les colonnes sont reconnues d'après les en-têtes (<code>admin</code>, <code>commune</code>, <code>unité</code>… ; <code>year</code>, <code>année</code> ; <code>population</code>, <code>valeur</code>…). Sinon, choisissez-les dans l'onglet Données : un aperçu indique ce qui sera lu. Les noms ou codes des unités doivent être ceux du champ des unités administratives.</p>
+<pre>&quot;projections&quot;: {&quot;file&quot;: &quot;projections_isteebu.xlsx&quot;, &quot;sheet&quot;: &quot;Communes&quot;, &quot;unit_column&quot;: &quot;Commune&quot;, &quot;recalibrate&quot;: true}</pre>
+<ul><li><code>"recalibrate": true</code> recale chaque année la population de chaque unité administrative sur la projection, avec interpolation entre les années du fichier. La migration qui suit peut ensuite déplacer quelques habitants d'une unité à l'autre.</li><li><code>"start_mode": "projection"</code> avec <code>"start_year"</code> fait partir le calcul d'une année de projection.</li></ul>
 <h2>Migration</h2>
 <table>
 <tr><th>Réglage</th><th>Rôle</th><th>Défaut</th></tr>
@@ -77,7 +87,11 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>language</code></td><td>Langue du rapport et des tableaux (<code>fr</code>, <code>en</code>)</td><td><code>fr</code></td></tr>
 <tr><td><code>output.directory</code></td><td>Dossier des résultats</td><td><code>outputs</code></td></tr>
 <tr><td><code>output.per_run</code></td><td>Un sous-dossier daté par exécution (toujours activé depuis le plugin)</td><td><code>false</code></td></tr>
+<tr><td><code>description</code></td><td>Une phrase pour retrouver le scénario dans la bibliothèque</td><td></td></tr>
 </table>
+<h2>Bibliothèque de scénarios</h2>
+<p>Le bouton <b>Bibliothèque…</b> ouvre la liste des scénarios enregistrés dans un dossier, avec leur nom et leur description.</p>
+<ul><li><b>Partir de ce scénario</b> charge une copie : l'original n'est jamais modifié, « Enregistrer… » demande un nouveau fichier.</li><li><b>Ajouter le scénario actuel…</b> y enregistre une copie, avec un nom et une description.</li><li><b>Changer de dossier…</b> : un dossier partagé sur le réseau permet à toute l'équipe de partir des mêmes scénarios de référence.</li></ul>
 <h2>Lancer un calcul sans QGIS</h2>
 <pre>python -m engine run scenario.json
 python -m engine run scenario.json --language en</pre>

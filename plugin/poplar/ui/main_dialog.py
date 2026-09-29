@@ -116,7 +116,8 @@ class MainDialog(QDialog):
         footer_frame.setObjectName("footer")
         footer = QHBoxLayout(footer_frame)
         footer.setContentsMargins(12, 8, 12, 8)
-        for key, slot in (("main.open", self.open_scenario), ("main.save", self.save_scenario)):
+        for key, slot in (("main.open", self.open_scenario), ("main.save", self.save_scenario),
+                          ("main.library", self.open_library)):
             button = QPushButton(tr(key))
             button.setToolTip(tip(key))
             button.clicked.connect(slot)
@@ -229,6 +230,20 @@ class MainDialog(QDialog):
         self.selected_run = None
         for page in self.pages:
             page.load(self.data)
+        self._update_title()
+
+    def open_library(self):
+        from .library_dialog import LibraryDialog
+
+        dialog = LibraryDialog(self)
+        if dialog.exec() == QDialog.DialogCode.Accepted and dialog.chosen:
+            self.load_template(dialog.chosen)
+
+    def load_template(self, path):
+        """New scenario from a library entry: the entry itself is never overwritten by « Save »."""
+        self.load_file(path)
+        self.data = self.collect()  # paths made absolute while the entry's folder is known
+        self.path = None
         self._update_title()
 
     def save_scenario(self):

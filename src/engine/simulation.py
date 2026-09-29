@@ -8,7 +8,6 @@ non-convergence policy. Results are written for every output year.
 
 from __future__ import annotations
 
-import csv
 import json
 import os
 import time as clock
@@ -37,6 +36,7 @@ from .report import StepReport
 from .scenario import NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError
 from .timeline import PER_STEP, build_timeline
 from .units import Layer, Zone, build_sink_units, build_units
+from .tables import TableError, read_projections
 from .vector_io import BufferRequired, read_features, union_all
 
 STATUS_ORDER = ["success", "success_with_adjustments", "partial", "failed"]
@@ -410,14 +410,15 @@ def _read_exclusion(scenario: Scenario, exclusion, crs: str):
 
 
 def _load_projections(scenario: Scenario) -> Dict[str, TimeSeries]:
-    """Projection table: ``admin, year, population`` (one row per unit and year)."""
-    path = scenario.path(scenario.projections.csv)
+    """Projections by administrative unit (CSV or spreadsheet, long or wide layout; see engine.tables)."""
+    spec = scenario.projections
+    path = scenario.path(spec.file)
     _check_file(path)
-    points: Dict[str, List] = {}
-    with open(path, newline="", encoding="utf-8-sig") as handle:
-        for row in csv.DictReader(handle):
-            points.setdefault(row["admin"].strip(), []).append((float(row["year"]), float(row["population"])))
-    return {key: TimeSeries(tuple(y for y, _ in pts), tuple(v for _, v in pts)) for key, pts in points.items()}
+    try:
+        table = read_projections(path, spec.sheet, spec.unit_column, spec.year_column, spec.value_column)
+    except (TableError, RuntimeError) as error:
+        raise ScenarioError([message("projections_unreadable", path=path, detail=str(error))]) from None
+    return {key: TimeSeries(tuple(y for y, _ in pts), tuple(v for _, v in pts)) for key, pts in table.series.items()}
 
 
 def _output_years(paths: List[str]) -> List[str]:

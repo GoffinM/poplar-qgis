@@ -12,7 +12,7 @@ Un exemple complet se trouve dans `data/test/muramvya/scenario_muramvya.json`.
 | `typology` | Couche des zones et champ qui porte leur classe (`Rural`, `Urbain1`, *haut standing*…). Les noms de classes sont libres | oui |
 | `base_population` | Raster de densité de population à l'année de base | oui |
 | `admin_units` | Unités administratives et champ de leur nom, pour les bilans et le recalage | non |
-| `parameter_zones` | Zones de paramètres, si les taux ou densités varient selon des limites différentes de la typologie | non |
+| `parameter_zones` | Ancien format : zones de paramètres communes au TCAM et aux densités. Remplacé par les zones propres à chaque paramètre (voir plus bas) | non |
 | `exclusions` | Zones d'exclusion (voir plus bas) | non |
 | `projections` | Projections démographiques (voir plus bas) | non |
 
@@ -32,18 +32,31 @@ Les chemins sont relatifs au fichier de scénario.
 
 ## Paramètres : TCAM et densités maximales
 
-Chaque paramètre peut prendre l'une de ces formes :
+Le TCAM (`growth_rate`, en % par an) et les densités maximales (`dmax`, dans l'unité `density_unit`) ont **chacun leur tableau**, lié à **sa propre couche** de polygones et à un champ. Les deux couches peuvent être différentes : par exemple le TCAM par province et les densités par type urbain/rural.
+
+Dans l'onglet **Paramètres** :
+1. choisissez la couche et le champ des **zones** : le tableau affiche une ligne par valeur du champ ;
+2. remplissez une **constante**, ou des valeurs aux **années charnières** (bouton « + Année charnière ») ;
+3. la ligne **Hors zones (défaut)** s'applique aux mailles hors des zones et aux zones laissées vides ;
+4. sans couche, la valeur par défaut s'applique partout.
+
+Une valeur saisie pour une zone qui n'existe pas dans la couche est signalée en ocre et dans le rapport : elle n'est pas utilisée.
+
+**Croiser deux couches** : cochez « Croiser avec une seconde couche » pour donner une valeur par combinaison, par exemple province × type. Pour chaque maille, l'outil cherche dans l'ordre la paire exacte (`A|Urbain1`), puis la zone de la première couche seule (`A|*`), puis celle de la seconde (`*|Urbain1`), puis la valeur par défaut.
+
+**Tableur** : « Exporter… » enregistre le tableau en xlsx, ods ou csv ; « Importer… » le relit. Colonnes : `zone` (et `zone_2` en cas de croisement), `constant`, puis une colonne par année.
+
+Dans le fichier de scénario :
 
 ```json
-"growth_rate": 2.2
-"growth_rate": {"Rural": 2.0, "Urbain1": 3.5}
-"growth_rate": {"*": {"2026": 3.0, "2040": 2.0}, "Urbain1": 4.0}
+"growth_rate": {"zones": [{"source": "provinces.shp", "field": "PROVINCE"}],
+                "values": {"Muramvya": {"2025": 2.2, "2040": 1.9}, "*": 2.0}},
+"dmax": {"zones": [{"source": "typologie.shp", "field": "Type"}],
+         "values": {"Rural": 2500, "Urbain1": 10000, "*": 2500}}
 ```
 
-- `*` désigne la valeur par défaut, qui s'applique aux classes et aux zones non citées.
 - Avec des années, les valeurs sont **interpolées en ligne droite** entre les années citées. Avant la première et après la dernière année, elles restent **constantes**, sauf si `"extrapolation": "linear"` est indiqué.
-- Une valeur donnée pour une **zone de paramètres** l'emporte sur celle de la **classe**, qui l'emporte sur la valeur **par défaut**.
-- `growth_rate` est en % par an. `dmax` est dans l'unité choisie par `density_unit` (`hab/km2` ou `hab/ha`).
+- L'ancien format reste accepté : `"growth_rate": 2.2`, ou des valeurs par classe de typologie (`{"Rural": 2.0, "*": 2.5}`), avec priorité à `parameter_zones` sur la classe. Le plugin le convertit à l'ouverture.
 
 ## Zones d'exclusion
 
@@ -57,8 +70,17 @@ Une exclusion peut porter une **année** (`"year": 2030`) : elle s'applique alor
 
 ## Projections démographiques (optionnel)
 
-Il s'agit d'un fichier CSV à trois colonnes : `admin`, `year`, `population`.
-- `"recalibrate": true` recale chaque année la population de chaque unité administrative sur la projection, avec interpolation entre les années du fichier.
+Le fichier peut être un **CSV**, un classeur **Excel** (xlsx, xls) ou **OpenDocument** (ods), sous l'une de ces deux formes :
+- **une ligne par unité et par année** : colonnes unité, année, population ;
+- **une ligne par unité et une colonne par année**, comme dans les publications des instituts de statistique.
+
+La forme et les colonnes sont reconnues d'après les en-têtes (`admin`, `commune`, `unité`… ; `year`, `année` ; `population`, `valeur`…). Sinon, choisissez-les dans l'onglet Données : un aperçu indique ce qui sera lu. Les noms ou codes des unités doivent être ceux du champ des unités administratives.
+
+```json
+"projections": {"file": "projections_isteebu.xlsx", "sheet": "Communes", "unit_column": "Commune", "recalibrate": true}
+```
+
+- `"recalibrate": true` recale chaque année la population de chaque unité administrative sur la projection, avec interpolation entre les années du fichier. La migration qui suit peut ensuite déplacer quelques habitants d'une unité à l'autre.
 - `"start_mode": "projection"` avec `"start_year"` fait partir le calcul d'une année de projection.
 
 ## Migration
@@ -95,6 +117,14 @@ Le raster de population peut contenir une **densité** (`"value_type": "density"
 | `language` | Langue du rapport et des tableaux (`fr`, `en`) | `fr` |
 | `output.directory` | Dossier des résultats | `outputs` |
 | `output.per_run` | Un sous-dossier daté par exécution (toujours activé depuis le plugin) | `false` |
+| `description` | Une phrase pour retrouver le scénario dans la bibliothèque | |
+
+## Bibliothèque de scénarios
+
+Le bouton **Bibliothèque…** ouvre la liste des scénarios enregistrés dans un dossier, avec leur nom et leur description.
+- **Partir de ce scénario** charge une copie : l'original n'est jamais modifié, « Enregistrer… » demande un nouveau fichier.
+- **Ajouter le scénario actuel…** y enregistre une copie, avec un nom et une description.
+- **Changer de dossier…** : un dossier partagé sur le réseau permet à toute l'équipe de partir des mêmes scénarios de référence.
 
 ## Lancer un calcul sans QGIS
 

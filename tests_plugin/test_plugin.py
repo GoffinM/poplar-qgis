@@ -1,3 +1,4 @@
+import csv
 import json
 import os
 import re
@@ -251,6 +252,66 @@ def test_parameters_linked_to_layers(iface, scenario_copy, tmp_path):
     QgsProject.instance().clear()
 
 
+def test_projections_from_a_spreadsheet(iface, scenario_copy, tmp_path):
+    from poplar.engine.tables import write_table
+    from poplar.ui.main_dialog import MainDialog
+    from poplar.ui.parameter_table import field_values
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    data = dialog.page("data")
+    communes = field_values(data.admin.currentLayer(), "COMMUNES")
+    path = str(tmp_path / "projections_isteebu.xlsx")
+    write_table(path, ["Commune", "2024", "2030"], [[communes[0], 70000.0, 80000.0], [communes[1], 30000.0, 36000.0]])
+    data.projections.setFilePath(path)
+    assert data.projection_preview.property("state") == "ok"
+    assert "2 " in data.projection_preview.text() and "2024–2030" in data.projection_preview.text()
+    data.projection_use.setCurrentIndex(1)  # recalibrate
+    projections = dialog.collect()["projections"]
+    assert projections == {"file": path, "recalibrate": True}
+    directory = _run_in_dialog(dialog)
+    with open(os.path.join(directory, "summary.csv"), encoding="utf-8-sig") as handle:
+        totals = {row[1]: int(row[2]) for row in csv.reader(handle, delimiter=";") if row[0] == "2030"}
+    # Recalibrated on the projections, then migration may cross the commune limits (spec §5.2)
+    assert sum(totals.values()) == 116000
+    assert totals[communes[1]] == pytest.approx(36000, rel=2e-3)
+
+    data.projection_columns["year"].setCurrentIndex(1)  # a wrong column: the error is shown before running
+    data._update_projection_preview()
+    assert data.projection_preview.property("state") == "warn"
+    QgsProject.instance().clear()
+
+
+def test_scenario_library(iface, scenario_copy, tmp_path):
+    from poplar.ui.library_dialog import LibraryDialog, library_folder, set_library_folder
+    from poplar.ui.main_dialog import MainDialog
+
+    previous = library_folder()
+    set_library_folder(str(tmp_path / "library"))
+    try:
+        dialog = MainDialog(iface, lambda page: None)
+        dialog.load_file(scenario_copy)
+        library = LibraryDialog(dialog)
+        assert library.empty.isVisibleTo(library) and not library.open_button.isEnabled()
+        path = library.add_current("Muramvya – référence", "TCAM ISTEEBU, dmax 2 500 / 10 000")
+        assert os.path.dirname(path) == str(tmp_path / "library")
+        assert [e.name for e in library.entries] == ["Muramvya – référence"]
+        library.table.selectRow(0)
+        library.open_selected()
+        assert library.chosen == path
+
+        other = MainDialog(iface, lambda page: None)
+        other.load_template(library.chosen)
+        assert other.path is None                                   # « Save » asks for a new file
+        data = other.collect()
+        assert data["name"] == "Muramvya – référence" and data["description"].startswith("TCAM")
+        assert os.path.isabs(data["study_area"]["source"]) and os.path.exists(data["study_area"]["source"])
+        assert other.check()
+    finally:
+        set_library_folder(previous)
+    QgsProject.instance().clear()
+
+
 def test_older_scenarios_are_converted(iface, scenario_copy):
     from poplar.ui.main_dialog import MainDialog
 
@@ -325,7 +386,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 5
-    assert version() == "0.1.0"
+    assert version() == "0.2.0"
     AboutDialog()
 
 

@@ -85,8 +85,13 @@ class MigrationOptions:
 
 @dataclass
 class Projections:
-    csv: str
+    file: str
+    """CSV or spreadsheet (xlsx, xls, ods); ``csv`` is accepted as the older name of this key."""
     recalibrate: bool = False
+    sheet: Optional[str] = None
+    unit_column: Optional[str] = None
+    year_column: Optional[str] = None
+    value_column: Optional[str] = None
 
 
 @dataclass
@@ -103,6 +108,7 @@ class Scenario:
     time: TimeSettings
     parameters: Dict[str, Any]
     name: str = ""
+    description: str = ""
     language: str = DEFAULT_LANGUAGE
     cell_size: float = 250.0
     density_unit: str = "hab/km2"
@@ -259,8 +265,13 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
                                     if k in MigrationOptions.__dataclass_fields__})
     projections = None
     if data.get("projections"):
-        projections = Projections(required(data["projections"], "csv", "projections.") or "",
-                                  bool(data["projections"].get("recalibrate", False)))
+        spec = dict(data["projections"])
+        if "file" not in spec and "csv" in spec:
+            spec["file"] = spec.pop("csv")
+        spec.pop("csv", None)
+        projections = Projections(required(spec, "file", "projections.") or "",
+                                  bool(spec.get("recalibrate", False)), spec.get("sheet"), spec.get("unit_column"),
+                                  spec.get("year_column"), spec.get("value_column"))
     indicators = [IndicatorSpec(item.get("type", ""), item.get("parameters", {})) for item in data.get("indicators", [])]
 
     if errors or time is None or study_area is None or typology is None:
@@ -268,7 +279,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
 
     scenario = Scenario(
         study_area=study_area, typology=typology, base_population_raster=raster, time=time,
-        parameters=parameters, name=data.get("name", ""), language=data.get("language", DEFAULT_LANGUAGE),
+        parameters=parameters, name=data.get("name", ""), description=data.get("description", ""), language=data.get("language", DEFAULT_LANGUAGE),
         cell_size=float(data.get("cell_size", 250.0)), density_unit=data.get("density_unit", "hab/km2"),
         boundary_mode=base_population.get("boundary_mode", "area_weighted"),
         population_value_type=base_population.get("value_type", "density"), crs=data.get("crs"),
