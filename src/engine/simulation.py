@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 import time as clock
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
@@ -65,6 +65,16 @@ class RunResult:
     failure: Optional[NonConvergenceError] = None
     """Set when the run stopped for lack of room: deficit and proposed ``dmax`` increase."""
     failure_year: Optional[float] = None
+
+
+def calibrate(scenario: Scenario):
+    """Calibration alone, for the Calibration tab: (report, roofs of each group).
+
+    The starting population is computed from the roofs whatever the choice
+    of the scenario, so the calibration can be prepared before it is used.
+    """
+    model = _Model.load(replace(scenario, population_source="buildings"))
+    return model.calibration_report, model.calibration_groups
 
 
 def run(
@@ -311,6 +321,7 @@ class _Model:
         if self.units.report.unclassified_area_km2 > 0.01:
             self.warnings.append(message("typology_gaps", area=round(self.units.report.unclassified_area_km2, 2)))
         self.calibration_report = None
+        self.calibration_groups = {}
         if not from_roofs:
             self.p0, _ = base_population_from_density(self.units, self.raster, "hab/km2", scenario.boundary_mode)
 
@@ -364,6 +375,7 @@ class _Model:
         result = population_from_roofs(calibration, roofs, self.units, stratum_of_unit, strata_groups, target_year,
                                        default_growth)
         self.calibration_report = result.report
+        self.calibration_groups = result.groups
         report = result.report
         self.warnings.append(message("roofs_calibrated", kept=report["roofs"]["kept"], read=report["roofs"]["read"],
                                      population=round(report["total"])))

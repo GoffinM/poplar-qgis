@@ -63,34 +63,77 @@ def test_legacy_mode_rebuilds_the_2023_raster(tmp_path):
     assert np.mean((ratio > 0.99) & (ratio < 1.02)) > 0.97          # 97.8 % (98 % in §11.3)
 
 
-def test_improved_mode_is_recalibrated_on_the_census(tmp_path):
+def test_default_model_fits_the_roof_area_per_inhabitant(tmp_path):
+    """Whole inhabitants per class from one roof area per inhabitant, fitted to the census (29/09/2026)."""
     model = _Model.load(_scenario(tmp_path, {"census": CENSUS, "census_year": 2024}))
     report = model.calibration_report
-    assert report["strata"][RURAL]["population"] == pytest.approx(136_759)
-    assert report["strata"][URBAN]["population"] == pytest.approx(34_251)
-    for group in report["groups"].values():
-        assert group["curve"]["method"] == "segments" and group["values_from"] == "hypothesis"
-        assert group["diagnostics"]["monotone"]
+    assert not report["recalibrated"]
+    for group, stratum in (("Rural", RURAL), ("Urbain1", URBAN)):
+        entry, settings = report["groups"][group], report["groups"][group]["settings"]
+        assert settings["method"] == "steps" and settings["classes"] == {"method": "breaks", "count": 8}
+        assert entry["area_per_person_fitted"] and 3 < entry["area_per_person"] < 40
+        values = entry["retained_values"]
+        assert all(float(v).is_integer() for v in values) and values == sorted(values)
+        assert abs(entry["gap_percent"]) < 2 and not entry["alert"]            # within the alert threshold
+        # steps: the table of classes is exactly what the roofs receive
+        assert entry["population_before_recalibration"] == pytest.approx(
+            sum(n * v for n, v in zip(entry["class_counts"], values)))
+        assert report["strata"][stratum]["factor"] == 1.0
+        assert report["strata"][stratum]["proposed_factor"] == pytest.approx(
+            CENSUS[stratum] / report["strata"][stratum]["computed"])
+        limits = entry["limits"]
+        assert limits["floor"] < 15 and 90 < limits["ceiling"] < 200 and limits["exclude_above"] == 450
+        assert entry["cumulative"]["roofs"][-1] > 0.9
+
+
+def test_recalibration_when_asked(tmp_path):
+    model = _Model.load(_scenario(tmp_path, {"census": CENSUS, "census_year": 2024, "recalibrate": True}))
+    assert model.calibration_report["strata"][RURAL]["population"] == pytest.approx(136_759)
+    assert model.calibration_report["strata"][URBAN]["population"] == pytest.approx(34_251)
 
 
 def test_census_carried_to_the_target_year_with_a_growth_rate(tmp_path):
-    calibration = {"census": CENSUS, "census_year": 2024, "gap_growth_rate": 2.2}
+    calibration = {"census": CENSUS, "census_year": 2024, "gap_growth_rate": 2.2, "recalibrate": True}
     model = _Model.load(_scenario(tmp_path, calibration, base_year=2023, first_migration_year=2024))
     assert model.p0.sum() == pytest.approx(sum(CENSUS.values()) / 1.022, rel=1e-9)
     assert model.calibration_report["target_year"] == 2023
 
 
-def test_natural_breaks_and_one_stratum_for_the_whole_area(tmp_path):
-    calibration = {"strata": None, "census": {"*": 171_010},
-                   "groups": {"*": {"edges_from": "breaks", "n_classes": 6, "values_from": "hypothesis"}}}
+@pytest.mark.parametrize("cut", ["breaks", "equal", "quantile"])
+def test_class_cuts_floor_and_ceiling(tmp_path, cut):
+    group = {"classes": {"method": cut, "count": 6}, "floor": {"value": 12}, "ceiling": {"percentile": 80},
+             "exclude_above": None, "min_per_roof": 1, "max_per_roof": 12}
+    calibration = {"strata": None, "census": {"*": 171_010}, "groups": {"*": group}}
     model = _Model.load(_scenario(tmp_path, calibration))
-    group = model.calibration_report["groups"]["*"]
-    assert len(group["breaks"]) == 7 and group["breaks"][0] == 10 and group["breaks"][-1] == 450
-    assert model.p0.sum() == pytest.approx(171_010)
+    entry = model.calibration_report["groups"]["*"]
+    edges = entry["curve"]["edges"]
+    assert edges[0] == 12 and len(edges) <= 7 and edges == sorted(edges)
+    assert entry["limits"]["exclude_above"] is None and entry["excluded_large"] == 0
+    assert edges[-1] == pytest.approx(entry["limits"]["ceiling"])
+    assert abs(entry["gap_percent"]) < 3
+
+
+def test_no_floor_no_ceiling_and_manual_overrides(tmp_path):
+    group = {"classes": {"method": "manual", "edges": [0, 20, 40, 60, 80]}, "floor": None, "ceiling": None,
+             "values_from": "area_per_person", "area_per_person": 12, "overrides": {"3": 9}}
+    model = _Model.load(_scenario(tmp_path, {"strata": None, "groups": {"*": group}}))
+    entry = model.calibration_report["groups"]["*"]
+    assert entry["excluded_small"] == 0 and entry["area_per_person"] == 12
+    assert entry["proposed_values"] == [1.0, 3.0, 4.0, 6.0] and entry["retained_values"] == [1.0, 3.0, 4.0, 9.0]
+    assert entry["overridden"] == [3]
+
+
+def test_invalid_group_settings_are_explained(tmp_path):
+    from engine.scenario import ScenarioError
+
+    with pytest.raises(ScenarioError, match="classes.method"):
+        _scenario(tmp_path, {"groups": {"*": {"classes": {"method": "random"}}}})
+    with pytest.raises(ScenarioError, match="values is required"):
+        _scenario(tmp_path, {"groups": {"*": {"values_from": "manual"}}})
 
 
 def test_a_run_from_the_roofs_writes_the_calibration_report(tmp_path):
-    result = run(_scenario(tmp_path, {"census": CENSUS, "census_year": 2024}))
+    result = run(_scenario(tmp_path, {"census": CENSUS, "census_year": 2024, "recalibrate": True}))
     assert result.status in ("success", "success_with_adjustments")
     assert result.initial_population == pytest.approx(171_010)
     with open(os.path.join(result.directory, "calibration.json"), encoding="utf-8") as handle:
