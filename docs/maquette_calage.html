@@ -62,6 +62,8 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
 .totals b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .totals span { color: var(--muted); font-size: 12px; }
 td.mod input { border-color: var(--ochre); }
+[hidden] { display: none !important; }
+.btn.view[aria-pressed="true"] { background: var(--teal); color: var(--on-teal); border-color: var(--teal); }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 760px) { .body { grid-template-columns: 1fr; } .side { display: none; } .row { grid-template-columns: 1fr; } }
 </style>
@@ -127,11 +129,20 @@ td.mod input { border-color: var(--ochre); }
               <label>Minimum par toit <input id="omin" type="number" step="1" min="0" max="20" value="1"></label>
               <label>Maximum par toit <input id="omax" type="number" step="1" min="1" max="60" value="15"></label>
             </div>
+            <div class="pair" role="group" aria-label="Vue du graphique">
+              <button class="btn view" id="vdist" aria-pressed="true">Distribution</button>
+              <button class="btn view" id="vcum" aria-pressed="false">Cumul</button>
+            </div>
             <svg class="chart" id="chart" viewBox="0 0 900 300" role="img" aria-label="Distribution des surfaces de toit et courbe de calage"></svg>
-            <div class="legend">
+            <div class="legend" id="legend-dist">
               <span><i style="background:var(--bars);height:9px"></i>toits par m² de surface</span>
               <span><i style="background:var(--teal)"></i>habitants par toit (retenus)</span>
               <span><i style="background:var(--terra)"></i>polynôme des classeurs (legacy)</span>
+              <span><i style="background:var(--ochre)"></i>limites de classe (à faire glisser)</span>
+            </div>
+            <div class="legend" id="legend-cum" hidden>
+              <span><i style="background:var(--muted)"></i>toits cumulés (%)</span>
+              <span><i style="background:var(--teal)"></i>population cumulée (%)</span>
               <span><i style="background:var(--ochre)"></i>limites de classe (à faire glisser)</span>
             </div>
             <div class="tbl"><table id="classes">
@@ -151,7 +162,7 @@ td.mod input { border-color: var(--ochre); }
               <label>Année des images de toits <input id="yb" type="number" value="2021"></label>
               <label>Population connue en <input id="yc" type="number" value="2024"></label>
               <label>TCAM par défaut <input id="rdef" type="number" step="0.1" value="2.4"> % / an</label>
-              <label>Référence (autre source) <input id="aref2" type="number" step="0.1" value="" placeholder="facultatif"> m² de toit par habitant</label>
+              <label>Référence (autre source) <input id="aref2" type="number" step="0.1" value="" placeholder="—"> m² de toit par habitant</label>
             </div>
             <div class="pair" id="tcam"></div>
             <p class="hint">Le TCAM suggéré relie la population des toits, calculée avec une surface de toit par habitant venue d'une autre source (autre commune calée, étude antérieure, enquête), à la population connue : (population connue ÷ population des toits)^(1 ÷ écart d'années) − 1. S'il est très différent du TCAM par défaut, l'une des deux hypothèses est à revoir.</p>
@@ -178,6 +189,7 @@ const DATA = {"Rural": {"counts": [0, 0, 0, 1, 4, 17, 33, 44, 75, 98, 116, 129, 
 const CENSUS = {"Rural": 136759, "Urbain1": 34251};
 const STRATA = {"Rural": "Muramvya rural", "Urbain1": "Muramvya urbain"};
 const LEGACY = {"Rural": [-2e-5, 0.0018, 0.0497, -0.3632], "Urbain1": [-2e-5, 0.0022, 0.0569, -0.4777]};
+const XMAX_DATA = 150;  // the plot data stop at 150 m²; DATA.roofs counts every roof
 const state = {};
 for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), aref: 14, omin: 1, omax: 15, manual: {}};
 let current = "Rural";
@@ -186,18 +198,20 @@ const dec = (n, d = 1) => n.toFixed(d).replace(".", ",");
 const $ = id => document.getElementById(id);
 
 function classStats(g) {
-  const {edges} = state[g], counts = DATA[g].counts, stats = [];
-  for (let k = 0; k < edges.length - 1; k++) {
-    let n = 0, s = 0;
+  // n: roofs counted in the class (the last class also takes every roof above it, up to 450 m², at its value);
+  // mean: mean area of the roofs inside the class limits (position of the calibration point)
+  const {edges} = state[g], counts = DATA[g].counts, stats = [], last = edges.length - 2;
+  const beyond = Math.max(DATA[g].roofs - counts.reduce((a, b) => a + b, 0) - DATA[g].large, 0);
+  for (let k = 0; k <= last; k++) {
+    let n = 0, s = 0, inside = 0;
     for (let a = 0; a < counts.length; a++) {
       const x = a + 0.5;
-      if (x >= edges[k] && x < edges[k + 1]) { n += counts[a]; s += counts[a] * x; }
+      if (x >= edges[k] && x < edges[k + 1]) { n += counts[a]; s += counts[a] * x; inside += counts[a]; }
+      else if (k === last && x >= edges[k + 1] && x <= 450) n += counts[a];
     }
-    if (k === edges.length - 2) {                       // roofs above 150 m² (not in the plot data) stay in the last class
-      const beyond = DATA[g].roofs - counts.reduce((a, b) => a + b, 0) - DATA[g].large;
-      n += Math.max(beyond, 0); s += Math.max(beyond, 0) * Math.min(200, edges[k + 1]);
-    }
-    stats.push({n, mean: n ? s / n : (edges[k] + edges[k + 1]) / 2});
+    if (k === last && edges[k + 1] > XMAX_DATA) { s += beyond * Math.min(200, edges[k + 1]); inside += beyond; }
+    if (k === last) n += beyond;
+    stats.push({n, mean: inside ? s / inside : (edges[k] + edges[k + 1]) / 2});
   }
   return stats;
 }
@@ -284,7 +298,41 @@ function renderTcam() {
 }
 const W = 900, H = 300, L = 46, R = 46, T = 14, B = 34, XMAX = 150;
 const sx = x => L + (x / XMAX) * (W - L - R);
-function renderChart() {
+let view = "dist";
+function renderChart() { if (view === "cum") return renderCumul(); renderDistribution(); }
+function renderCumul() {
+  const svg = $("chart"), g = current, counts = DATA[g].counts, stats = classStats(g), vals = retained(g, stats), p = curve(stats, vals);
+  const totalRoofs = DATA[g].roofs, beyond = Math.max(totalRoofs - counts.reduce((a, b) => a + b, 0) - DATA[g].large, 0);
+  const pop = total(g, stats, vals), sy = v => H - B - (v / 100) * (H - T - B);
+  let out = "";
+  for (let v = 0; v <= 100; v += 20) out += `<line x1="${L}" x2="${W - R}" y1="${sy(v)}" y2="${sy(v)}" stroke="var(--line)"/><text x="${W - R + 6}" y="${sy(v) + 4}">${v} %</text>`;
+  for (let x = 0; x <= XMAX; x += 10) out += `<text x="${sx(x)}" y="${H - B + 16}" text-anchor="middle">${x}</text>`;
+  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">surface du toit (m²)</text>`;
+  let roofs = 0, people = 0, pr = "", pp = "";
+  const byClass = x => { for (let k = 0; k < stats.length; k++) if (x >= state[g].edges[k] && x < state[g].edges[k + 1]) return vals[k]; return x >= 10 && x <= 450 ? vals[vals.length - 1] : 0; };
+  counts.forEach((c, a) => {
+    roofs += c; people += c * byClass(a + 0.5);
+    pr += `${pr ? "L" : "M"}${sx(a + 1).toFixed(1)},${sy(100 * roofs / totalRoofs).toFixed(1)}`;
+    pp += `${pp ? "L" : "M"}${sx(a + 1).toFixed(1)},${sy(100 * people / pop).toFixed(1)}`;
+  });
+  out += `<path d="${pr}" fill="none" stroke="var(--muted)" stroke-width="2"/><path d="${pp}" fill="none" stroke="var(--teal)" stroke-width="2.5"/>`;
+  out += `<text x="${sx(XMAX) - 4}" y="${sy(100 * roofs / totalRoofs) - 6}" text-anchor="end">${dec(100 * (1 - roofs / totalRoofs))} % des toits au-delà de ${XMAX} m²</text>`;
+  let cumR = 0, cumP = 0;
+  state[g].edges.forEach((e, i) => {
+    if (e > XMAX) return;
+    const inner = i > 0 && i < state[g].edges.length - 1;
+    out += `<line x1="${sx(e)}" x2="${sx(e)}" y1="${T}" y2="${H - B}" stroke="var(--ochre)" stroke-width="${inner ? 2 : 1}" ${inner ? "" : 'stroke-dasharray="3 3"'}/>`;
+    if (i < stats.length) {                                   // share of roofs and of people of the class that starts here
+      const k = i, shareR = 100 * stats[k].n / totalRoofs, shareP = 100 * stats[k].n * vals[k] / pop;
+      const mid = Math.min((e + Math.min(state[g].edges[k + 1], XMAX)) / 2, XMAX - 2);
+      out += `<text x="${sx(mid)}" y="${T + 10 + (k % 2) * 12}" text-anchor="middle">${Math.round(shareR)} / ${Math.round(shareP)} %</text>`;
+    }
+    if (inner) out += `<rect class="handle" data-i="${i}" x="${sx(e) - 6}" y="${T}" width="12" height="${H - T - B}" fill="transparent" style="cursor:ew-resize"/>`;
+  });
+  out += `<text x="${L}" y="${T + 34}" >part de la classe : toits / population</text>`;
+  svg.innerHTML = out;
+}
+function renderDistribution() {
   const svg = $("chart"), counts = DATA[current].counts, cmax = Math.max(...counts);
   const stats = classStats(current), vals = retained(current, stats), ymax = Math.max(11, Math.max(...vals) + 1);
   const sy = c => H - B - (c / cmax) * (H - T - B), sv = v => H - B - (v / ymax) * (H - T - B);
@@ -316,6 +364,10 @@ function render() { $("gtitle").textContent = `Groupe ${current}`; renderGroups(
 for (const [id, key] of [["aref", "aref"], ["omin", "omin"], ["omax", "omax"]])
   $(id).addEventListener("input", e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) { state[current][key] = v; state[current].manual = {}; render(); } });
 for (const id of ["aref2", "yb", "yc", "rdef"]) $(id).addEventListener("input", render);
+for (const [id, v] of [["vdist", "dist"], ["vcum", "cum"]]) $(id).addEventListener("click", () => {
+  view = v; $("vdist").setAttribute("aria-pressed", String(v === "dist")); $("vcum").setAttribute("aria-pressed", String(v === "cum"));
+  $("legend-dist").hidden = v !== "dist"; $("legend-cum").hidden = v !== "cum"; renderChart();
+});
 $("fit").addEventListener("click", () => { fitH(current); syncInputs(); render(); });
 
 
