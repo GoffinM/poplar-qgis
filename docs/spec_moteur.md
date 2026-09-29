@@ -114,7 +114,7 @@ Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
   - `area_weighted` : seule la part du pixel située dans le domaine est comptée ;
   - `renormalized` : toute la population du pixel est répartie entre les unités qui le couvrent.
 
-  Le choix par défaut est à valider (voir `docs/bilan_phase1.md`). Les pixels sans valeur (nodata) comptent pour zéro, et leur surface est reportée.
+  **Décision (29/09/2026) : `area_weighted` par défaut.** Le pixel est découpé et seule la surface située dans le domaine est retenue. `renormalized` reste disponible en option. Les pixels sans valeur (nodata) comptent pour zéro, et leur surface est reportée.
 - **Mise en œuvre (phase 4).** Seules les mailles traversées par une limite sont découpées, avec la géométrie OGR/GDAL. Les mailles intérieures restent entières (une unité = une maille) et sont traitées en tableau. Le moteur manipule un tableau 1D d'unités, pas une image.
 - **Sorties raster** : pour chaque maille, population = somme des unités, et densité = population / surface utile totale de la maille. Une couche vectorielle des unités peut aussi être produite en option.
 

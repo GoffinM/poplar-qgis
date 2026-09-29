@@ -57,7 +57,7 @@
 
 Le temps de découpage dépend surtout du nombre de mailles traversées par une limite et de la complexité des limites : environ 1,4 ms par maille découpée sur Muramvya.
 
-## 5. Point à trancher
+## 5. Pixels en bordure : décision
 
 **Pixels en bordure du domaine (`boundary_mode`).** Un pixel du raster de population peut être à cheval sur la limite de la zone d'étude (commune, frontière, lac).
 
@@ -66,7 +66,7 @@ Le temps de découpage dépend surtout du nombre de mailles traversées par une 
 | `area_weighted` | Seule la part du pixel située dans le domaine est comptée (715 habitants de moins à Muramvya) | Le raster couvre aussi les territoires voisins, par exemple un raster national découpé sur une commune |
 | `renormalized` | Toute la population du pixel est affectée aux unités du domaine | Le raster a été construit uniquement à partir des bâtiments du domaine, comme le raster BUR71 actuel. C'est aussi le bon choix pour un pixel à moitié dans un lac : ses habitants vivent sur la rive |
 
-**Proposition** : `renormalized` par défaut quand le raster a été calculé à partir des bâtiments du domaine, `area_weighted` sinon. Le choix est rappelé dans le rapport. **À valider.**
+**Décision (29/09/2026) : `area_weighted` par défaut.** Les pixels en bordure sont découpés et seule la surface cohérente avec le domaine est conservée. C'est déjà le comportement par défaut du code. `renormalized` reste disponible en option, et le mode utilisé est rappelé dans le rapport.
 
 Quand la population de base sera calculée directement à partir des bâtiments (phase 6), la question disparaît : chaque bâtiment est rattaché par son centroïde.
 
