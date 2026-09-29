@@ -39,12 +39,14 @@ Faire tourner une simulation complète, de l'année de départ à l'horizon fina
 - `docs/bilan_phase3.md`.
 - Pages d'aide : « Paramètres et scénario », « Résultats, rapport et indicateurs », et un exemple de scénario commenté pour Muramvya (`data/test/muramvya/scenario_muramvya.json`).
 
-## 5. Choix proposés (à valider)
+## 5. Choix validés (29/09/2026)
 
-| # | Question | Proposition |
+| # | Question | Décision |
 |---|---|---|
-| P1 | Les zones de paramètres (TCAM, densités max) peuvent-elles avoir des limites différentes de la typologie ? | **Oui.** Les mailles sont découpées selon chaque couche fournie (typologie, zones de paramètres, exclusions, unités administratives). Plus il y a de couches, plus il y a de morceaux, mais le calcul reste rapide (phase 1) |
-| P2 | Les populations entières publiées sont-elles arrondies par maille ou par morceau de maille ? | **Par maille** : un raster donne une valeur par maille. Le total reste conservé. Les tableaux par unité administrative additionnent les populations non arrondies, puis arrondissent le total de chaque unité |
-| P3 | Quels formats de sortie ? | Rasters **GeoTIFF**, un par année et par grandeur ; tableaux **CSV** ; rapport **JSON et texte** ; en option, un **GeoPackage** des morceaux de mailles avec leurs populations |
-| P4 | La demande en eau potable fait-elle partie de la phase 3 ? | **Oui** : ce n'est qu'un calcul à partir des populations, et c'est l'usage prioritaire. Les autres indicateurs utiliseront le même mécanisme |
-| P5 | Nom des fichiers de sortie | `population_2030.tif`, `densite_2030.tif`, `non_relocalises_2030.tif`, `eau_production_moyenne_2030.tif`, `bilan_par_unite.csv`, `rapport.json`, `rapport.txt` |
+| P1 | Les zones de paramètres peuvent-elles avoir des limites différentes de la typologie ? | **Oui.** Les mailles sont découpées selon chaque couche fournie |
+| P2 | Les populations publiées sont-elles arrondies par maille ou par morceau ? | **Par maille**, avec un total conservé |
+| P3 | Quels formats de sortie ? | GeoTIFF, CSV, rapport JSON et texte, GeoPackage des morceaux en option |
+| P4 | Quels indicateurs dans cette phase ? | **L'eau potable**, dans un **cadre générique** : un indicateur est un module qui calcule des grandeurs à partir des populations et de ses propres paramètres (par zone et dans le temps). D'autres usages pourront être ajoutés sans toucher au reste du moteur |
+| P5 | Noms des fichiers de sortie | **Noms fixes, en anglais, quelle que soit la langue** : `population_2030.tif`, `density_2030.tif`, `unallocated_2030.tif`, `capacity_2030.tif`, `water_production_mean_2030.tif`, `summary.csv`, `report.json`, `report.txt`. Le contenu du rapport texte et les en-têtes des tableaux suivent la langue choisie |
+
+**Langues (spécification §15)** : dans cette phase, le moteur produit ses messages à partir de codes et d'un catalogue par langue. Le français et l'anglais sont livrés.

@@ -570,3 +570,22 @@ Contenu :
 **Langue** : français. Une version anglaise est possible plus tard, avec le système de traduction de QGIS.
 
 **Planning** : la documentation est rédigée au fil des phases, pour chaque fonctionnalité livrée. Elle est intégrée au plugin en phase 5 et relue en phase 8.
+
+---
+
+## 15. Langues (décision du 29/09/2026)
+
+**Langues visées** : le **français** et l'**anglais** d'abord. Puis l'espagnol, le portugais, l'arabe, le swahili, le kinyarwanda, le kirundi, le russe et l'ukrainien.
+
+| Élément | Mécanisme |
+|---|---|
+| Messages du moteur (erreurs, avertissements, rapport) | Le moteur produit un **code de message** et ses valeurs. Le texte vient d'un **catalogue par langue** (`src/engine/locales/<langue>.json`). Si une traduction manque, le texte français est utilisé |
+| Nombres dans les textes | Séparateurs selon la langue : `171 280,5` en français, `171,280.5` en anglais |
+| Interface du plugin (phase 5) | Mécanisme standard de QGIS : textes marqués traduisibles, un fichier de traduction par langue, choix automatique selon la langue de QGIS |
+| Aide et « À propos » | Un dossier de pages par langue (`docs/aide/<langue>/`), avec le français par défaut |
+| Fichier de scénario | Clés techniques identiques dans toutes les langues |
+| **Noms des fichiers de sortie** | **Fixes, en anglais**, quelle que soit la langue |
+| En-têtes des tableaux et rapport texte | Dans la langue choisie |
+| Données de l'utilisateur (noms de classes, de zones) | Inchangées |
+
+**Ajouter une langue** revient à ajouter un fichier de catalogue pour le moteur, un fichier de traduction pour l'interface et un dossier de pages d'aide. Aucune modification du code n'est nécessaire. Pour l'**arabe**, il faudra en plus vérifier la mise en page de droite à gauche des fenêtres, que QGIS gère nativement.
