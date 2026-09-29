@@ -69,7 +69,7 @@ td.mod input { border-color: var(--ochre); }
 <div class="wrap">
   <header>
     <h1>Poplar : maquette de l'onglet Calage</h1>
-    <p class="lead">Données réelles de Muramvya : 38 942 toits des classeurs de Lionel, strates = communes, groupes = type rural / urbain. Version 2 : les occupants par classe viennent de la <strong>taille de ménage</strong>, ajustée au recensement, en nombres entiers. Faites glisser les limites de classe, changez la taille de ménage ou « Ajuster au recensement », ou corrigez un nombre d'occupants dans le tableau : l'écart au recensement se met à jour.</p>
+    <p class="lead">Données réelles de Muramvya : 38 942 toits des classeurs de Lionel, strates = communes, groupes = type rural / urbain. Version 3 : le modèle propose un <strong>nombre entier d'habitants par toit</strong> pour chaque classe de surface, à partir d'un seul paramètre ajusté au recensement (la surface de toit par habitant) ; chaque valeur reste modifiable. Faites glisser les limites de classe, cliquez « Ajuster au recensement », ou corrigez un nombre d'habitants dans le tableau : l'écart au recensement se met à jour (alerte au-delà de ±2 %).</p>
   </header>
 
   <div class="win">
@@ -108,7 +108,7 @@ td.mod input { border-color: var(--ochre); }
         <section>
           <h2>Régressions</h2>
           <div class="tbl"><table id="groups">
-            <thead><tr><th>Groupe</th><th>Strates</th><th>Toits</th><th>Ménage / surface par ménage</th><th>Calculé</th><th>Recensement</th><th>Écart</th><th>Facteur</th></tr></thead>
+            <thead><tr><th>Groupe</th><th>Strates</th><th>Toits</th><th>m² de toit par habitant</th><th>Calculé</th><th>Recensement</th><th>Écart</th><th>Facteur</th></tr></thead>
             <tbody></tbody>
           </table></div>
         </section>
@@ -122,27 +122,25 @@ td.mod input { border-color: var(--ochre); }
               <span class="f s">Surfaces 10 – 450 m²</span>
             </div>
             <div class="occ">
-              <label>Paramètre ajusté <select id="mode"><option value="aref">surface de toit par ménage</option><option value="h">taille de ménage</option></select></label>
-              <label>Taille de ménage <input id="h" type="number" step="0.1" min="1" max="12" value="5"></label>
+              <label>Surface de toit par habitant <input id="aref" type="number" step="0.1" min="1" max="100" value="14"> m²</label>
               <span class="btn p" id="fit">Ajuster au recensement</span>
-              <label>Surface de toit par ménage <input id="aref" type="number" step="1" min="10" max="300" value="69.5"> m²</label>
-              <label>Maximum par bâtiment <input id="omax" type="number" step="1" min="1" max="60" value="15"></label>
-              <label>Enquête (facultatif) <input id="hs" type="number" step="0.1" value="4.8"> ± <input id="hsci" type="number" step="0.1" value="0.4"></label>
+              <label>Minimum par toit <input id="omin" type="number" step="1" min="0" max="20" value="1"></label>
+              <label>Maximum par toit <input id="omax" type="number" step="1" min="1" max="60" value="15"></label>
             </div>
             <svg class="chart" id="chart" viewBox="0 0 900 300" role="img" aria-label="Distribution des surfaces de toit et courbe de calage"></svg>
             <div class="legend">
               <span><i style="background:var(--bars);height:9px"></i>toits par m² de surface</span>
-              <span><i style="background:var(--teal)"></i>occupants par toit (retenus)</span>
+              <span><i style="background:var(--teal)"></i>habitants par toit (retenus)</span>
               <span><i style="background:var(--terra)"></i>polynôme des classeurs (legacy)</span>
               <span><i style="background:var(--ochre)"></i>limites de classe (à faire glisser)</span>
             </div>
             <div class="tbl"><table id="classes">
-              <thead><tr><th>Classe</th><th>De (m²)</th><th>À (m²)</th><th>Toits</th><th>Surface moyenne</th><th>Ménages par toit</th><th>Proposé</th><th>Retenu</th></tr></thead>
+              <thead><tr><th>Classe</th><th>De (m²)</th><th>À (m²)</th><th>Toits</th><th>Surface moyenne</th><th>Habitants proposés</th><th>Habitants retenus</th></tr></thead>
               <tbody></tbody>
             </table></div>
             <div class="pair" id="diag"></div>
             <div class="totals" id="totals"></div>
-            <p class="hint">Occupants d'une classe = arrondi(taille de ménage × surface moyenne de la classe ÷ surface du logement d'un ménage), au plus le maximum par bâtiment. Avec le seul recensement, la taille de ménage et la surface de toit par ménage ne peuvent pas être ajustées ensemble (seul leur rapport compte) : on fixe l'une (5 habitants par ménage, comme dans les classeurs, ou la valeur d'une enquête) et l'outil ajuste l'autre. Au-delà de la dernière classe, la valeur reste celle de la dernière classe. Toute valeur « retenue » modifiée à la main est notée dans le rapport.</p>
+            <p class="hint">Habitants proposés pour une classe = arrondi(surface moyenne des toits de la classe ÷ surface de toit par habitant), entre le minimum et le maximum par toit, jamais moins que la classe précédente. « Ajuster au recensement » choisit la surface par habitant qui redonne au mieux le recensement. Au-delà de la dernière classe, la valeur reste celle de la dernière classe. Toute valeur « retenue » modifiée à la main est notée dans le rapport.</p>
           </div>
         </section>
 
@@ -153,9 +151,10 @@ td.mod input { border-color: var(--ochre); }
               <label>Année des images de toits <input id="yb" type="number" value="2021"></label>
               <label>Population connue en <input id="yc" type="number" value="2024"></label>
               <label>TCAM par défaut <input id="rdef" type="number" step="0.1" value="2.4"> % / an</label>
+              <label>Référence (autre source) <input id="aref2" type="number" step="0.1" value="" placeholder="facultatif"> m² de toit par habitant</label>
             </div>
             <div class="pair" id="tcam"></div>
-            <p class="hint">Le TCAM suggéré relie la population des toits, calculée avec la taille de ménage de l'enquête, à la population connue : (population connue ÷ population des toits)^(1 ÷ écart d'années) − 1. L'intervalle vient de l'intervalle de l'enquête. S'il est très différent du TCAM par défaut, c'est l'hypothèse d'occupation qu'il faut revoir.</p>
+            <p class="hint">Le TCAM suggéré relie la population des toits, calculée avec une surface de toit par habitant venue d'une autre source (autre commune calée, étude antérieure, enquête), à la population connue : (population connue ÷ population des toits)^(1 ÷ écart d'années) − 1. S'il est très différent du TCAM par défaut, l'une des deux hypothèses est à revoir.</p>
           </div>
         </section>
 
@@ -169,8 +168,8 @@ td.mod input { border-color: var(--ochre); }
 
   <section class="notes">
     <div><h3>Ce que montre le graphique</h3><p>Les barres sont la distribution réelle des surfaces de toit du groupe. Les limites de classe se placent de préférence dans les creux de cette distribution ; « Proposer » les calcule par la méthode des ruptures naturelles (Fisher-Jenks).</p></div>
-    <div><h3>Paramètre ajusté</h3><p>« Ajuster au recensement » cherche la surface de toit par ménage (ou la taille de ménage) qui, avec des occupants entiers par classe, redonne au mieux le recensement de la strate. L'écart restant est affiché ; le recalage final est proposé, mais son facteur vaut 1 par défaut.</p></div>
-    <div><h3>Avec une enquête</h3><p>Une taille de ménage d'enquête, même d'une autre année, sert de repère : l'outil signale si la valeur ajustée sort de son intervalle, et en déduit un TCAM suggéré pour le décalage d'années.</p></div>
+    <div><h3>Un seul paramètre</h3><p>« Ajuster au recensement » cherche la surface de toit par habitant qui, avec des occupants entiers par classe, redonne au mieux le recensement de la strate. L'écart restant est affiché ; le recalage final est proposé, mais son facteur vaut 1 par défaut.</p></div>
+    <div><h3>Habitants par toit</h3><p>Le résultat est toujours un nombre d'habitants par toit selon sa surface : c'est lui qui donne la carte de densité. Le paramètre et les valeurs retenues sont réutilisables d'une région à l'autre, sans passer par la taille des ménages.</p></div>
   </section>
 </div>
 
@@ -180,7 +179,7 @@ const CENSUS = {"Rural": 136759, "Urbain1": 34251};
 const STRATA = {"Rural": "Muramvya rural", "Urbain1": "Muramvya urbain"};
 const LEGACY = {"Rural": [-2e-5, 0.0018, 0.0497, -0.3632], "Urbain1": [-2e-5, 0.0022, 0.0569, -0.4777]};
 const state = {};
-for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), h: 5, aref: 69.5, omax: 15, manual: {}, mode: "aref"};
+for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), aref: 14, omin: 1, omax: 15, manual: {}};
 let current = "Rural";
 const fmt = n => Math.round(n).toLocaleString("fr-FR");
 const dec = (n, d = 1) => n.toFixed(d).replace(".", ",");
@@ -202,32 +201,23 @@ function classStats(g) {
   }
   return stats;
 }
-function proposed(g, stats, h, aref) {
+function proposed(g, stats, aref) {        // whole inhabitants per roof: mean area of the class / roof area per inhabitant
   const st = state[g], a = aref ?? st.aref;
   let m = 0;
-  return stats.map(s => { m = Math.max(m, Math.min(st.omax, Math.round(h * s.mean / a))); return m; });
+  return stats.map(s => { m = Math.max(m, Math.min(st.omax, Math.max(st.omin, Math.round(s.mean / a)))); return m; });
 }
 function retained(g, stats) {
-  const p = proposed(g, stats, state[g].h);
+  const p = proposed(g, stats);
   return p.map((v, k) => state[g].manual[k] ?? v);
 }
 function total(g, stats, values) { return stats.reduce((t, s, k) => t + s.n * values[k], 0); }
-function fitH(g) {       // the free parameter (household size, or roof area per household) giving the census best
-  const st = state[g], stats = classStats(g); let best = null, err = Infinity;
-  if (st.mode === "h") {
-    for (let h = 1; h <= 15; h += 0.01) {
-      const e = Math.abs(total(g, stats, proposed(g, stats, h)) - CENSUS[g]);
-      if (e < err - 1e-9) { err = e; best = h; }
-    }
-    st.h = Math.round(best * 100) / 100;
-  } else {
-    for (let a = 10; a <= 200; a += 0.1) {
-      const e = Math.abs(total(g, stats, proposed(g, stats, st.h, a)) - CENSUS[g]);
-      if (e < err - 1e-9) { err = e; best = a; }
-    }
-    st.aref = Math.round(best * 10) / 10;
+function fitH(g) {                          // roof area per inhabitant giving the census best
+  const st = state[g], stats = classStats(g); let best = st.aref, err = Infinity;
+  for (let a = 2; a <= 60; a += 0.05) {
+    const e = Math.abs(total(g, stats, proposed(g, stats, a)) - CENSUS[g]);
+    if (e < err - 1e-9) { err = e; best = a; }
   }
-  st.manual = {};
+  st.aref = Math.round(best * 100) / 100; st.manual = {};
 }
 function curve(stats, values) {
   const xs = stats.map(s => s.mean);
@@ -245,7 +235,7 @@ function renderGroups() {
     const stats = classStats(g), c = total(g, stats, retained(g, stats)), gap = (c / CENSUS[g] - 1) * 100;
     const tr = document.createElement("tr");
     if (g === current) tr.className = "sel";
-    tr.innerHTML = `<td>${g}</td><td>${STRATA[g]}</td><td>${fmt(DATA[g].roofs)}</td><td>${dec(state[g].h, 2)} hab. / ${dec(state[g].aref)} m²</td>` +
+    tr.innerHTML = `<td>${g}</td><td>${STRATA[g]}</td><td>${fmt(DATA[g].roofs)}</td><td>${dec(state[g].aref)}</td>` +
       `<td>${fmt(c)}</td><td>${fmt(CENSUS[g])}</td><td>${gap >= 0 ? "+" : ""}${dec(gap, 2)} %</td><td>1 (proposé ${dec(CENSUS[g] / c, 3)})</td>`;
     tr.style.cursor = "pointer";
     tr.addEventListener("click", () => { current = g; syncInputs(); render(); });
@@ -253,13 +243,13 @@ function renderGroups() {
   }
 }
 function renderClasses() {
-  const g = current, st = state[g], stats = classStats(g), prop = proposed(g, stats, st.h), vals = retained(g, stats);
+  const g = current, st = state[g], stats = classStats(g), prop = proposed(g, stats), vals = retained(g, stats);
   const body = document.querySelector("#classes tbody");
   body.innerHTML = "";
   stats.forEach((s, k) => {
     const tr = document.createElement("tr"), mod = st.manual[k] !== undefined;
     tr.innerHTML = `<td>${k + 1}</td><td>${st.edges[k]}</td><td>${st.edges[k + 1]}</td><td>${fmt(s.n)}</td><td>${dec(s.mean)}</td>` +
-      `<td>${dec(s.mean / st.aref, 2)}</td><td>${prop[k]}</td><td class="${mod ? "mod" : ""}"><input value="${vals[k]}" aria-label="Occupants retenus, classe ${k + 1}"></td>`;
+      `<td>${prop[k]}</td><td class="${mod ? "mod" : ""}"><input value="${vals[k]}" aria-label="Habitants retenus, classe ${k + 1}"></td>`;
     body.appendChild(tr);
     tr.querySelector("input").addEventListener("change", e => {
       const v = parseInt(e.target.value, 10);
@@ -267,29 +257,29 @@ function renderClasses() {
     });
   });
   $("ncls").textContent = `${stats.length}`;
-  const c = total(g, stats, vals), gap = (c / CENSUS[g] - 1) * 100;
-  const hs = parseFloat($("hs").value), ci = parseFloat($("hsci").value);
-  const inside = isNaN(hs) || (st.h >= hs - ci && st.h <= hs + ci);
+  const c = total(g, stats, vals), gap = (c / CENSUS[g] - 1) * 100, alert = Math.abs(gap) > 2;
+  const monotone = vals.every((v, i) => i === 0 || v >= vals[i - 1]);
   $("totals").innerHTML =
     `<div><span>Population calculée</span><b>${fmt(c)}</b></div><div><span>Recensement</span><b>${fmt(CENSUS[g])}</b></div>` +
-    `<div><span>Écart sans recalage</span><b>${gap >= 0 ? "+" : ""}${dec(gap, 2)} %</b></div>` +
+    `<div><span>Écart sans recalage</span><b style="color:${alert ? "var(--ochre)" : "inherit"}">${gap >= 0 ? "+" : ""}${dec(gap, 2)} %</b></div>` +
     `<div><span>Recalage (appliqué / proposé)</span><b>1 / ${dec(CENSUS[g] / c, 3)}</b></div>`;
   $("diag").innerHTML =
-    `<span class="chip">occupants entiers, croissants</span><span class="chip">${Object.keys(st.manual).length} valeur(s) modifiée(s)</span>` +
-    `<span class="chip ${inside ? "" : "w"}">taille de ménage ${dec(st.h, 2)} ${isNaN(hs) ? "" : inside ? "dans l'intervalle de l'enquête" : "hors de l'intervalle de l'enquête"}</span>` +
+    `<span class="chip ${monotone ? "" : "w"}">${monotone ? "habitants croissants avec la surface" : "une classe a moins d'habitants que la précédente"}</span>` +
+    `<span class="chip">${Object.keys(st.manual).length} valeur(s) modifiée(s)</span>` +
+    `<span class="chip ${alert ? "w" : ""}">${alert ? "écart au recensement supérieur à 2 % : ajuster ou recaler" : "écart au recensement inférieur à 2 %"}</span>` +
     `<span class="chip">${fmt(DATA[g].small)} toits &lt; 10 m², ${fmt(DATA[g].large)} &gt; 450 m²</span>`;
 }
 function renderTcam() {
   const g = current, stats = classStats(g), yb = +$("yb").value, yc = +$("yc").value, rdef = parseFloat($("rdef").value);
-  const hs = parseFloat($("hs").value), ci = parseFloat($("hsci").value), dt = yc - yb;
+  const ref = parseFloat($("aref2").value), dt = yc - yb;
   let html = `<span class="chip">TCAM par défaut : ${dec(rdef)} % / an</span>`;
-  if (!isNaN(hs) && dt !== 0) {
-    const rate = h => (Math.pow(CENSUS[g] / total(g, stats, proposed(g, stats, h)), 1 / dt) - 1) * 100;
-    const r = rate(hs), lo = rate(hs + ci), hi = rate(hs - ci);
+  if (!isNaN(ref) && dt !== 0) {
+    const r = (Math.pow(CENSUS[g] / total(g, stats, proposed(g, stats, ref)), 1 / dt) - 1) * 100;
     const odd = r < 0 || r > 5 || Math.abs(r - rdef) > 1.5;
-    html += `<span class="chip ${odd ? "w" : ""}">TCAM suggéré (taille de ménage ${dec(hs)}) : ${dec(r)} % / an, de ${dec(Math.min(lo, hi))} à ${dec(Math.max(lo, hi))} %</span>`;
-    if (odd) html += `<span class="chip w">écart au TCAM par défaut : revoir l'hypothèse d'occupation ou la taille de ménage</span>`;
+    html += `<span class="chip ${odd ? "w" : ""}">TCAM suggéré (${dec(ref)} m² de toit par habitant) : ${dec(r)} % / an</span>`;
+    if (odd) html += `<span class="chip w">écart au TCAM par défaut : revoir la surface de référence ou le TCAM</span>`;
   } else if (dt === 0) html += `<span class="chip">pas de décalage d'années</span>`;
+  else html += `<span class="chip">TCAM suggéré : donnez une surface de toit par habitant de référence</span>`;
   $("tcam").innerHTML = html;
 }
 const W = 900, H = 300, L = 46, R = 46, T = 14, B = 34, XMAX = 150;
@@ -320,14 +310,14 @@ function renderChart() {
   });
   svg.innerHTML = out;
 }
-function syncInputs() { const st = state[current]; $("h").value = st.h; $("aref").value = st.aref; $("omax").value = st.omax; $("mode").value = st.mode; }
+function syncInputs() { const st = state[current]; $("aref").value = st.aref; $("omin").value = st.omin; $("omax").value = st.omax; }
 function render() { $("gtitle").textContent = `Groupe ${current}`; renderGroups(); renderClasses(); renderChart(); renderTcam(); }
 
-for (const [id, key] of [["h", "h"], ["aref", "aref"], ["omax", "omax"]])
-  $(id).addEventListener("input", e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) { state[current][key] = v; state[current].manual = {}; render(); } });
-for (const id of ["hs", "hsci", "yb", "yc", "rdef"]) $(id).addEventListener("input", render);
+for (const [id, key] of [["aref", "aref"], ["omin", "omin"], ["omax", "omax"]])
+  $(id).addEventListener("input", e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v >= 0) { state[current][key] = v; state[current].manual = {}; render(); } });
+for (const id of ["aref2", "yb", "yc", "rdef"]) $(id).addEventListener("input", render);
 $("fit").addEventListener("click", () => { fitH(current); syncInputs(); render(); });
-$("mode").addEventListener("change", e => { state[current].mode = e.target.value; fitH(current); syncInputs(); render(); });
+
 
 let drag = null;
 const chart = $("chart");
