@@ -24,6 +24,8 @@ from .pages import (
     CalibrationPage, DataPage, IndicatorsPage, ParametersPage, ReportPage, ResultsPage, RunPage, ScenarioPage,
 )
 
+INFORMATION = {"crs_used", "raster_reprojected", "start_from_projection"}
+"""Report lines that describe the run; every other warning is shown in the message bar."""
 ICONS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario",
               "parameters": "parametres_et_scenario", "indicators": "resultats_et_indicateurs",
@@ -321,6 +323,10 @@ class MainDialog(QDialog):
             return
         level = Qgis.Success if result.status in ("success", "success_with_adjustments") else Qgis.Warning
         self.iface.messageBar().pushMessage("Poplar", tr(f"run.status.{result.status}"), level)
+        notable = [w for w in result.warnings if w.code not in INFORMATION]
+        if notable:
+            self.iface.messageBar().pushWarning(
+                "Poplar", tr("run.warnings", count=len(notable), first=notable[0].render(language)))
         years = sorted({os.path.basename(p).split("_")[-1][:-4] for p in result.outputs
                         if os.path.basename(p).startswith("population_")}, key=float)
         self.load_results(["population", "density"], years[-1:])

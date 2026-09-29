@@ -249,6 +249,7 @@ def test_parameters_linked_to_layers(iface, scenario_copy, tmp_path):
     with open(os.path.join(directory, "report.json"), encoding="utf-8") as handle:
         codes = [w["code"] for w in json.load(handle)["warnings"]]
     assert "parameter_key_unused" in codes                              # Urbain2
+    assert any("Urbain2" in str(m) for m in iface.bar.messages)          # shown in the message bar too
     QgsProject.instance().clear()
 
 
@@ -386,7 +387,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 5
-    assert version() == "0.2.0"
+    assert version() == "0.2.1"
     AboutDialog()
 
 

@@ -405,5 +405,6 @@
  "library.open": "Start from this scenario",
  "library.open.tip.title": "Start from this scenario",
  "library.open.tip": "Loads the scenario in the window as a new scenario: the original in the library is not changed.",
- "library.save": "Save"
+ "library.save": "Save",
+ "run.warnings": "{count} warning(s), including: {first} (see the report)"
 }

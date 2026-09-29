@@ -1,6 +1,6 @@
 # Vérification du plugin sur votre poste
 
-Version 0.2.0. Si la version 0.1.0 est installée, désinstallez-la d'abord (**Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**), puis installez la nouvelle.
+Version 0.2.1. Si une version précédente est installée, désinstallez-la d'abord (**Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**), puis installez la nouvelle.
 
 Durée : 20 à 25 minutes. Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
 
@@ -8,11 +8,11 @@ Durée : 20 à 25 minutes. Environnement : QGIS 3.40 LTR sous Windows, puis QGIS
 
 Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exemple**.
 
-1. **Plugin** : téléchargez directement `poplar-0.2.0.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.2.0.zip
+1. **Plugin** : téléchargez directement `poplar-0.2.1.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.2.1.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis **décompressez** l'archive. Le dossier `data/test/muramvya/` contient le scénario et les données.
 
-⚠️ **N'installez pas dans QGIS l'archive complète du dépôt** (`poplar-qgis-claude-legacy-code-assessment-frf66q.zip`). Ce n'est pas un plugin : QGIS refuse alors de le charger, avec l'erreur « No module named 'poplar-qgis-…/plugin/poplar' ». Le seul fichier à installer est `poplar-0.2.0.zip`, que l'on trouve aussi, une fois l'archive du dépôt décompressée, dans son dossier `dist/`.
+⚠️ **N'installez pas dans QGIS l'archive complète du dépôt** (`poplar-qgis-claude-legacy-code-assessment-frf66q.zip`). Ce n'est pas un plugin : QGIS refuse alors de le charger, avec l'erreur « No module named 'poplar-qgis-…/plugin/poplar' ». Le seul fichier à installer est `poplar-0.2.1.zip`, que l'on trouve aussi, une fois l'archive du dépôt décompressée, dans son dossier `dist/`.
 
 **Si cette erreur est déjà apparue**, supprimez d'abord l'installation ratée :
 1. Fermez QGIS.
@@ -22,7 +22,7 @@ Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exe
 ## 1. Installer
 
 1. Dans QGIS : **Extensions › Installer/Gérer les extensions › Installer depuis un ZIP**.
-2. Choisissez `dist/poplar-0.2.0.zip`, puis cliquez sur **Installer l'extension**.
+2. Choisissez `dist/poplar-0.2.1.zip`, puis cliquez sur **Installer l'extension**.
 3. ✅ Vérifiez qu'une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent.
 
 ## 2. Parcourir l'interface

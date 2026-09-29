@@ -405,5 +405,6 @@
  "library.open": "Partir de ce scénario",
  "library.open.tip.title": "Partir de ce scénario",
  "library.open.tip": "Charge le scénario dans la fenêtre comme nouveau scénario : l'original de la bibliothèque n'est pas modifié.",
- "library.save": "Enregistrer"
+ "library.save": "Enregistrer",
+ "run.warnings": "{count} avertissement(s), dont : {first} (voir le rapport)"
 }
