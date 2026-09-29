@@ -321,6 +321,8 @@ pre.log{margin:0;background:var(--chrome);border:1px solid var(--line);border-ra
           ${f('Taille de maille','<div class="inline" style="flex-wrap:nowrap"><input id="s-cell" type="number" value="250" style="width:90px"> m</div>','Taille de maille|250 m par défaut. Plus grand pour un premier calcul rapide sur une grande emprise ; rarement moins de 250 m (plusieurs bâtiments par maille).')}
           ${f('Unité des densités', sel('s-unit',['hab/km²','hab/ha'],'hab/km²'),'Unité des densités|Unité des densités saisies et publiées. Le calcul interne reste cohérent quelle que soit l\'unité.')}
         </div>
+        ${f('Système de calcul', sel('s-crs',['Projet : EPSG:32735 – WGS 84 / UTM 35S','Zone UTM automatique','Surfaces conservées (grands pays)','Autre…'],'Projet : EPSG:32735 – WGS 84 / UTM 35S'),'Système de coordonnées de calcul|Toujours projeté et en mètres : les surfaces sont calculées en m². Les couches peuvent être dans n\'importe quel système, elles sont reprojetées. Un système en degrés est refusé. Au-delà de 0,5 % de déformation des surfaces, l\'outil recommande un système à surfaces conservées.')}
+        <p style="color:var(--muted);font-size:12.5px">Déformation des surfaces sur la zone d'étude : 0,16 % <span class="pill ok">OK</span></p>
       </fieldset>`,
     donnees: () => `
       <fieldset><legend>Territoire</legend>
@@ -335,7 +337,8 @@ pre.log{margin:0;background:var(--chrome);border:1px solid var(--line);border-ra
       </fieldset>
       <fieldset><legend>Population de départ</legend>
         <div class="grid2">
-          ${f('Raster de densité', sel('d-rast',['pop2023_muramvya'],'pop2023_muramvya'),'Population de départ|Raster de densité à l\'année de base. En phase 6 : calcul direct à partir des toits.')}
+          ${f('Raster de population', sel('d-rast',['pop2023_muramvya'],'pop2023_muramvya'),'Population de départ|Raster à l\'année de base, dans n\'importe quel système de coordonnées (il est reprojeté sans perte d\'habitants). En phase 6 : calcul direct à partir des toits.')}
+          ${f('Contenu du raster', sel('d-vtype',['Densité (hab/km²)','Densité (hab/ha)','Nombre d\'habitants par pixel'],'Densité (hab/km²)'),'Contenu du raster|Densité (comme le raster BUR71) ou nombre d\'habitants par pixel (comme WorldPop). Une confusion fausserait tout d\'un facteur égal à la surface du pixel.')}
           ${f('Pixels en bordure', sel('d-border',['Découper (surface dans la zone)','Tout attribuer à la zone'],'Découper (surface dans la zone)'),'Pixels en bordure|Un pixel à cheval sur la limite est découpé : seule la surface située dans la zone est comptée.')}
         </div>
         ${f('Toits (bâti)','<select id="d-roofs" disabled><option>Disponible en phase 6</option></select>','Toits|Google Open Buildings, PostGIS, GeoPackage… Utilisé par le calage (phase 6).')}

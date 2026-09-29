@@ -71,11 +71,27 @@ Il s'agit d'un fichier CSV à trois colonnes : `admin`, `year`, `population`.
 | `max_auto_increase` | Hausse des densités acceptée sans validation, en mode automatique (0,25 = +25 %) | 0 |
 | `sink_width_cells` | Largeur de la couronne de mailles puits | 4 |
 
+## Système de coordonnées
+
+Les couches peuvent être dans n'importe quel système de coordonnées : l'outil les reprojette. Le **calcul** se fait toujours dans un système **projeté en mètres**, pour que les surfaces et les densités soient justes.
+
+| Valeur de `crs` | Système de calcul |
+|---|---|
+| (absent) | Celui du raster de population s'il est en mètres, sinon la zone UTM de la zone d'étude |
+| `EPSG:32735`, WKT… | Le système indiqué (refusé s'il est en degrés) |
+| `auto-utm` | La zone UTM du centre de la zone d'étude |
+| `auto-equal-area` | Un système à surfaces conservées centré sur la zone : recommandé pour un grand pays |
+
+Si le système choisi déforme les surfaces de plus de 0,5 % sur la zone d'étude, le rapport le signale.
+
+Le raster de population peut contenir une **densité** (`"value_type": "density"`, dans l'unité `density_unit`) ou un **nombre d'habitants par pixel** (`"value_type": "count"`, comme WorldPop).
+
 ## Autres réglages
 
 | Réglage | Rôle | Défaut |
 |---|---|---|
 | `cell_size` | Taille de maille, en mètres | 250 |
+| `crs` | Système de coordonnées de calcul (voir plus haut) | automatique |
 | `language` | Langue du rapport et des tableaux (`fr`, `en`) | `fr` |
 | `output.directory` | Dossier des résultats | `outputs` |
 

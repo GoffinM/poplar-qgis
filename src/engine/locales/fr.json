@@ -60,5 +60,9 @@
   "unit_hab/ha": "hab/ha",
   "unit_m3/d": "m³/j",
   "unit_m3/h": "m³/h",
-  "unit_places": "places"
+  "unit_places": "places",
+  "crs_not_metric": "Le système de coordonnées de calcul doit être projeté et en mètres (« {crs} » ne l'est pas). Choisissez par exemple une zone UTM, ou « auto-utm ».",
+  "crs_used": "Système de coordonnées de calcul : {name} (choix : {source}).",
+  "crs_area_distortion": "Ce système de coordonnées déforme les surfaces jusqu'à {distortion} % sur la zone d'étude. Un système à surfaces conservées est recommandé (« crs » : « auto-equal-area »).",
+  "raster_reprojected": "Raster de population reprojeté dans {name} (pixels de {pixel} m) par moyenne pondérée des densités ; écart de population totale dû aux bords du raster : {correction} %."
 }

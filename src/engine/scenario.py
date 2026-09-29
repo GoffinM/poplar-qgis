@@ -102,6 +102,10 @@ class Scenario:
     cell_size: float = 250.0
     density_unit: str = "hab/km2"
     boundary_mode: str = "area_weighted"
+    population_value_type: str = "density"
+    """Content of the population raster: ``density`` (in ``density_unit``) or ``count`` per pixel."""
+    crs: Optional[str] = None
+    """Calculation CRS (EPSG code, WKT, ``auto-utm`` or ``auto-equal-area``); see engine.crs."""
     parameter_zones: Optional[VectorInput] = None
     admin_units: Optional[VectorInput] = None
     exclusions: List[Exclusion] = field(default_factory=list)
@@ -139,7 +143,8 @@ class Scenario:
     def to_dict(self) -> Dict[str, Any]:
         data = asdict(self)
         data.pop("base_dir")
-        data["base_population"] = {"raster": data.pop("base_population_raster"), "boundary_mode": data.pop("boundary_mode")}
+        data["base_population"] = {"raster": data.pop("base_population_raster"), "boundary_mode": data.pop("boundary_mode"),
+                                   "value_type": data.pop("population_value_type")}
         data["output"] = {"directory": data.pop("output_directory")}
         return _drop_none(data)
 
@@ -240,6 +245,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
         parameters=parameters, name=data.get("name", ""), language=data.get("language", DEFAULT_LANGUAGE),
         cell_size=float(data.get("cell_size", 250.0)), density_unit=data.get("density_unit", "hab/km2"),
         boundary_mode=base_population.get("boundary_mode", "area_weighted"),
+        population_value_type=base_population.get("value_type", "density"), crs=data.get("crs"),
         parameter_zones=vector(data.get("parameter_zones"), "parameter_zones", needs_field=True),
         admin_units=vector(data.get("admin_units"), "admin_units", needs_field=True),
         exclusions=exclusions, projections=projections, migration=migration, indicators=indicators,
@@ -281,6 +287,8 @@ def validate(scenario: Scenario) -> List[Message]:
         invalid("density_unit", scenario.density_unit, " | ".join(DENSITY_FACTORS))
     if scenario.boundary_mode not in ("area_weighted", "renormalized"):
         invalid("base_population.boundary_mode", scenario.boundary_mode, "area_weighted | renormalized")
+    if scenario.population_value_type not in ("density", "count"):
+        invalid("base_population.value_type", scenario.population_value_type, "density | count")
     if scenario.extrapolation not in (CONSTANT, LINEAR):
         invalid("extrapolation", scenario.extrapolation, f"{CONSTANT} | {LINEAR}")
     if scenario.language not in available_languages():

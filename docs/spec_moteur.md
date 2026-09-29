@@ -96,6 +96,21 @@ Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
 
 ## 3. Grille et unités de calcul
 
+### 3.0 Système de coordonnées de calcul (décision du 29/09/2026)
+
+- **Les données d'entrée peuvent être dans n'importe quel système de coordonnées.** Elles sont reprojetées à la volée dans le système de calcul.
+- **Le système de calcul est projeté et en mètres.** Toutes les surfaces sont calculées en m², puis exprimées en km², hab/km² ou hab/ha. Un système en degrés est **refusé**.
+- **Choix par défaut** (paramètre `crs` du scénario) :
+  - le système demandé (code EPSG, WKT, `auto-utm` ou `auto-equal-area`) ;
+  - sinon, celui du raster de population s'il est métrique ;
+  - sinon, la zone UTM du centre de la zone d'étude.
+
+  Le plugin proposera le système du projet QGIS s'il est métrique.
+- **Contrôle de déformation** : l'outil mesure l'écart entre les surfaces dans le système de calcul et les surfaces réelles sur l'ellipsoïde, aux coins, au milieu des bords et au centre de la zone d'étude. **Au-delà de 0,5 %**, il avertit et recommande un système à surfaces conservées (`auto-equal-area` : projection azimutale équivalente de Lambert centrée sur la zone). Exemples : Muramvya en UTM 35S, 0,16 % ; l'Ukraine en UTM 35N, 2,6 % ; en Web Mercator, plus de 100 %.
+- **Contenu du raster de population** (`base_population.value_type`) : une **densité** (dans `density_unit`) ou un **nombre d'habitants par pixel**, comme WorldPop. Pour un raster en degrés, la surface réelle de chaque ligne de pixels est calculée sur l'ellipsoïde.
+- **Reprojection du raster** s'il n'est pas dans le système de calcul : la densité est rééchantillonnée par moyenne pondérée des surfaces, sur des pixels au plus aussi grands que les pixels d'origine et que la maille. L'écart de population totale, dû aux seuls bords du raster, est reporté.
+
+
 - La grille est alignée sur l'origine du raster de base, avec un pas de `cell_size`.
 - **Unités de calcul (S1/S2).** Chaque maille est découpée par intersection avec :
   - la zone d'étude,

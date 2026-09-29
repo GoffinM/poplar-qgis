@@ -29,6 +29,8 @@ from .nonconvergence import (
 )
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .parameters import TimeSeries, to_hab_per_km2, unit_means, unit_values
+from ._gdal import srs_from_epsg, srs_from_wkt
+from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
 from .report import StepReport
 from .scenario import NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError
@@ -37,6 +39,14 @@ from .units import Layer, Zone, build_sink_units, build_units
 from .vector_io import read_features, union_all
 
 STATUS_ORDER = ["success", "success_with_adjustments", "partial", "failed"]
+WGS84_WKT = srs_from_epsg(4326).ExportToWkt()
+
+
+def _crs_name(wkt: str) -> str:
+    srs = srs_from_wkt(wkt)
+    code = srs.GetAuthorityCode(None)
+    name = srs.GetName() or "?"
+    return f"EPSG:{code} ({name})" if code else name
 
 
 @dataclass
@@ -192,8 +202,30 @@ class _Model:
         self.warnings: List[Message] = []
         raster_path = scenario.path(scenario.base_population_raster)
         _check_file(raster_path)
-        self.raster = read_raster(raster_path)
-        crs = self.raster.crs_wkt
+        source_raster = read_raster(raster_path)
+
+        # Calculation CRS: projected, in metres (spec §3). Input layers are reprojected to it.
+        study_lonlat = union_all(f.geometry for f in _read(scenario, scenario.study_area, WGS84_WKT))
+        xmin_d, xmax_d, ymin_d, ymax_d = study_lonlat.GetEnvelope()
+        try:
+            choice = choose_crs(scenario.crs, source_raster.crs_wkt, (xmin_d, ymin_d, xmax_d, ymax_d))
+        except ValueError:
+            raise ScenarioError([message("crs_not_metric", crs=str(scenario.crs))]) from None
+        crs = choice.wkt
+        self.crs_choice = choice
+        self.warnings.append(message("crs_used", name=_crs_name(crs), source=choice.source))
+        if choice.suggestion is not None:
+            self.warnings.append(message("crs_area_distortion", distortion=round(choice.max_area_distortion * 100, 2)))
+
+        # Population raster as a density in hab/km2, in the calculation CRS.
+        density = population_to_density(source_raster, scenario.population_value_type,
+                                        float(to_hab_per_km2(1.0, scenario.density_unit)))
+        if not srs_from_wkt(source_raster.crs_wkt).IsSame(srs_from_wkt(crs)):
+            pixel = min(native_pixel_m(source_raster), scenario.cell_size)
+            density, ratio = reproject_density(density, crs, pixel)
+            self.warnings.append(message("raster_reprojected", name=_crs_name(crs), pixel=round(pixel, 1),
+                                         correction=round((ratio - 1) * 100, 3)))
+        self.raster = density
 
         study = union_all(f.geometry for f in _read(scenario, scenario.study_area, crs))
         outside = [g for e in scenario.exclusions if e.behaviour == OUTSIDE for g in _read_exclusion(scenario, e, crs)]
@@ -236,8 +268,7 @@ class _Model:
         self.units = build_units(self.grid, study, zones, union_all(no_inflow) if no_inflow else None, layers)
         if self.units.report.unclassified_area_km2 > 0.01:
             self.warnings.append(message("typology_gaps", area=round(self.units.report.unclassified_area_km2, 2)))
-        self.p0, _ = base_population_from_density(self.units, self.raster, scenario.density_unit,
-                                                  scenario.boundary_mode)
+        self.p0, _ = base_population_from_density(self.units, self.raster, "hab/km2", scenario.boundary_mode)
 
         self.tables = scenario.parameter_tables()
         self.density_unit = scenario.density_unit
