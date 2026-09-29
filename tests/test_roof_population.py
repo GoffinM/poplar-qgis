@@ -141,3 +141,18 @@ def test_a_run_from_the_roofs_writes_the_calibration_report(tmp_path):
     assert set(report["groups"]) == {"Rural", "Urbain1"} and report["recalibrated"]
     population = read_raster(os.path.join(result.directory, "population_2024.tif")).values
     assert np.nansum(np.where(population >= 0, population, 0)) == 171_010
+
+
+def test_a_missing_raster_is_ignored_with_roofs_and_named_otherwise(tmp_path):
+    from engine.scenario import ScenarioError
+
+    scenario = _scenario(tmp_path, {"census": CENSUS, "census_year": 2024})
+    scenario.base_population_raster = "//sher/Transfert_tempo/absent.tif"
+    model = _Model.load(scenario)
+    assert "raster_ignored" in [w.code for w in model.warnings]
+    assert model.p0.sum() > 170_000
+    scenario.population_source = "raster"
+    with pytest.raises(ScenarioError) as error:
+        _Model.load(scenario)
+    assert [m.code for m in error.value.messages] == ["file_not_found_raster"]
+    assert "onglet Données" in error.value.messages[0].render("fr")

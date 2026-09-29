@@ -480,6 +480,11 @@ def test_calibration_tab(iface, scenario_copy, tmp_path):
     dialog.load_file(_with_calibration(scenario_copy))
     page = dialog.page("calibration")
     assert page.census.rowCount() == 2 and page.census_values()["MURAMVYA URBAIN"] == 34_251
+    roofs = page.roof_layer.currentLayer()
+    page.roof_layer.setLayer(None)
+    page.roof_layer.setLayer(roofs)                                 # choosing the layer again, by hand
+    assert page.area_field.currentField() == "area_m2"              # guessed from its name
+    assert page.usage_field.currentField() == ""                    # never the first field by default
     assert page.compute(background=False)
     assert page.group_table.rowCount() == 2 and "38 942" in page.status.text()
     page.group_table.selectRow(0)                                   # Rural
@@ -569,7 +574,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.0"
+    assert version() == "0.3.1"
     AboutDialog()
 
 

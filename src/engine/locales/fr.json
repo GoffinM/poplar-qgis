@@ -131,5 +131,11 @@
   "html_diagnostics": "Courbe croissante : {monotone} · part des toits au plafond : {capped} %.",
   "html_yes": "oui",
   "html_no": "non",
-  "html_footer": "Rapport produit le {date} · moteur Poplar {engine} · GDAL {gdal}"
+  "html_footer": "Rapport produit le {date} · moteur Poplar {engine} · GDAL {gdal}",
+  "file_not_found_layer": "Couche introuvable ou inaccessible : {path}. Vérifiez les couches des onglets Données, Paramètres et Calage.",
+  "file_not_found_raster": "Raster de population (onglet Données) introuvable ou inaccessible : {path}.",
+  "file_not_found_roofs": "Couche des toits (onglet Calage) introuvable ou inaccessible : {path}.",
+  "file_not_found_exclusion": "Zone d'exclusion « {name} » (onglet Données) introuvable ou inaccessible : {path}.",
+  "file_not_found_projections": "Fichier des projections (onglet Données) introuvable ou inaccessible : {path}.",
+  "raster_ignored": "Raster de population introuvable ({path}) : ignoré, la population de départ vient des toits."
 }

@@ -195,7 +195,7 @@ class CalibrationPage(QWidget):
         add_row(form, "calibration.roof_year", self.roof_year)
         for combo in (self.area_field, self.usage_field, self.confidence_field):
             combo.setLayer(self.roof_layer.currentLayer())
-            self.roof_layer.layerChanged.connect(combo.setLayer)
+        self.roof_layer.layerChanged.connect(self._roof_layer_changed)
         top.addWidget(box, 1)
 
         box = QGroupBox(tr("calibration.strata"))
@@ -245,6 +245,7 @@ class CalibrationPage(QWidget):
         self.compute_button.clicked.connect(lambda: self.compute())
         self.status = QLabel()
         self.status.setWordWrap(True)
+        self.status.setObjectName("chip")
         export = QPushButton(tr("calibration.export"))
         export.clicked.connect(lambda: self.export_calibration())
         load = QPushButton(tr("calibration.import"))
@@ -383,6 +384,28 @@ class CalibrationPage(QWidget):
         self.area_per_person.editingFinished.connect(lambda: self._settings_changed(recut=False))
         for spin in (self.min_per_roof, self.max_per_roof):
             spin.valueChanged.connect(lambda *a: self._settings_changed(recut=False))
+
+    AREA_NAMES = ("area_m2", "area_in_meters", "area", "surface", "superficie", "surf_m2", "shape_area")
+
+    def _roof_layer_changed(self, layer):
+        """New roof layer: area field guessed from its name, no usage nor confidence field until chosen."""
+        for combo in (self.area_field, self.usage_field, self.confidence_field):
+            combo.setLayer(layer)
+            combo.setField("")
+        if layer is not None and not self._building:
+            names = {f.name().lower(): f.name() for f in layer.fields()}
+            for candidate in self.AREA_NAMES:
+                if candidate in names:
+                    self.area_field.setField(names[candidate])
+                    break
+            if "confidence" in names:
+                self.confidence_field.setField(names["confidence"])
+
+    def _show_status(self, text, warn=False):
+        self.status.setText(text)
+        self.status.setProperty("state", "warn" if warn else "ok")
+        self.status.style().unpolish(self.status)
+        self.status.style().polish(self.status)
 
     # --- census table -----------------------------------------------------------------
 
@@ -550,12 +573,12 @@ class CalibrationPage(QWidget):
         try:
             scenario = self.dialog.scenario()
         except ScenarioError as error:
-            self.status.setText("\n".join(m.render(current_language()) for m in error.messages))
+            self._show_status("\n".join(m.render(current_language()) for m in error.messages), warn=True)
             return False
         if scenario.calibration is None:
-            self.status.setText(tr("calibration.no_roofs"))
+            self._show_status(tr("calibration.no_roofs"), warn=True)
             return False
-        self.status.setText(tr("calibration.running"))
+        self._show_status(tr("calibration.running"))
         self.compute_button.setEnabled(False)
         if not background:
             from ..engine.simulation import calibrate
@@ -579,7 +602,8 @@ class CalibrationPage(QWidget):
         self.compute_button.setEnabled(True)
         if error is not None:
             messages = getattr(error, "messages", None)
-            self.status.setText("\n".join(m.render(current_language()) for m in messages) if messages else str(error))
+            self._show_status("\n".join(m.render(current_language()) for m in messages) if messages else str(error),
+                              warn=True)
             return
         self.report, self.groups = report, groups
         for name, entry in report["groups"].items():
@@ -588,8 +612,8 @@ class CalibrationPage(QWidget):
                 group.area_per_person = entry.get("area_per_person")
             self.settings[name] = group
         roofs = report["roofs"]
-        self.status.setText(tr("calibration.done", read=_fmt(roofs["read"]), kept=_fmt(roofs["kept"]),
-                               outside=_fmt(roofs.get("outside_study_area", 0))))
+        self._show_status(tr("calibration.done", read=_fmt(roofs["read"]), kept=_fmt(roofs["kept"]),
+                             outside=_fmt(roofs.get("outside_study_area", 0))))
         self._fill_groups()
         if self.group_table.rowCount():
             self.group_table.selectRow(0)

@@ -234,10 +234,14 @@ class _Model:
         self.warnings: List[Message] = []
         from_roofs = scenario.population_source == "buildings"
         source_raster = None
+        raster_warning = None
         if scenario.base_population_raster:  # optional with roofs: it then only aligns the grid
             raster_path = scenario.path(scenario.base_population_raster)
-            _check_file(raster_path)
-            source_raster = read_raster(raster_path)
+            if from_roofs and _missing(raster_path):
+                raster_warning = message("raster_ignored", path=raster_path)
+            else:
+                _check_file(raster_path, "raster")
+                source_raster = read_raster(raster_path)
 
         # Calculation CRS: projected, in metres (spec §3). Input layers are reprojected to it.
         study_lonlat = union_all(f.geometry for f in _read(scenario, scenario.study_area, WGS84_WKT))
@@ -249,6 +253,8 @@ class _Model:
             raise ScenarioError([message("crs_not_metric", crs=str(scenario.crs))]) from None
         crs = choice.wkt
         self.crs_choice = choice
+        if raster_warning is not None:
+            self.warnings.append(raster_warning)
         self.warnings.append(message("crs_used", name=_crs_name(crs), source=choice.source))
         if choice.suggestion is not None:
             self.warnings.append(message("crs_area_distortion", distortion=round(choice.max_area_distortion * 100, 2)))
@@ -362,7 +368,7 @@ class _Model:
         """Starting population from the roofs calibrated on the census (plan of phase 6, step 6.3)."""
         roof_source = calibration.buildings
         roof_source.source = scenario.path(roof_source.source)
-        _check_file(roof_source.source)
+        _check_file(roof_source.source, "roofs")
         xmin, xmax, ymin, ymax = study.GetEnvelope()
         try:
             roofs = read_roofs(roof_source, crs, extent=(xmin, ymin, xmax, ymax))
@@ -496,9 +502,14 @@ def _unused_keys(table, units) -> List[Message]:
     return [message("parameter_key_unused", parameter=table.name, key=key) for key in unused]
 
 
-def _check_file(path: str) -> None:
-    if not os.path.exists(path) and "://" not in path and not path.upper().startswith(("PG:", "WFS:")):
-        raise ScenarioError([message("scenario_file_not_found", path=path)])
+def _missing(path: str) -> bool:
+    return not os.path.exists(path) and "://" not in path and not path.upper().startswith(("PG:", "WFS:"))
+
+
+def _check_file(path: str, what: str = "layer", **values) -> None:
+    """Stop with a message that names the setting (and its tab) whose file cannot be found."""
+    if _missing(path):
+        raise ScenarioError([message(f"file_not_found_{what}", path=path, **values)])
 
 
 def _read(scenario: Scenario, spec, crs: str):
@@ -512,7 +523,7 @@ def _read(scenario: Scenario, spec, crs: str):
 
 def _read_exclusion(scenario: Scenario, exclusion, crs: str):
     path = scenario.path(exclusion.source)
-    _check_file(path)
+    _check_file(path, "exclusion", name=exclusion.name or "")
     try:
         features = read_features(path, exclusion.layer, exclusion.where, crs, exclusion.buffer_m)
     except BufferRequired:
@@ -524,7 +535,7 @@ def _load_projections(scenario: Scenario) -> Dict[str, TimeSeries]:
     """Projections by administrative unit (CSV or spreadsheet, long or wide layout; see engine.tables)."""
     spec = scenario.projections
     path = scenario.path(spec.file)
-    _check_file(path)
+    _check_file(path, "projections")
     try:
         table = read_projections(path, spec.sheet, spec.unit_column, spec.year_column, spec.value_column)
     except (TableError, RuntimeError) as error:

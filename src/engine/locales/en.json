@@ -131,5 +131,11 @@
   "html_diagnostics": "Increasing curve: {monotone} · share of roofs at the ceiling: {capped} %.",
   "html_yes": "yes",
   "html_no": "no",
-  "html_footer": "Report produced on {date} · Poplar engine {engine} · GDAL {gdal}"
+  "html_footer": "Report produced on {date} · Poplar engine {engine} · GDAL {gdal}",
+  "file_not_found_layer": "Layer not found or not reachable: {path}. Check the layers of the Data, Parameters and Calibration tabs.",
+  "file_not_found_raster": "Population raster (Data tab) not found or not reachable: {path}.",
+  "file_not_found_roofs": "Roof layer (Calibration tab) not found or not reachable: {path}.",
+  "file_not_found_exclusion": "Exclusion zone “{name}” (Data tab) not found or not reachable: {path}.",
+  "file_not_found_projections": "Projection file (Data tab) not found or not reachable: {path}.",
+  "raster_ignored": "Population raster not found ({path}): ignored, the starting population comes from the roofs."
 }

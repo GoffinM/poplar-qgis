@@ -168,7 +168,7 @@ class DataPage(Page):
         layout.addWidget(box)
 
         box, form = _box("data.population")
-        widget, self.raster = layer_combo(RASTER_FILTER, raster=True)
+        widget, self.raster = layer_combo(RASTER_FILTER, allow_empty=True, raster=True)
         add_row(form, "data.raster", widget)
         self.value_type = choice_combo([("density", tr("data.value_type.density")),
                                         ("count", tr("data.value_type.count"))])
