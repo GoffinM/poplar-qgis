@@ -467,3 +467,63 @@ Le total de l'Excel pour Muramvya (171 010) correspond au raster, et non à la g
 1. **des cas de test calculés à la main**, qui fixent le comportement attendu (`docs/spec_moteur.md`) ;
 2. **`p2023_entree`** comme référence chiffrée pour la préparation (densité et `Pmax` par maille), avec des tolérances qui tiennent compte de F19 ;
 3. **`pentree_final`** comme référence qualitative : ordre de grandeur des totaux avec les mêmes taux, aucun dépassement de plafond, forme de la diffusion. Les écarts seront expliqués dans un rapport, pas corrigés pour coller à l'ancien résultat.
+
+---
+
+## 11. Analyse du calage bâti → population (classeurs Excel)
+
+Fichiers : `legacy/calage/demand_conso_Muramvya-Rural.xlsx` et `demand_conso_Muramvya-Urbain.xlsx`. Les deux classeurs ont la même structure. J'ai relu toutes les formules et recalculé le résultat hors d'Excel : la population obtenue est **identique au centième près**.
+
+### 11.1 Contenu
+
+| Feuille | Contenu |
+|---|---|
+| `Donnees_SIG` | Un bâtiment par ligne : centroïde (`x`, `y`), `area_m2`, `Type` (toujours `Habitation`), classe de surface, population calculée. On y trouve aussi une colonne `Conso` = 20, constante, qui sert au calcul de la demande en eau et pas à la population |
+| `Classes_detaillees` | 673 tranches de 5 m², avec le nombre de toits par tranche. Hypothèses : 5 habitants par ménage, surface habitable par personne de 6,5 m² (médiane de 3 et 6 m², plus 2), 10 personnes au maximum par bâtiment |
+| `Classes_finales` | 10 classes de surface (0-5, 5-10, 10-15, 15-30, 30-35, 35-40, 40-50, 50-60, 60-70, 70-80 m²), avec pour chacune un nombre entier d'habitants (« valeur de solveur »), puis les coefficients du polynôme et la comparaison avec la population administrative |
+
+| Zone | Bâtiments | Population du modèle | Population administrative 2024 | Écart |
+|---|---|---|---|---|
+| Rural | 33 246 | 139 100 | 136 759 | + 1,7 % |
+| Urbain | 5 696 | 33 253 | 34 251 | − 3,0 % |
+| **Total** | **38 942** | **172 353** | **171 010** | + 0,8 % |
+
+### 11.2 Méthode telle qu'elle est codée
+
+1. **Classes de surface.** Chaque bâtiment est rangé dans une des 10 classes finales selon sa surface de toit.
+2. **Habitants par classe.** Un nombre entier d'habitants est fixé pour chaque classe (colonne « valeur de solveur ») :
+   - rural : 0, 0, 1, 2, 3, 3, 4, 5, 5, 5 ;
+   - urbain : 0, 0, 1, 2, 4, 4, 5, 6, 7, 7.
+
+   Ces valeurs viennent vraisemblablement du Solveur d'Excel, pour approcher la population administrative.
+3. **Polynôme.** Une courbe de tendance de degré 3 est ajustée sur les couples (borne supérieure de la classe, habitants). Ses coefficients, recopiés arrondis, sont :
+   - rural : `a` = −2·10⁻⁵, `b` = 0,0018, `c` = 0,0497, `d` = −0,3632 ;
+   - urbain : `a` = −2·10⁻⁵, `b` = 0,0022, `c` = 0,0569, `d` = −0,4777.
+
+   J'ai vérifié que l'ajustement par moindres carrés sur ces points redonne bien ces valeurs.
+4. **Population de chaque bâtiment** (surface S en m²) :
+   - **0** si S < 10 m² (abris) ou si S > 450 m². Le seuil de 450 m² exclut les bâtiments non résidentiels ; une note indique « bureau fait 405 m² » ;
+   - **p(80)** si S ≥ 70 m², soit 4,89 habitants en rural et 7,91 en urbain. **La moitié des bâtiments** (16 526 en rural, 2 802 en urbain) reçoit donc cette valeur plafond ;
+   - **p(S)** sinon, où p est le polynôme de l'étape 3.
+5. **Pas de remise à l'échelle.** L'écart avec la population administrative est affiché, mais n'est pas corrigé.
+
+### 11.3 Lien avec le raster 2023
+
+J'ai recalculé la population de chaque pixel de 250 m en additionnant celle des bâtiments dont le centroïde tombe dans le pixel. Le raster `POP2023` correspond à cette somme divisée par la surface du pixel :
+- rapport médian de 1,002 par pixel, avec 98 % des pixels entre 0,99 et 1,02 ;
+- total de 171 280 contre 172 240 (− 0,56 %), dont 32 bâtiments hors de l'emprise du raster.
+
+**La chaîne complète est donc :** bâtiments → polynôme par zone → somme par pixel → raster de densité → modèle `.model3` → migration.
+
+### 11.4 Fragilités du calage
+
+| # | Constat | Conséquence |
+|---|---|---|
+| F20 | **Coefficients arrondis.** Ils sont recopiés depuis l'étiquette de la courbe de tendance, avec 1 à 4 chiffres significatifs. Or le terme en S³ pèse lourd : a × 80³ ≈ 10 habitants | Avec les coefficients exacts de l'ajustement, la population urbaine passerait de 33 253 à **30 341 (− 8,8 %)** et la rurale de 139 100 à 140 489 (+ 1,0 %). Le résultat dépend fortement d'un arrondi d'affichage |
+| F21 | **Polynôme non monotone.** Il atteint son maximum vers 72 m² en rural (5,08 habitants), puis décroît. Au-delà de 450 m², il devient très négatif (p(450) ≈ −1 400) | C'est ce qui explique le plafond à p(80) pour S ≥ 70 m². Un bâtiment de 72 m² compte plus d'habitants qu'un bâtiment de 75 m², et un bâtiment de 449 m² en compte autant qu'un de 70 m², puis 0 à 451 m² |
+| F22 | **Ajustement sur la borne supérieure des classes**, et non sur leur surface moyenne | La relation est biaisée : on attribue à une surface de 10 à 15 m² la valeur calée pour 15 m² |
+| F23 | **Valeurs de solveur hors des bornes d'espace vital** de la feuille elle-même. Par exemple, pour la classe 30-35 m² en rural : 2 habitants, alors que les bornes affichées sont de 3 à 4 | Les hypothèses affichées (6,5 m² par personne) ne sont pas celles qui produisent le résultat |
+| F24 | **Pas de recalage** sur la population administrative (+ 1,7 % en rural, − 3,0 % en urbain) | Cet écart passe tel quel dans le raster, puis dans toutes les projections |
+| F25 | **Exclusion des bâtiments non résidentiels par la seule surface** (< 10 m² ou > 450 m²). Tous les bâtiments ont le type `Habitation` | Pas de distinction entre un entrepôt de 300 m² et une grande maison. L'attribution d'un usage (B4) améliorerait ce point |
+| F26 | **Limite de taille d'Excel** : 1 048 576 lignes par feuille | Le classeur ne peut pas traiter un jeu de plusieurs millions de bâtiments, ce qui justifie de faire le calage dans l'outil (D5) |
+| F27 | **Deux classeurs séparés** pour le rural et l'urbain, découpés à la main | Chaque nouvelle zone ou strate impose un nouveau classeur |

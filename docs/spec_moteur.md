@@ -110,14 +110,31 @@ Chaque paramètre peut être donné sous l'une de ces formes, de la plus simple 
 
 **Objectif de performance** : 1 million de bâtiments lus et affectés en **moins de 2 minutes** sur un poste standard, à partir d'un GeoPackage local. Il sera vérifié par un test sur un jeu synthétique d'un million de polygones.
 
-### 3 bis.1 Points à préciser
+### 3 bis.1 Décisions (29/09/2026)
 
-| # | Question | Proposition |
+| # | Question | Décision |
 |---|---|---|
-| B1 | Quel est le type de la base source (PostGIS, GeoPackage sur un serveur de fichiers, jeu mondial) ? | Prendre en charge toutes les sources OGR. Optimiser en priorité celle qui sera utilisée |
-| B2 | Faut-il un **centroïde** ou un **point intérieur** (`PointOnSurface`) ? Le centroïde d'un bâtiment en L peut tomber hors du bâtiment, et parfois dans une maille voisine | Centroïde par défaut (pratique actuelle), point intérieur en option |
-| B3 | La régression est-elle appliquée **par bâtiment** (population = f(surface du toit), puis somme) ou **par zone** (population = f(somme des surfaces)) ? | Garder la surface par bâtiment pour permettre les deux (étape 5) |
-| B4 | Quels attributs utiles porte chaque bâtiment (type, hauteur, nombre de niveaux, indice de confiance) ? | Les lire s'ils existent, pour un calage par strate et un filtrage des détections douteuses |
+| B1 | Quelle source de bâti traiter en priorité ? | **Google Open Buildings.** Les fichiers de ce jeu donnent déjà, pour chaque bâtiment, `latitude`, `longitude`, `area_in_meters` et `confidence`. Le moteur peut donc lire ces colonnes directement, sans décoder les polygones, ce qui est très rapide. Il ne reste qu'à projeter les centroïdes dans le système de la grille. **À confirmer à l'implémentation** : le format exact des fichiers téléchargés (CSV compressé par tuile) et la présence de ces colonnes |
+| B2 | Centroïde ou point intérieur ? | Centroïde par défaut, point intérieur en option |
+| B3 | La régression est-elle appliquée par bâtiment ou par zone ? | **Par bâtiment**, d'après les classeurs Excel (état des lieux, §11) : population = f(surface), puis somme par pixel. On conserve donc la surface de chaque bâtiment |
+| B4 | Quels attributs lire pour chaque bâtiment ? | Pour l'instant, **la surface seule**. Un champ d'usage (habitat ou non), s'il existe, pourra servir de filtre. Pour Google Open Buildings, le champ `confidence` est lu et un seuil minimal de confiance est proposé en option |
+
+## 3 ter. Calage bâti → population (phase 6)
+
+**Mode `legacy`.** Il reproduit exactement la méthode Excel décrite dans l'état des lieux (§11.2), avec pour chaque strate (rural, urbain…) les paramètres suivants :
+- `min_area` (10 m²) et `max_area` (450 m²) : en dehors de cet intervalle, le bâtiment compte 0 habitant ;
+- `cap_area` (70 m²) et `cap_value_area` (80 m²) : au-delà de `cap_area`, la population est plafonnée à p(`cap_value_area`) ;
+- les coefficients du polynôme de degré 3.
+
+Ce mode sert à vérifier qu'on retrouve 139 100 et 33 253 habitants sur Muramvya, avec les coefficients arrondis.
+
+**Mode amélioré (par défaut, à valider)** :
+- ajustement direct par moindres carrés, avec les coefficients en pleine précision (F20) ;
+- choix de la forme de la courbe : polynôme, log-linéaire ou par morceaux ;
+- contrainte de **monotonie** : un bâtiment plus grand n'a jamais moins d'habitants (F21) ;
+- ajustement sur la surface moyenne de chaque classe (F22), ou directement sur les bâtiments quand les données le permettent ;
+- **recalage optionnel** sur la population administrative de chaque strate (F24), avec un rapport des écarts ;
+- toutes les strates dans un seul calage (F27).
 
 ## 4. Capacité
 
