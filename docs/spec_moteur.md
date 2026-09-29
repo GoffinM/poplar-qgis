@@ -41,6 +41,7 @@
 | Paramètre | Type | Défaut | Rôle |
 |---|---|---|---|
 | `base_year` | réel | — | Année que représente la population de base (RF4). Pour BUR71 : 2024, année du recensement sur lequel le raster est calé |
+| `start_mode` | `census` ou `projection` | `census` | Point de départ, au choix de l'utilisateur (§5.3). `census` : on part du recensement, ce qui est l'approche prudente. `projection` : on part d'une année de projection, avec la population remise à l'échelle des totaux projetés, si le client fait confiance à ses projections |
 | `first_migration_year` | réel | **à fixer par l'utilisateur** | Première année où la migration s'applique. Avant cette année, on n'applique que la croissance. Ce choix dépend des dates des données sources : par exemple toits de 2023 et population de 2024 (S7) |
 | `end_year` | réel | — | Horizon final, par exemple 2060 |
 | `time_step` | réel > 0 | 1 | Pas de temps en années : 10, 5, 1, ou moins d'un an |
@@ -76,7 +77,7 @@ Chaque paramètre peut être donné sous l'une de ces formes, de la plus simple 
 - Avant la première et après la dernière année charnière, la valeur est constante par défaut, ou prolongée linéairement si `extrapolation = linear`.
 - Une extrapolation linéaire peut donner un taux ou une densité aberrants (négatifs par exemple). Le moteur borne alors les valeurs (`dmax > 0`, `growth_rate > −100 %`) et signale le cas dans le rapport.
 
-### 2.4 Comportement des zones d'exclusion (à valider)
+### 2.4 Comportement des zones d'exclusion (validé)
 
 Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
 
@@ -85,7 +86,9 @@ Chaque couche ou catégorie d'exclusion reçoit l'un de ces deux comportements :
 | `outside` | La zone est **retirée du domaine de calcul** : on n'y compte aucun bâtiment et on n'y place aucune population | Hors pays (frontière nationale), lacs |
 | `no_inflow` | La zone ne reçoit **aucune population nouvelle**. Ses habitants existants restent comptés, avec un plafond égal à leur population de base : leur croissance est exportée vers les zones autorisées (A7 = c, A7-bis = c1) | Forêts, rivières et leurs tampons, domaines militaires, périmètres de sécurité |
 
-Une zone d'exclusion peut aussi avoir une **date d'effet** : par exemple, un périmètre de sécurité créé en 2030 n'accueille plus de population à partir de cette année-là. **À confirmer.**
+**Date d'effet (validé).** Une zone d'exclusion peut porter une année d'effet `exclusion_year`, par exemple un périmètre de sécurité créé en 2030. Avant cette année, la zone est traitée comme une zone ordinaire. À partir de cette année, elle suit le même comportement qu'une zone exclue dès le départ :
+- `no_inflow` : la zone n'accueille plus personne. Son plafond devient la population présente à `exclusion_year`, et la croissance qui suit est exportée ;
+- `outside` : **point à trancher (X1)**. Une zone exclue dès le départ n'a jamais d'habitants comptés. En revanche, une zone qui devient `outside` en cours de période en a. Faut-il les **relocaliser** vers les zones autorisées, ou les **retirer** du total ? Je propose de les relocaliser par la migration normale, car c'est le principe « aucun habitant ne disparaît ». Les habitants déplacés seraient reportés dans le rapport.
 
 ## 3. Grille et unités de calcul
 
@@ -221,9 +224,18 @@ La croissance s'applique à **toutes** les unités, y compris celles sans migrat
 
 **Sensibilité au pas.** Un pas grossier ne change le facteur de croissance que marginalement (T3). En revanche, il change la migration (S6). Le rapport l'indique (§8.3).
 
-### 5.2 Recalage (option, Q5)
+### 5.2 Recalage en cours de simulation (option, Q5)
 
 Pour chaque zone *z* de la table de projections, la population est remise à l'échelle du total cible : `P_i ← P_i × T_z(t+Δ) / Σ_{i∈z} P_i`. Le total cible `T_z` est interpolé comme au §2.3. Le facteur appliqué est reporté dans le rapport.
+
+### 5.3 Point de départ : recensement ou projection (validé)
+
+| `start_mode` | Année de départ | Population de départ |
+|---|---|---|
+| `census` (prudent) | Année du recensement | Population calée sur le recensement (§3 ter). Les projections, si elles sont fournies, ne servent qu'au recalage optionnel (§5.2) ou à une comparaison dans le rapport |
+| `projection` | Une année de projection choisie par l'utilisateur | Population du recensement, répartie comme au calage, puis remise à l'échelle des totaux projetés pour cette année, unité par unité. On n'applique aucune croissance entre le recensement et cette année |
+
+Dans les deux cas, le recalage sur les projections des années suivantes reste une option indépendante (§5.2).
 
 ## 6. Migration
 
@@ -325,8 +337,27 @@ Un indicateur se calcule par la formule : population × coefficient. Le coeffici
 
 | Indicateur | Formule | Sorties |
 |---|---|---|
-| **Demande en eau potable** (prioritaire) | population × dotation (l/hab/j), par exemple 20 l/hab/j comme dans les classeurs actuels. **Options à valider** : coefficients de pointe journalière et horaire, rendement du réseau (pertes), besoins non domestiques | Raster de demande par année (m³/j), totaux par unité administrative ou par zone de desserte |
+| **Demande en eau potable** (prioritaire) | Voir le détail ci-dessous | Rasters par année, totaux par unité administrative et par zone de desserte |
 | Autres indicateurs | Même mécanisme, avec un coefficient et une unité libres : déchets, énergie, besoins scolaires… | Raster et tableaux par unité administrative |
+
+**Demande en eau potable (validé).** Tous les paramètres ci-dessous peuvent être une valeur unique, ou varier par zone et dans le temps (§2.3).
+
+| Paramètre | Unité | Exemple |
+|---|---|---|
+| `water_per_capita` (dotation domestique) | l/hab/j | 20 en rural, comme dans les classeurs actuels |
+| `non_domestic_share` (besoins non domestiques : écoles, santé, commerces, administrations) | % de la consommation domestique, ou volume fixe par zone (m³/j) | 10 % |
+| `network_efficiency` (rendement du réseau) | % | 75 % |
+| `peak_day_factor` (coefficient de pointe journalière) | — | 1,3 |
+| `peak_hour_factor` (coefficient de pointe horaire) | — | 1,8 |
+
+Formules proposées (à valider), pour chaque maille et chaque année de sortie :
+- consommation domestique : Q_dom = population × dotation / 1 000 (m³/j) ;
+- consommation totale moyenne : Q_moy = Q_dom + besoins non domestiques ;
+- production moyenne : Q_prod = Q_moy / rendement ;
+- production du jour de pointe : Q_jp = Q_prod × coefficient de pointe journalière ;
+- débit de l'heure de pointe en distribution : Q_hp = Q_moy × coefficient de pointe journalière × coefficient de pointe horaire / 24 (m³/h).
+
+**Point à trancher (X2)** : faut-il appliquer le rendement du réseau au débit de pointe horaire ? Les conventions varient selon les bureaux d'études et les pays.
 
 Des **tableaux de synthèse** sont produits pour chaque unité administrative et chaque année de sortie : population, densité, population non relocalisée, indicateurs.
 
