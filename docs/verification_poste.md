@@ -4,11 +4,18 @@ Durée : 15 à 20 minutes. Environnement : QGIS 3.40 LTR sous Windows, puis QGIS
 
 ## 0. Récupérer les fichiers
 
-1. Sur GitHub, ouvrez le dépôt `GoffinM/poplar-qgis` et choisissez la branche `claude/legacy-code-assessment-frf66q`.
-2. Cliquez sur **Code › Download ZIP** et décompressez l'archive.
-3. Vous y trouverez :
-   - le plugin, `dist/poplar-0.1.0.zip` ;
-   - le jeu d'exemple, `data/test/muramvya/`.
+Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exemple**.
+
+1. **Plugin** : téléchargez directement `poplar-0.1.0.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.1.0.zip
+2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis **décompressez** l'archive. Le dossier `data/test/muramvya/` contient le scénario et les données.
+
+⚠️ **N'installez pas dans QGIS l'archive complète du dépôt** (`poplar-qgis-claude-legacy-code-assessment-frf66q.zip`). Ce n'est pas un plugin : QGIS refuse alors de le charger, avec l'erreur « No module named 'poplar-qgis-…/plugin/poplar' ». Le seul fichier à installer est `poplar-0.1.0.zip`, que l'on trouve aussi, une fois l'archive du dépôt décompressée, dans son dossier `dist/`.
+
+**Si cette erreur est déjà apparue**, supprimez d'abord l'installation ratée :
+1. Fermez QGIS.
+2. Supprimez le dossier `poplar-qgis-claude-legacy-code-assessment-frf66q` situé dans `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\` (collez ce chemin dans la barre d'adresse de l'explorateur Windows).
+3. Relancez QGIS.
 
 ## 1. Installer
 
