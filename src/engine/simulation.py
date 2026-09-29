@@ -28,6 +28,7 @@ from .nonconvergence import (
     FAILED, SINK, SUCCESS, DmaxProposal, MigrationSettings, NonConvergenceError, Sink, migrate_with_policy,
 )
 from .outputs import summary_rows, write_summary, write_year_rasters
+from .runs import finish_run, new_run_directory
 from .parameters import TimeSeries, to_hab_per_km2, unit_means, unit_values
 from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
@@ -76,6 +77,8 @@ def run(
     out_dir = scenario.path(scenario.output_directory)
     os.makedirs(out_dir, exist_ok=True)
     model = _Model.load(scenario)
+    if scenario.output_per_run:  # after loading: invalid data leaves no empty run folder
+        out_dir = new_run_directory(out_dir)
     warnings = list(model.warnings)
 
     # Starting point: census, or a projection year (spec §5.3).
@@ -196,6 +199,8 @@ def run(
                        failure, failure_year)
     _write_run_report(scenario, result, model, clock.time() - started)
     scenario.save(os.path.join(out_dir, "scenario_used.json"))
+    if scenario.output_per_run:
+        finish_run(out_dir, scenario.name, result.status, _output_years(result.outputs))
     return result
 
 
@@ -378,6 +383,12 @@ def _load_projections(scenario: Scenario) -> Dict[str, TimeSeries]:
         for row in csv.DictReader(handle):
             points.setdefault(row["admin"].strip(), []).append((float(row["year"]), float(row["population"])))
     return {key: TimeSeries(tuple(y for y, _ in pts), tuple(v for _, v in pts)) for key, pts in points.items()}
+
+
+def _output_years(paths: List[str]) -> List[str]:
+    prefix = "population_"
+    years = {os.path.basename(p)[len(prefix):-4] for p in paths if os.path.basename(p).startswith(prefix)}
+    return sorted(years, key=float)
 
 
 def _write_run_report(scenario: Scenario, result: RunResult, model: _Model, seconds: float) -> None:

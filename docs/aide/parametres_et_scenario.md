@@ -94,6 +94,7 @@ Le raster de population peut contenir une **densité** (`"value_type": "density"
 | `crs` | Système de coordonnées de calcul (voir plus haut) | automatique |
 | `language` | Langue du rapport et des tableaux (`fr`, `en`) | `fr` |
 | `output.directory` | Dossier des résultats | `outputs` |
+| `output.per_run` | Un sous-dossier daté par exécution (toujours activé depuis le plugin) | `false` |
 
 ## Lancer un calcul sans QGIS
 

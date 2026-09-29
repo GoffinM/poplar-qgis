@@ -3,6 +3,7 @@
 import os
 
 from qgis.core import QgsApplication
+from qgis.PyQt.QtCore import QEvent, QObject
 from qgis.PyQt.QtGui import QIcon
 from qgis.PyQt.QtWidgets import QAction, QMenu
 
@@ -17,6 +18,22 @@ BUTTONS = [
 ]
 
 
+class _QuitWatcher(QObject):
+    """Offers the clean-up of the run folders when QGIS closes (end of session)."""
+
+    def __init__(self, plugin):
+        super().__init__()
+        self.plugin = plugin
+
+    def eventFilter(self, watched, event):  # noqa: N802
+        if event.type() == QEvent.Type.Close and self.plugin.dialog is not None:
+            try:
+                self.plugin.dialog.end_session()
+            except Exception:  # never prevent QGIS from closing
+                pass
+        return False
+
+
 class PoplarPlugin:
     def __init__(self, iface):
         self.iface = iface
@@ -26,6 +43,7 @@ class PoplarPlugin:
         self.provider = None
         self.dialog = None
         self.help = None
+        self.quit_watcher = None
 
     def initProcessing(self):  # noqa: N802
         from .processing.provider import PoplarProvider
@@ -53,8 +71,13 @@ class PoplarPlugin:
             self.actions.append(action)
         menubar = self.iface.mainWindow().menuBar()
         menubar.insertMenu(self.iface.firstRightStandardMenu().menuAction(), self.menu)
+        self.quit_watcher = _QuitWatcher(self)
+        self.iface.mainWindow().installEventFilter(self.quit_watcher)
 
     def unload(self):
+        if self.quit_watcher is not None:
+            self.iface.mainWindow().removeEventFilter(self.quit_watcher)
+            self.quit_watcher = None
         for action in self.actions:
             self.iface.removeToolBarIcon(action)
         if self.toolbar is not None:

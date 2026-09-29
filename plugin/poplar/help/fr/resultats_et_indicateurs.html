@@ -21,6 +21,11 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>scenario_used.json</code></td><td>Copie du scénario utilisé</td></tr>
 </table>
 <p>Les résultats de l'année de départ sont toujours écrits.</p>
+<h2>Un dossier par exécution</h2>
+<p>Depuis le plugin, chaque calcul est écrit dans son propre <b>sous-dossier daté</b> du dossier des résultats, par exemple <code>2026-09-29_144805</code>. Un nouveau calcul n'écrase donc jamais des fichiers encore ouverts dans QGIS.</p>
+<p>Ces dossiers sont <b>temporaires</b> tant que vous ne les conservez pas :</p>
+<ul><li>dans l'onglet <b>Résultats</b>, choisissez l'exécution affichée, puis cochez <b>À conserver ★</b> et donnez-lui un nom si besoin (« référence », « dmax + 20 % ») ;</li><li>le bouton <b>Nettoyer…</b> ouvre la liste des exécutions avec leur statut, leurs années et leur taille. Tout ce qui n'est pas conservé est coché dans la colonne « Supprimer » ; un clic efface la sélection. Les couches concernées sont d'abord retirées du projet ;</li><li>si aucune exécution n'est conservée, la <b>dernière exécution réussie</b> est laissée décochée ;</li><li>en <b>fin de session</b>, à la fermeture de la fenêtre Poplar ou de QGIS, la même liste est proposée si vous avez lancé des calculs.</li></ul>
+<p>Seuls les dossiers créés par Poplar, qui contiennent un fichier <code>poplar_run.json</code>, peuvent être supprimés : les données d'entrée ne sont jamais touchées.</p>
 <h2>Le rapport d'exécution</h2>
 <p>Le rapport indique :</p>
 <ul><li>le <b>statut</b> : réussi, réussi avec ajustements, partiel (population non relocalisée) ou échec ;</li><li>la population au départ et à l'horizon final ;</li><li>le nombre de mailles et la durée du calcul ;</li><li>les <b>avertissements</b>, par exemple une résolution grossière ou des zones sans classe ;</li><li>les <b>événements</b>, par exemple une zone relocalisée ou fermée à une date ;</li><li>pour <b>chaque pas</b> : la population avant et après la croissance, après la migration, le nombre d'habitants déplacés et un <b>écart de bilan</b>, qui doit être nul.</li></ul>

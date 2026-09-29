@@ -54,6 +54,33 @@ def load_rasters(directory, quantities, years, group_name):
     return loaded
 
 
+def _inside(path, directory):
+    path = os.path.normcase(os.path.abspath(path))
+    directory = os.path.normcase(os.path.abspath(directory))
+    return path == directory or path.startswith(directory + os.sep)
+
+
+def release_layers(directory):
+    """Remove from the project every layer read from ``directory``.
+
+    Windows forbids deleting a file that QGIS has open ("permission denied"),
+    so the layers go first. Groups left empty are removed too.
+    """
+    project = QgsProject.instance()
+    ids = []
+    for layer_id, layer in project.mapLayers().items():
+        source = layer.source().split("|")[0]
+        if source and _inside(source, directory):
+            ids.append(layer_id)
+    if ids:
+        project.removeMapLayers(ids)
+    root = project.layerTreeRoot()
+    for group in root.findGroups():
+        if group.name().startswith("Poplar") and not group.children():
+            root.removeChildNode(group)
+    return len(ids)
+
+
 def style_layer(layer, quantity, classes=6):
     """Graduated colours between the minimum and maximum of the raster; nodata stays transparent."""
     provider = layer.dataProvider()

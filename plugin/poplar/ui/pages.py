@@ -11,8 +11,8 @@ from qgis.gui import QgsFileWidget, QgsMapLayerComboBox, QgsProjectionSelectionW
 from qgis.PyQt.QtCore import Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
-    QAbstractItemView, QCheckBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QSpinBox,
+    QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
+    QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QSpinBox,
     QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget,
 )
 
@@ -20,6 +20,7 @@ from ..compat import POLYGON_FILTER, RASTER_FILTER, VECTOR_FILTER
 from ..engine.crs import AUTO_EQUAL_AREA, AUTO_UTM, is_metric_projected
 from ..engine.i18n import available_languages
 from ..i18n import tip, tr
+from ..engine import runs
 from ..results import QUANTITIES, available_outputs
 from .widgets import (
     add_row, choice_combo, find_or_add_layer, format_series, layer_with_field, parse_series, set_combo_value,
@@ -114,7 +115,9 @@ class ScenarioPage(Page):
     def store(self, data):
         data["name"] = self.name.text().strip()
         data["language"] = self.language.currentData()
-        data.setdefault("output", {})["directory"] = self.output.filePath()
+        output = data.setdefault("output", {})
+        output["directory"] = self.output.filePath()
+        output["per_run"] = True  # one time-stamped folder per run: nothing is overwritten (29/09/2026)
         data["cell_size"] = self.cell.value()
         data["density_unit"] = self.unit.currentData()
         mode = self.crs_mode.currentData()
@@ -656,9 +659,32 @@ class ResultsPage(Page):
         super().__init__()
         self.dialog = dialog
         layout = QVBoxLayout(self)
+        box = QGroupBox(tr("results.runs"))
+        inner = QVBoxLayout(box)
+        self.run_list = QComboBox()
+        self.run_list.setToolTip(tip("results.run"))
+        self.run_list.activated.connect(self._run_chosen)
+        inner.addWidget(self.run_list)
+        row = QHBoxLayout()
+        self.kept = QCheckBox(tr("results.kept"))
+        self.kept.setToolTip(tip("results.kept"))
+        self.kept.toggled.connect(self._keep)
+        self.label = QLineEdit()
+        self.label.setPlaceholderText(tr("results.label.placeholder"))
+        self.label.setToolTip(tip("results.label"))
+        self.label.editingFinished.connect(self._keep)
+        clean = QPushButton(tr("results.clean"))
+        clean.setToolTip(tip("results.clean"))
+        clean.clicked.connect(self._clean)
+        row.addWidget(self.kept)
+        row.addWidget(self.label, 1)
+        row.addWidget(clean)
+        inner.addLayout(row)
         self.folder = QLabel()
         self.folder.setWordWrap(True)
-        layout.addWidget(self.folder)
+        inner.addWidget(self.folder)
+        layout.addWidget(box)
+
         lists = QHBoxLayout()
         self.quantities = QListWidget()
         self.years = QListWidget()
@@ -679,7 +705,22 @@ class ResultsPage(Page):
         layout.addLayout(buttons)
 
     def refresh(self):
-        directory = self.dialog.output_directory()
+        from .cleanup_dialog import run_title
+
+        directory = self.dialog.results_directory()
+        self.run_list.clear()
+        for run in reversed(runs.list_runs(self.dialog.output_directory())):
+            text = f"{run_title(run)} · {tr(f'cleanup.status.{run.status}')}" + (" ★" if run.kept else "")
+            self.run_list.addItem(text, run.directory)
+        set_combo_value(self.run_list, directory)
+        run = runs.read_run(directory) if directory else None
+        for widget in (self.kept, self.label):
+            widget.blockSignals(True)
+            widget.setEnabled(run is not None)
+        self.kept.setChecked(bool(run and run.kept))
+        self.label.setText(run.label if run else "")
+        for widget in (self.kept, self.label):
+            widget.blockSignals(False)
         self.folder.setText(tr("results.folder", folder=directory or "—"))
         outputs = available_outputs(directory)
         self.quantities.clear()
@@ -699,6 +740,23 @@ class ResultsPage(Page):
             item.setCheckState(Qt.CheckState.Checked if i in (0, len(years) - 1) else Qt.CheckState.Unchecked)
             self.years.addItem(item)
 
+    def _run_chosen(self, index):
+        self.dialog.selected_run = self.run_list.itemData(index)
+        self.refresh()
+
+    def _keep(self, *args):
+        directory = self.dialog.results_directory()
+        if runs.read_run(directory) is None:
+            return
+        runs.set_kept(directory, self.kept.isChecked(), self.label.text().strip())
+        index = self.run_list.currentIndex()
+        self.refresh()
+        self.run_list.setCurrentIndex(index)
+
+    def _clean(self):
+        self.dialog.clean_up()
+        self.refresh()
+
     def _checked(self, widget, role=None):
         values = []
         for i in range(widget.count()):
@@ -713,7 +771,7 @@ class ResultsPage(Page):
         self.dialog.load_results(quantities, years)
 
     def _open(self, name):
-        path = os.path.join(self.dialog.output_directory() or "", name)
+        path = os.path.join(self.dialog.results_directory() or "", name)
         if os.path.exists(path):
             QDesktopServices.openUrl(QUrl.fromLocalFile(path))
 
@@ -731,7 +789,7 @@ class ReportPage(Page):
         layout.addWidget(self.text)
 
     def refresh(self):
-        path = os.path.join(self.dialog.output_directory() or "", "report.txt")
+        path = os.path.join(self.dialog.results_directory() or "", "report.txt")
         if os.path.exists(path):
             with open(path, encoding="utf-8") as handle:
                 self.text.setPlainText(handle.read())

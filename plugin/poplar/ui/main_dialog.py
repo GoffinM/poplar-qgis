@@ -12,10 +12,12 @@ from qgis.PyQt.QtWidgets import (
     QStackedWidget, QToolButton, QVBoxLayout,
 )
 
+from ..engine import runs
 from ..engine.scenario import ScenarioError, scenario_from_dict
 from ..i18n import current_language, tip, tr
 from ..results import load_rasters
 from ..task import RunTask
+from .cleanup_dialog import CleanupDialog, run_title
 from .nonconvergence_dialog import NonConvergenceDialog
 from .pages import (
     CalibrationPage, DataPage, IndicatorsPage, ParametersPage, ReportPage, ResultsPage, RunPage, ScenarioPage,
@@ -37,7 +39,7 @@ def default_scenario() -> dict:
                  "first_migration_year": 2025},
         "parameters": {"growth_rate": 2.0, "dmax": 2500},
         "migration": {"k": 3, "tolerance": 1, "policy": "stop"},
-        "output": {"directory": ""},
+        "output": {"directory": "", "per_run": True},
     }
 
 
@@ -49,6 +51,10 @@ class MainDialog(QDialog):
         self.path = None
         self.data = default_scenario()
         self.task = None
+        self.selected_run = None
+        """Run folder shown by the Results and Report tabs (None: the latest one)."""
+        self.session_runs = []
+        """Run folders written since the window opened; clean-up is offered at the end of the session."""
         self.setWindowTitle(tr("main.title"))
         self.resize(980, 720)
 
@@ -150,6 +156,15 @@ class MainDialog(QDialog):
     def output_directory(self) -> str:
         return self.absolute((self.collect().get("output") or {}).get("directory", ""))
 
+    def results_directory(self) -> str:
+        """Folder of the run shown: the one selected, else the latest run, else the output folder itself."""
+        root = self.output_directory()
+        if self.selected_run and os.path.dirname(os.path.normpath(self.selected_run)) == os.path.normpath(root or ""):
+            if os.path.isdir(self.selected_run):
+                return self.selected_run
+        latest = runs.latest_run(root)
+        return latest.directory if latest else root
+
     def open_scenario(self):
         path, _ = QFileDialog.getOpenFileName(self, tr("main.open"), "", tr("main.scenario_filter"))
         if path:
@@ -159,6 +174,7 @@ class MainDialog(QDialog):
         with open(path, encoding="utf-8") as handle:
             self.data = json.load(handle)
         self.path = path
+        self.selected_run = None
         for page in self.pages:
             page.load(self.data)
         self._update_title()
@@ -222,6 +238,9 @@ class MainDialog(QDialog):
             self.iface.messageBar().pushCritical("Poplar", tr("run.error"))
             return
         page.progress.setValue(100)
+        self.selected_run = result.directory
+        if result.directory not in self.session_runs:
+            self.session_runs.append(result.directory)
         with open(os.path.join(result.directory, "report.txt"), encoding="utf-8") as handle:
             page.log.setPlainText(handle.read())
         if result.failure is not None:
@@ -248,8 +267,39 @@ class MainDialog(QDialog):
         self.run()
 
     def load_results(self, quantities, years):
-        directory = self.output_directory()
+        directory = self.results_directory()
         group = f"Poplar – {self.data.get('name') or tr('main.untitled')}"
+        run = runs.read_run(directory)
+        if run is not None:
+            group += f" – {run_title(run)}"
         layers = load_rasters(directory, quantities, years, group)
         if layers:
             self.iface.messageBar().pushInfo("Poplar", tr("results.loaded", count=len(layers)))
+
+    # --- clean-up of the run folders ----------------------------------------------
+
+    def clean_up(self, intro_key="cleanup.intro"):
+        """Offer to delete the run folders; returns the dialog (after it closed)."""
+        root = self.output_directory()
+        dialog = CleanupDialog(root, self, intro_key)
+        dialog.exec()
+        if self.selected_run in dialog.deleted:
+            self.selected_run = None
+        return dialog
+
+    def end_session(self):
+        """At the end of the session, offer to delete the runs not kept (if this session wrote any)."""
+        written = [d for d in self.session_runs if os.path.isdir(d)]
+        self.session_runs = []
+        if self.task is not None or not written:
+            return
+        if runs.default_deletion(runs.list_runs(self.output_directory())):
+            self.clean_up("cleanup.intro_end")
+
+    def closeEvent(self, event):  # noqa: N802
+        self.end_session()
+        super().closeEvent(event)
+
+    def reject(self):
+        self.end_session()
+        super().reject()

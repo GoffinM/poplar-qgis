@@ -17,6 +17,18 @@ Les noms de fichiers sont **fixes et en anglais**, quelle que soit la langue. `A
 
 Les résultats de l'année de départ sont toujours écrits.
 
+## Un dossier par exécution
+
+Depuis le plugin, chaque calcul est écrit dans son propre **sous-dossier daté** du dossier des résultats, par exemple `2026-09-29_144805`. Un nouveau calcul n'écrase donc jamais des fichiers encore ouverts dans QGIS.
+
+Ces dossiers sont **temporaires** tant que vous ne les conservez pas :
+- dans l'onglet **Résultats**, choisissez l'exécution affichée, puis cochez **À conserver ★** et donnez-lui un nom si besoin (« référence », « dmax + 20 % ») ;
+- le bouton **Nettoyer…** ouvre la liste des exécutions avec leur statut, leurs années et leur taille. Tout ce qui n'est pas conservé est coché dans la colonne « Supprimer » ; un clic efface la sélection. Les couches concernées sont d'abord retirées du projet ;
+- si aucune exécution n'est conservée, la **dernière exécution réussie** est laissée décochée ;
+- en **fin de session**, à la fermeture de la fenêtre Poplar ou de QGIS, la même liste est proposée si vous avez lancé des calculs.
+
+Seuls les dossiers créés par Poplar, qui contiennent un fichier `poplar_run.json`, peuvent être supprimés : les données d'entrée ne sont jamais touchées.
+
 ## Le rapport d'exécution
 
 Le rapport indique :

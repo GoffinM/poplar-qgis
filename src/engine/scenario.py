@@ -113,6 +113,8 @@ class Scenario:
     migration: MigrationOptions = field(default_factory=MigrationOptions)
     indicators: List[IndicatorSpec] = field(default_factory=list)
     output_directory: str = "outputs"
+    output_per_run: bool = False
+    """Write each run in its own time-stamped sub-folder of ``output_directory`` (see engine.runs)."""
     extrapolation: str = CONSTANT
     base_dir: str = ""
 
@@ -145,7 +147,7 @@ class Scenario:
         data.pop("base_dir")
         data["base_population"] = {"raster": data.pop("base_population_raster"), "boundary_mode": data.pop("boundary_mode"),
                                    "value_type": data.pop("population_value_type")}
-        data["output"] = {"directory": data.pop("output_directory")}
+        data["output"] = {"directory": data.pop("output_directory"), "per_run": data.pop("output_per_run")}
         return _drop_none(data)
 
     def save(self, path: str) -> None:
@@ -250,6 +252,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
         admin_units=vector(data.get("admin_units"), "admin_units", needs_field=True),
         exclusions=exclusions, projections=projections, migration=migration, indicators=indicators,
         output_directory=(data.get("output") or {}).get("directory", "outputs"),
+        output_per_run=bool((data.get("output") or {}).get("per_run", False)),
         extrapolation=data.get("extrapolation", CONSTANT), base_dir=base_dir,
     )
     errors.extend(validate(scenario))

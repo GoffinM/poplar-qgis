@@ -86,11 +86,87 @@ def test_dialog_run_loads_the_results(iface, scenario_copy):
     task.done.connect(dialog._finished)
     assert task.run()
     task.finished(True)
-    group = QgsProject.instance().layerTreeRoot().findGroup("Poplar – Muramvya – exemple")
-    assert group is not None and len(group.findLayers()) == 2
+    groups = [g for g in QgsProject.instance().layerTreeRoot().findGroups()
+              if g.name().startswith("Poplar – Muramvya – exemple – ")]
+    assert len(groups) == 1 and len(groups[0].findLayers()) == 2
+    assert os.path.dirname(dialog.results_directory()) == dialog.output_directory()  # one folder per run
     dialog.page("report").refresh()
     assert "2030" in dialog.page("report").text.toPlainText()
     QgsProject.instance().clear()
+
+
+def _run_in_dialog(dialog):
+    from poplar.task import RunTask
+
+    task = RunTask(dialog.scenario(), "test")
+    task.done.connect(dialog._finished)
+    assert task.run()
+    task.finished(True)
+    return dialog.selected_run
+
+
+def test_runs_are_kept_apart_and_cleaned_up(iface, scenario_copy, monkeypatch):
+    from poplar.engine import runs
+    from poplar.ui.cleanup_dialog import CleanupDialog
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    first = _run_in_dialog(dialog)
+    second = _run_in_dialog(dialog)          # rewriting while the layers of the first run are open
+    assert first != second and os.path.isdir(first) and os.path.isdir(second)
+    assert dialog.session_runs == [first, second]
+
+    page = dialog.page("results")
+    page.refresh()
+    assert page.run_list.count() == 2 and page.run_list.currentData() == second
+    page.run_list.setCurrentIndex(1)
+    page._run_chosen(1)
+    assert dialog.results_directory() == first
+    page.kept.setChecked(True)               # « à conserver »
+    assert runs.read_run(first).kept
+
+    cleanup = CleanupDialog(dialog.output_directory(), dialog)
+    assert cleanup.selected() == [second]    # the kept run is spared
+    cleanup.table.item(1, 5).setCheckState(cleanup.table.item(0, 5).checkState())  # untick « à conserver »
+    assert not runs.read_run(first).kept
+    cleanup.all.setChecked(False)
+    cleanup.all.setChecked(True)
+    assert set(cleanup.selected()) == {first}  # nothing kept: the latest success is spared
+    layers = QgsProject.instance().mapLayers()
+    assert any(l.source().startswith(first) for l in layers.values())
+    cleanup.delete_selected()
+    assert cleanup.deleted == [first] and not os.path.exists(first) and os.path.isdir(second)
+    assert not any(l.source().startswith(first) for l in QgsProject.instance().mapLayers().values())
+
+    offered = []
+    monkeypatch.setattr(dialog, "clean_up", lambda key="": offered.append(key))
+    dialog.session_runs = [second]
+    runs.set_kept(second, False)
+    _run_in_dialog(dialog)
+    dialog.end_session()                     # end of session: clean-up offered once
+    dialog.end_session()
+    assert offered == ["cleanup.intro_end"]
+    QgsProject.instance().clear()
+
+
+def test_clean_up_is_offered_when_qgis_closes(iface):
+    import poplar
+    from qgis.PyQt.QtCore import QCoreApplication, QEvent
+
+    plugin = poplar.classFactory(iface)
+    plugin.initGui()
+    calls = []
+
+    class Dialog:
+        def end_session(self):
+            calls.append(True)
+
+    plugin.dialog = Dialog()
+    QCoreApplication.sendEvent(iface.mainWindow(), QEvent(QEvent.Type.Close))
+    assert calls == [True]
+    plugin.dialog = None
+    plugin.unload()
 
 
 def test_every_widget_text_and_tooltip_is_translated(iface):

@@ -365,6 +365,12 @@ Le rapport est produit en JSON (lisible par une machine) et en texte (lisible pa
 - le contrôle de conservation : écart entre population attendue et obtenue ;
 - un **statut global** : `success`, `success_with_adjustments`, `partial` (population non relocalisée) ou `failed`.
 
+### 8.3 bis Un dossier par exécution (décision du 29/09/2026)
+
+Avec `output.per_run` (toujours activé par le plugin), chaque exécution écrit dans `<output.directory>/AAAA-MM-JJ_HHMMSS/`. Le dossier est créé après la lecture des données : un scénario invalide ne laisse pas de dossier vide. Il contient un marqueur `poplar_run.json` (date, scénario, statut, années, `kept`, `label`) ; un dossier sans marqueur n'est jamais listé ni supprimé (`engine.runs`). Une exécution interrompue garde le statut `running`, affiché « interrompu ».
+
+Les exécutions sont temporaires sauf si `kept` est vrai. Nettoyage proposé : toutes les exécutions non conservées ; si aucune ne l'est, la dernière exécution réussie est épargnée. Le plugin le propose depuis l'onglet Résultats et en fin de session (fermeture de la fenêtre Poplar ou de QGIS), après avoir retiré du projet les couches des dossiers à supprimer.
+
 ### 8.4 Traductions des résultats (indicateurs dérivés)
 
 Un indicateur se calcule par la formule : population × coefficient. Le coefficient peut être une valeur unique, ou varier par zone et dans le temps, avec une interpolation comme au §2.3.
