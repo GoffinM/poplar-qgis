@@ -55,6 +55,13 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
 .hint { color: var(--muted); font-size: 12.5px; line-height: 1.45; margin: 0; }
 .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
 .notes h3 { margin: 0 0 6px; font-size: 14px; } .notes p { margin: 0; color: var(--muted); line-height: 1.5; }
+.occ { display: flex; gap: 14px; flex-wrap: wrap; align-items: center; color: var(--muted); }
+.occ input { width: 64px; font: inherit; border: 1px solid var(--line); border-radius: 3px; background: var(--window); color: var(--ink); padding: 2px 4px; }
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.totals div { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+.totals b { display: block; font-size: 16px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.totals span { color: var(--muted); font-size: 12px; }
+td.mod input { border-color: var(--ochre); }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 760px) { .body { grid-template-columns: 1fr; } .side { display: none; } .row { grid-template-columns: 1fr; } }
 </style>
@@ -62,7 +69,7 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
 <div class="wrap">
   <header>
     <h1>Poplar : maquette de l'onglet Calage</h1>
-    <p class="lead">Données réelles de Muramvya : 38 942 toits des classeurs de Lionel, strates = communes, groupes = type rural / urbain. Le graphique est interactif : faites glisser les limites de classe (traits verticaux) ou modifiez les habitants par classe dans le tableau ; la population calculée et le facteur de recalage se mettent à jour.</p>
+    <p class="lead">Données réelles de Muramvya : 38 942 toits des classeurs de Lionel, strates = communes, groupes = type rural / urbain. Version 2 : les occupants par classe viennent de la <strong>taille de ménage</strong>, ajustée au recensement, en nombres entiers. Faites glisser les limites de classe, changez la taille de ménage ou « Ajuster au recensement », ou corrigez un nombre d'occupants dans le tableau : l'écart au recensement se met à jour.</p>
   </header>
 
   <div class="win">
@@ -101,7 +108,7 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
         <section>
           <h2>Régressions</h2>
           <div class="tbl"><table id="groups">
-            <thead><tr><th>Groupe</th><th>Strates</th><th>Toits</th><th>Courbe</th><th>Valeurs</th><th>Calculé</th><th>Recensement</th><th>Écart</th><th>Facteur</th></tr></thead>
+            <thead><tr><th>Groupe</th><th>Strates</th><th>Toits</th><th>Ménage / surface par ménage</th><th>Calculé</th><th>Recensement</th><th>Écart</th><th>Facteur</th></tr></thead>
             <tbody></tbody>
           </table></div>
         </section>
@@ -110,23 +117,45 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
           <h2 id="gtitle">Groupe Rural</h2>
           <div class="box">
             <div class="pair">
-              <span class="f s">Courbe : segments ▾</span><span class="f s">Valeurs : hypothèses ▾</span>
+              <span class="f s">Courbe : segments ▾</span>
               <span class="f s">Classes : <span id="ncls"></span></span><span class="btn" id="propose">Proposer (ruptures naturelles)</span>
               <span class="f s">Surfaces 10 – 450 m²</span>
+            </div>
+            <div class="occ">
+              <label>Paramètre ajusté <select id="mode"><option value="aref">surface de toit par ménage</option><option value="h">taille de ménage</option></select></label>
+              <label>Taille de ménage <input id="h" type="number" step="0.1" min="1" max="12" value="5"></label>
+              <span class="btn p" id="fit">Ajuster au recensement</span>
+              <label>Surface de toit par ménage <input id="aref" type="number" step="1" min="10" max="300" value="69.5"> m²</label>
+              <label>Maximum par bâtiment <input id="omax" type="number" step="1" min="1" max="60" value="15"></label>
+              <label>Enquête (facultatif) <input id="hs" type="number" step="0.1" value="4.8"> ± <input id="hsci" type="number" step="0.1" value="0.4"></label>
             </div>
             <svg class="chart" id="chart" viewBox="0 0 900 300" role="img" aria-label="Distribution des surfaces de toit et courbe de calage"></svg>
             <div class="legend">
               <span><i style="background:var(--bars);height:9px"></i>toits par m² de surface</span>
-              <span><i style="background:var(--teal)"></i>habitants par toit (segments)</span>
+              <span><i style="background:var(--teal)"></i>occupants par toit (retenus)</span>
               <span><i style="background:var(--terra)"></i>polynôme des classeurs (legacy)</span>
               <span><i style="background:var(--ochre)"></i>limites de classe (à faire glisser)</span>
             </div>
             <div class="tbl"><table id="classes">
-              <thead><tr><th>Classe</th><th>De (m²)</th><th>À (m²)</th><th>Toits</th><th>Surface moyenne</th><th>Habitants par toit</th></tr></thead>
+              <thead><tr><th>Classe</th><th>De (m²)</th><th>À (m²)</th><th>Toits</th><th>Surface moyenne</th><th>Ménages par toit</th><th>Proposé</th><th>Retenu</th></tr></thead>
               <tbody></tbody>
             </table></div>
             <div class="pair" id="diag"></div>
-            <p class="hint">Au-delà de la dernière classe, la valeur reste celle de la dernière classe (plafond). Les toits sous 10 m² ou au-dessus de 450 m² comptent 0 habitant. Chaque modification manuelle est notée dans le rapport, avec la valeur d'avant.</p>
+            <div class="totals" id="totals"></div>
+            <p class="hint">Occupants d'une classe = arrondi(taille de ménage × surface moyenne de la classe ÷ surface du logement d'un ménage), au plus le maximum par bâtiment. Avec le seul recensement, la taille de ménage et la surface de toit par ménage ne peuvent pas être ajustées ensemble (seul leur rapport compte) : on fixe l'une (5 habitants par ménage, comme dans les classeurs, ou la valeur d'une enquête) et l'outil ajuste l'autre. Au-delà de la dernière classe, la valeur reste celle de la dernière classe. Toute valeur « retenue » modifiée à la main est notée dans le rapport.</p>
+          </div>
+        </section>
+
+        <section>
+          <h2>Décalage d'années</h2>
+          <div class="box">
+            <div class="occ">
+              <label>Année des images de toits <input id="yb" type="number" value="2021"></label>
+              <label>Population connue en <input id="yc" type="number" value="2024"></label>
+              <label>TCAM par défaut <input id="rdef" type="number" step="0.1" value="2.4"> % / an</label>
+            </div>
+            <div class="pair" id="tcam"></div>
+            <p class="hint">Le TCAM suggéré relie la population des toits, calculée avec la taille de ménage de l'enquête, à la population connue : (population connue ÷ population des toits)^(1 ÷ écart d'années) − 1. L'intervalle vient de l'intervalle de l'enquête. S'il est très différent du TCAM par défaut, c'est l'hypothèse d'occupation qu'il faut revoir.</p>
           </div>
         </section>
 
@@ -140,8 +169,8 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
 
   <section class="notes">
     <div><h3>Ce que montre le graphique</h3><p>Les barres sont la distribution réelle des surfaces de toit du groupe. Les limites de classe se placent de préférence dans les creux de cette distribution ; « Proposer » les calcule par la méthode des ruptures naturelles (Fisher-Jenks).</p></div>
-    <div><h3>Hypothèses ou régression</h3><p>Avec une seule strate par groupe, les habitants par classe viennent d'hypothèses (6,5 m² par personne, 10 au plus) ou d'une saisie ; le recalage ramène ensuite chaque strate à son recensement. Avec assez de strates, la régression multiple tire les valeurs des recensements.</p></div>
-    <div><h3>À noter sur Muramvya</h3><p>Les hypothèses d'espace vital donnent deux fois la population recensée en rural (facteur 0,50) : la forme de la courbe vient des hypothèses, le niveau du recensement.</p></div>
+    <div><h3>Paramètre ajusté</h3><p>« Ajuster au recensement » cherche la surface de toit par ménage (ou la taille de ménage) qui, avec des occupants entiers par classe, redonne au mieux le recensement de la strate. L'écart restant est affiché ; le recalage final est proposé, mais son facteur vaut 1 par défaut.</p></div>
+    <div><h3>Avec une enquête</h3><p>Une taille de ménage d'enquête, même d'une autre année, sert de repère : l'outil signale si la valeur ajustée sort de son intervalle, et en déduit un TCAM suggéré pour le décalage d'années.</p></div>
   </section>
 </div>
 
@@ -151,98 +180,138 @@ const CENSUS = {"Rural": 136759, "Urbain1": 34251};
 const STRATA = {"Rural": "Muramvya rural", "Urbain1": "Muramvya urbain"};
 const LEGACY = {"Rural": [-2e-5, 0.0018, 0.0497, -0.3632], "Urbain1": [-2e-5, 0.0022, 0.0569, -0.4777]};
 const state = {};
-for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), values: DATA[g].values.slice()};
+for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), h: 5, aref: 69.5, omax: 15, manual: {}, mode: "aref"};
 let current = "Rural";
 const fmt = n => Math.round(n).toLocaleString("fr-FR");
+const dec = (n, d = 1) => n.toFixed(d).replace(".", ",");
+const $ = id => document.getElementById(id);
 
 function classStats(g) {
-  const {edges} = state[g], counts = DATA[g].counts;
-  const stats = [];
+  const {edges} = state[g], counts = DATA[g].counts, stats = [];
   for (let k = 0; k < edges.length - 1; k++) {
     let n = 0, s = 0;
     for (let a = 0; a < counts.length; a++) {
       const x = a + 0.5;
       if (x >= edges[k] && x < edges[k + 1]) { n += counts[a]; s += counts[a] * x; }
     }
+    if (k === edges.length - 2) {                       // roofs above 150 m² (not in the plot data) stay in the last class
+      const beyond = DATA[g].roofs - counts.reduce((a, b) => a + b, 0) - DATA[g].large;
+      n += Math.max(beyond, 0); s += Math.max(beyond, 0) * Math.min(200, edges[k + 1]);
+    }
     stats.push({n, mean: n ? s / n : (edges[k] + edges[k + 1]) / 2});
   }
   return stats;
 }
-function curve(g, stats) {
-  const xs = stats.map(s => s.mean), ys = [];
-  let m = -Infinity;
-  for (const v of state[g].values) { m = Math.max(m, v); ys.push(m); }
+function proposed(g, stats, h, aref) {
+  const st = state[g], a = aref ?? st.aref;
+  let m = 0;
+  return stats.map(s => { m = Math.max(m, Math.min(st.omax, Math.round(h * s.mean / a))); return m; });
+}
+function retained(g, stats) {
+  const p = proposed(g, stats, state[g].h);
+  return p.map((v, k) => state[g].manual[k] ?? v);
+}
+function total(g, stats, values) { return stats.reduce((t, s, k) => t + s.n * values[k], 0); }
+function fitH(g) {       // the free parameter (household size, or roof area per household) giving the census best
+  const st = state[g], stats = classStats(g); let best = null, err = Infinity;
+  if (st.mode === "h") {
+    for (let h = 1; h <= 15; h += 0.01) {
+      const e = Math.abs(total(g, stats, proposed(g, stats, h)) - CENSUS[g]);
+      if (e < err - 1e-9) { err = e; best = h; }
+    }
+    st.h = Math.round(best * 100) / 100;
+  } else {
+    for (let a = 10; a <= 200; a += 0.1) {
+      const e = Math.abs(total(g, stats, proposed(g, stats, st.h, a)) - CENSUS[g]);
+      if (e < err - 1e-9) { err = e; best = a; }
+    }
+    st.aref = Math.round(best * 10) / 10;
+  }
+  st.manual = {};
+}
+function curve(stats, values) {
+  const xs = stats.map(s => s.mean);
   return x => {
     if (x < 10 || x > 450) return 0;
-    if (x <= xs[0]) return ys[0];
-    for (let i = 1; i < xs.length; i++) if (x <= xs[i]) return ys[i - 1] + (ys[i] - ys[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
-    return ys[ys.length - 1];
+    if (x <= xs[0]) return values[0];
+    for (let i = 1; i < xs.length; i++) if (x <= xs[i]) return values[i - 1] + (values[i] - values[i - 1]) * (x - xs[i - 1]) / (xs[i] - xs[i - 1]);
+    return values[values.length - 1];
   };
-}
-function computed(g) {
-  const stats = classStats(g), p = curve(g, stats), counts = DATA[g].counts;
-  let total = 0, seen = 0;
-  for (let a = 0; a < counts.length; a++) { total += counts[a] * p(a + 0.5); seen += counts[a]; }
-  const tail = DATA[g].roofs - seen - DATA[g].large;            // roofs from 150 to 450 m²: at the ceiling
-  return total + Math.max(tail, 0) * p(449);
 }
 function renderGroups() {
   const body = document.querySelector("#groups tbody");
   body.innerHTML = "";
   for (const g of Object.keys(DATA)) {
-    const c = computed(g), gap = (c / CENSUS[g] - 1) * 100;
+    const stats = classStats(g), c = total(g, stats, retained(g, stats)), gap = (c / CENSUS[g] - 1) * 100;
     const tr = document.createElement("tr");
     if (g === current) tr.className = "sel";
-    tr.innerHTML = `<td>${g}</td><td>${STRATA[g]}</td><td>${fmt(DATA[g].roofs)}</td><td>segments</td><td>hypothèses</td>` +
-      `<td>${fmt(c)}</td><td>${fmt(CENSUS[g])}</td><td>${gap >= 0 ? "+" : ""}${gap.toFixed(1).replace(".", ",")} %</td>` +
-      `<td>${(CENSUS[g] / c).toFixed(2).replace(".", ",")}</td>`;
+    tr.innerHTML = `<td>${g}</td><td>${STRATA[g]}</td><td>${fmt(DATA[g].roofs)}</td><td>${dec(state[g].h, 2)} hab. / ${dec(state[g].aref)} m²</td>` +
+      `<td>${fmt(c)}</td><td>${fmt(CENSUS[g])}</td><td>${gap >= 0 ? "+" : ""}${dec(gap, 2)} %</td><td>1 (proposé ${dec(CENSUS[g] / c, 3)})</td>`;
     tr.style.cursor = "pointer";
-    tr.addEventListener("click", () => { current = g; render(); });
+    tr.addEventListener("click", () => { current = g; syncInputs(); render(); });
     body.appendChild(tr);
   }
 }
 function renderClasses() {
-  const stats = classStats(current), body = document.querySelector("#classes tbody"), {edges, values} = state[current];
+  const g = current, st = state[g], stats = classStats(g), prop = proposed(g, stats, st.h), vals = retained(g, stats);
+  const body = document.querySelector("#classes tbody");
   body.innerHTML = "";
   stats.forEach((s, k) => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `<td>${k + 1}</td><td>${edges[k]}</td><td>${edges[k + 1]}</td><td>${fmt(s.n)}</td>` +
-      `<td>${s.mean.toFixed(1).replace(".", ",")}</td><td><input id="v${k}" value="${String(values[k]).replace(".", ",")}" aria-label="Habitants par toit, classe ${k + 1}"></td>`;
+    const tr = document.createElement("tr"), mod = st.manual[k] !== undefined;
+    tr.innerHTML = `<td>${k + 1}</td><td>${st.edges[k]}</td><td>${st.edges[k + 1]}</td><td>${fmt(s.n)}</td><td>${dec(s.mean)}</td>` +
+      `<td>${dec(s.mean / st.aref, 2)}</td><td>${prop[k]}</td><td class="${mod ? "mod" : ""}"><input value="${vals[k]}" aria-label="Occupants retenus, classe ${k + 1}"></td>`;
     body.appendChild(tr);
     tr.querySelector("input").addEventListener("change", e => {
-      const v = parseFloat(e.target.value.replace(",", "."));
-      if (!isNaN(v)) { state[current].values[k] = v; render(); }
+      const v = parseInt(e.target.value, 10);
+      if (!isNaN(v)) { if (v === prop[k]) delete st.manual[k]; else st.manual[k] = v; render(); }
     });
   });
-  document.getElementById("ncls").textContent = `${stats.length}`;
-  const capped = stats[stats.length - 1].n / DATA[current].roofs;
-  const monotone = values.every((v, i) => i === 0 || v >= values[i - 1]);
-  document.getElementById("diag").innerHTML =
-    `<span class="chip">${monotone ? "courbe croissante" : "valeurs non croissantes : lissées"}</span>` +
-    `<span class="chip">${fmt(DATA[current].small)} toits &lt; 10 m²</span><span class="chip">${fmt(DATA[current].large)} toits &gt; 450 m²</span>` +
-    `<span class="chip w">écart au recensement avant recalage : ${(((computed(current) / CENSUS[current]) - 1) * 100).toFixed(0)} %</span>`;
+  $("ncls").textContent = `${stats.length}`;
+  const c = total(g, stats, vals), gap = (c / CENSUS[g] - 1) * 100;
+  const hs = parseFloat($("hs").value), ci = parseFloat($("hsci").value);
+  const inside = isNaN(hs) || (st.h >= hs - ci && st.h <= hs + ci);
+  $("totals").innerHTML =
+    `<div><span>Population calculée</span><b>${fmt(c)}</b></div><div><span>Recensement</span><b>${fmt(CENSUS[g])}</b></div>` +
+    `<div><span>Écart sans recalage</span><b>${gap >= 0 ? "+" : ""}${dec(gap, 2)} %</b></div>` +
+    `<div><span>Recalage (appliqué / proposé)</span><b>1 / ${dec(CENSUS[g] / c, 3)}</b></div>`;
+  $("diag").innerHTML =
+    `<span class="chip">occupants entiers, croissants</span><span class="chip">${Object.keys(st.manual).length} valeur(s) modifiée(s)</span>` +
+    `<span class="chip ${inside ? "" : "w"}">taille de ménage ${dec(st.h, 2)} ${isNaN(hs) ? "" : inside ? "dans l'intervalle de l'enquête" : "hors de l'intervalle de l'enquête"}</span>` +
+    `<span class="chip">${fmt(DATA[g].small)} toits &lt; 10 m², ${fmt(DATA[g].large)} &gt; 450 m²</span>`;
+}
+function renderTcam() {
+  const g = current, stats = classStats(g), yb = +$("yb").value, yc = +$("yc").value, rdef = parseFloat($("rdef").value);
+  const hs = parseFloat($("hs").value), ci = parseFloat($("hsci").value), dt = yc - yb;
+  let html = `<span class="chip">TCAM par défaut : ${dec(rdef)} % / an</span>`;
+  if (!isNaN(hs) && dt !== 0) {
+    const rate = h => (Math.pow(CENSUS[g] / total(g, stats, proposed(g, stats, h)), 1 / dt) - 1) * 100;
+    const r = rate(hs), lo = rate(hs + ci), hi = rate(hs - ci);
+    const odd = r < 0 || r > 5 || Math.abs(r - rdef) > 1.5;
+    html += `<span class="chip ${odd ? "w" : ""}">TCAM suggéré (taille de ménage ${dec(hs)}) : ${dec(r)} % / an, de ${dec(Math.min(lo, hi))} à ${dec(Math.max(lo, hi))} %</span>`;
+    if (odd) html += `<span class="chip w">écart au TCAM par défaut : revoir l'hypothèse d'occupation ou la taille de ménage</span>`;
+  } else if (dt === 0) html += `<span class="chip">pas de décalage d'années</span>`;
+  $("tcam").innerHTML = html;
 }
 const W = 900, H = 300, L = 46, R = 46, T = 14, B = 34, XMAX = 150;
 const sx = x => L + (x / XMAX) * (W - L - R);
 function renderChart() {
-  const svg = document.getElementById("chart"), counts = DATA[current].counts;
-  const cmax = Math.max(...counts), ymax = 11;
+  const svg = $("chart"), counts = DATA[current].counts, cmax = Math.max(...counts);
+  const stats = classStats(current), vals = retained(current, stats), ymax = Math.max(11, Math.max(...vals) + 1);
   const sy = c => H - B - (c / cmax) * (H - T - B), sv = v => H - B - (v / ymax) * (H - T - B);
   let out = "";
-  for (let v = 0; v <= 10; v += 2) out += `<line x1="${L}" x2="${W - R}" y1="${sv(v)}" y2="${sv(v)}" stroke="var(--line)" stroke-width="1"/><text x="${W - R + 6}" y="${sv(v) + 4}">${v}</text>`;
+  for (let v = 0; v <= ymax; v += 2) out += `<line x1="${L}" x2="${W - R}" y1="${sv(v)}" y2="${sv(v)}" stroke="var(--line)" stroke-width="1"/><text x="${W - R + 6}" y="${sv(v) + 4}">${v}</text>`;
   counts.forEach((c, a) => { out += `<rect x="${sx(a)}" y="${sy(c)}" width="${Math.max(sx(a + 1) - sx(a) - 0.6, 0.5)}" height="${H - B - sy(c)}" fill="var(--bars)"/>`; });
   for (let x = 0; x <= XMAX; x += 10) out += `<text x="${sx(x)}" y="${H - B + 16}" text-anchor="middle">${x}</text>`;
-  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">surface du toit (m²)</text>`;
-  out += `<text x="${W - 8}" y="${T + 2}" text-anchor="end">hab.</text>`;
+  out += `<text x="${(L + W - R) / 2}" y="${H - 4}" text-anchor="middle">surface du toit (m²)</text><text x="${W - 8}" y="${T + 2}" text-anchor="end">occ.</text>`;
   const c = LEGACY[current], poly = x => (x < 10 || x > 450) ? 0 : (x >= 70 ? ((c[0] * 80 + c[1]) * 80 + c[2]) * 80 + c[3] : ((c[0] * x + c[1]) * x + c[2]) * x + c[3]);
   let path = "";
   for (let x = 0; x <= XMAX; x += 0.5) path += `${path ? "L" : "M"}${sx(x).toFixed(1)},${sv(Math.max(poly(x), 0)).toFixed(1)}`;
   out += `<path d="${path}" fill="none" stroke="var(--terra)" stroke-width="2" stroke-dasharray="5 4"/>`;
-  const stats = classStats(current), p = curve(current, stats);
+  const p = curve(stats, vals);
   path = "";
   for (let x = 0; x <= XMAX; x += 0.5) path += `${path ? "L" : "M"}${sx(x).toFixed(1)},${sv(p(x)).toFixed(1)}`;
   out += `<path d="${path}" fill="none" stroke="var(--teal)" stroke-width="2.5"/>`;
-  stats.forEach(s => { out += `<circle cx="${sx(s.mean)}" cy="${sv(p(s.mean))}" r="3.5" fill="var(--teal)"/>`; });
+  stats.forEach((s, k) => { if (s.mean <= XMAX) out += `<circle cx="${sx(s.mean)}" cy="${sv(vals[k])}" r="3.5" fill="var(--teal)"/>`; });
   state[current].edges.forEach((e, i) => {
     if (e > XMAX) return;
     const inner = i > 0 && i < state[current].edges.length - 1;
@@ -251,22 +320,29 @@ function renderChart() {
   });
   svg.innerHTML = out;
 }
-function render() { document.getElementById("gtitle").textContent = `Groupe ${current}`; renderGroups(); renderClasses(); renderChart(); }
+function syncInputs() { const st = state[current]; $("h").value = st.h; $("aref").value = st.aref; $("omax").value = st.omax; $("mode").value = st.mode; }
+function render() { $("gtitle").textContent = `Groupe ${current}`; renderGroups(); renderClasses(); renderChart(); renderTcam(); }
+
+for (const [id, key] of [["h", "h"], ["aref", "aref"], ["omax", "omax"]])
+  $(id).addEventListener("input", e => { const v = parseFloat(e.target.value); if (!isNaN(v) && v > 0) { state[current][key] = v; state[current].manual = {}; render(); } });
+for (const id of ["hs", "hsci", "yb", "yc", "rdef"]) $(id).addEventListener("input", render);
+$("fit").addEventListener("click", () => { fitH(current); syncInputs(); render(); });
+$("mode").addEventListener("change", e => { state[current].mode = e.target.value; fitH(current); syncInputs(); render(); });
 
 let drag = null;
-const chart = document.getElementById("chart");
+const chart = $("chart");
 chart.addEventListener("pointerdown", e => { if (e.target.classList.contains("handle")) { drag = +e.target.dataset.i; chart.setPointerCapture(e.pointerId); } });
 chart.addEventListener("pointermove", e => {
   if (drag === null) return;
   const box = chart.getBoundingClientRect(), x = ((e.clientX - box.left) / box.width * W - L) / (W - L - R) * XMAX;
   const edges = state[current].edges, lo = edges[drag - 1] + 1, hi = edges[drag + 1] - 1;
   edges[drag] = Math.round(Math.min(Math.max(x, lo), hi));
+  state[current].manual = {};
   render();
 });
 chart.addEventListener("pointerup", () => { drag = null; });
 
-// « Proposer » : natural breaks on the 1 m² bins (Fisher-Jenks), same method as the engine
-document.getElementById("propose").addEventListener("click", () => {
+$("propose").addEventListener("click", () => {       // natural breaks on the 1 m² bins (Fisher-Jenks), as in the engine
   const counts = DATA[current].counts, xs = [], ws = [];
   counts.forEach((c, a) => { if (a + 0.5 >= 10 && c > 0) { xs.push(a + 0.5); ws.push(c); } });
   const k = state[current].edges.length - 1, n = xs.length, cw = [0], cx = [0], cx2 = [0];
@@ -280,7 +356,10 @@ document.getElementById("propose").addEventListener("click", () => {
   const limits = []; let e = n;
   for (let j = k; j > 0; j--) { const s = cut[j][e]; if (j > 1) limits.push(Math.round((xs[s - 1] + xs[s]) / 2)); e = s; }
   state[current].edges = [10, ...limits.reverse(), 450];
+  state[current].manual = {};
   render();
 });
+for (const g of Object.keys(DATA)) fitH(g);
+syncInputs();
 render();
 </script>
