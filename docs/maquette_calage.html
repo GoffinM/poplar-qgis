@@ -63,6 +63,8 @@ td input { width: 56px; font: inherit; text-align: right; border: 1px solid var(
 .totals span { color: var(--muted); font-size: 12px; }
 td.mod input { border-color: var(--ochre); }
 [hidden] { display: none !important; }
+.stepper { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
+.stepper b { min-width: 1.5em; text-align: center; color: var(--ink); }
 .btn.view[aria-pressed="true"] { background: var(--teal); color: var(--on-teal); border-color: var(--teal); }
 .actions { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 760px) { .body { grid-template-columns: 1fr; } .side { display: none; } .row { grid-template-columns: 1fr; } }
@@ -120,7 +122,9 @@ td.mod input { border-color: var(--ochre); }
           <div class="box">
             <div class="pair">
               <span class="f s">Courbe : segments ▾</span>
-              <span class="f s">Classes : <span id="ncls"></span></span><span class="btn" id="propose">Proposer (ruptures naturelles)</span>
+              <span class="stepper">Classes <button class="btn" id="minus" aria-label="Une classe de moins">−</button><b id="ncls"></b><button class="btn" id="plus" aria-label="Une classe de plus">+</button></span>
+              <label class="occ">Découpage <select id="method"><option value="jenks">ruptures naturelles</option><option value="equal">surfaces égales</option><option value="quantile">effectifs égaux (percentiles)</option><option value="manual" disabled>manuel</option></select></label>
+              <label class="occ">Plafond <input id="cap" type="number" step="1" min="20" max="450"> m² <span id="capinfo"></span></label>
               <span class="f s">Surfaces 10 – 450 m²</span>
             </div>
             <div class="occ">
@@ -191,7 +195,7 @@ const STRATA = {"Rural": "Muramvya rural", "Urbain1": "Muramvya urbain"};
 const LEGACY = {"Rural": [-2e-5, 0.0018, 0.0497, -0.3632], "Urbain1": [-2e-5, 0.0022, 0.0569, -0.4777]};
 const XMAX_DATA = 150;  // the plot data stop at 150 m²; DATA.roofs counts every roof
 const state = {};
-for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), aref: 14, omin: 1, omax: 15, manual: {}};
+for (const g of Object.keys(DATA)) state[g] = {edges: DATA[g].edges.slice(), aref: 14, omin: 1, omax: 15, manual: {}, method: "manual", cap: null};
 let current = "Rural";
 const fmt = n => Math.round(n).toLocaleString("fr-FR");
 const dec = (n, d = 1) => n.toFixed(d).replace(".", ",");
@@ -358,7 +362,12 @@ function renderDistribution() {
   });
   svg.innerHTML = out;
 }
-function syncInputs() { const st = state[current]; $("aref").value = st.aref; $("omin").value = st.omin; $("omax").value = st.omax; }
+function syncInputs() {
+  const st = state[current];
+  $("aref").value = st.aref; $("omin").value = st.omin; $("omax").value = st.omax;
+  $("method").value = st.method; $("cap").value = st.cap;
+  $("capinfo").textContent = `(90 % des toits en dessous : ${percentile(current, 0.9)} m²)`;
+}
 function render() { $("gtitle").textContent = `Groupe ${current}`; renderGroups(); renderClasses(); renderChart(); renderTcam(); }
 
 for (const [id, key] of [["aref", "aref"], ["omin", "omin"], ["omax", "omax"]])
@@ -379,29 +388,63 @@ chart.addEventListener("pointermove", e => {
   const box = chart.getBoundingClientRect(), x = ((e.clientX - box.left) / box.width * W - L) / (W - L - R) * XMAX;
   const edges = state[current].edges, lo = edges[drag - 1] + 1, hi = edges[drag + 1] - 1;
   edges[drag] = Math.round(Math.min(Math.max(x, lo), hi));
-  state[current].manual = {};
+  state[current].manual = {}; state[current].method = "manual"; $("method").value = "manual";
   render();
 });
 chart.addEventListener("pointerup", () => { drag = null; });
 
-$("propose").addEventListener("click", () => {       // natural breaks on the 1 m² bins (Fisher-Jenks), as in the engine
-  const counts = DATA[current].counts, xs = [], ws = [];
-  counts.forEach((c, a) => { if (a + 0.5 >= 10 && c > 0) { xs.push(a + 0.5); ws.push(c); } });
-  const k = state[current].edges.length - 1, n = xs.length, cw = [0], cx = [0], cx2 = [0];
-  for (let i = 0; i < n; i++) { cw.push(cw[i] + ws[i]); cx.push(cx[i] + ws[i] * xs[i]); cx2.push(cx2[i] + ws[i] * xs[i] * xs[i]); }
-  const sse = (a, b) => { const w = cw[b] - cw[a]; return w ? cx2[b] - cx2[a] - (cx[b] - cx[a]) ** 2 / w : 0; };
-  const cost = [...Array(k + 1)].map(() => new Array(n + 1).fill(Infinity)), cut = [...Array(k + 1)].map(() => new Array(n + 1).fill(0));
-  cost[0][0] = 0;
-  for (let j = 1; j <= k; j++) for (let e = j; e <= n; e++) for (let s = j - 1; s < e; s++) {
-    const v = cost[j - 1][s] + sse(s, e); if (v < cost[j][e]) { cost[j][e] = v; cut[j][e] = s; }
+function areasCum(g) {                        // roofs from 10 m² per 1 m² bin (the plot data), for the cuts
+  const xs = [], ws = [];
+  DATA[g].counts.forEach((c, a) => { if (a + 0.5 >= 10 && c > 0) { xs.push(a + 0.5); ws.push(c); } });
+  return {xs, ws};
+}
+function percentile(g, q) {                     // area below which a share q of the roofs of 10 to 450 m² lies
+  const {xs, ws} = areasCum(g), total = DATA[g].roofs - DATA[g].small - DATA[g].large;
+  let cum = 0;
+  for (let i = 0; i < xs.length; i++) { cum += ws[i]; if (cum >= q * total) return Math.round(xs[i] + 0.5); }
+  return 450;
+}
+function cut(g) {                               // class limits between 10 m² and the ceiling, for the chosen method
+  const st = state[g], k = st.edges.length - 1, cap = st.cap;
+  const {xs: all, ws: allw} = areasCum(g), xs = [], ws = [];
+  all.forEach((x, i) => { if (x < cap) { xs.push(x); ws.push(allw[i]); } });
+  let inner = [];
+  if (st.method === "equal") {
+    for (let i = 1; i < k; i++) inner.push(Math.round(10 + (cap - 10) * i / k));
+  } else if (st.method === "quantile") {
+    const total = ws.reduce((a, b) => a + b, 0); let cum = 0, next = 1;
+    xs.forEach((x, i) => { cum += ws[i]; while (next < k && cum >= total * next / k) { inner.push(Math.round(x + 0.5)); next++; } });
+  } else {                                      // natural breaks (Fisher-Jenks on the 1 m² bins), as in the engine
+    const n = xs.length, cw = [0], cx = [0], cx2 = [0];
+    for (let i = 0; i < n; i++) { cw.push(cw[i] + ws[i]); cx.push(cx[i] + ws[i] * xs[i]); cx2.push(cx2[i] + ws[i] * xs[i] * xs[i]); }
+    const sse = (a, b) => { const w = cw[b] - cw[a]; return w ? cx2[b] - cx2[a] - (cx[b] - cx[a]) ** 2 / w : 0; };
+    const cost = [...Array(k + 1)].map(() => new Array(n + 1).fill(Infinity)), split = [...Array(k + 1)].map(() => new Array(n + 1).fill(0));
+    cost[0][0] = 0;
+    for (let j = 1; j <= k; j++) for (let e = j; e <= n; e++) for (let s0 = j - 1; s0 < e; s0++) {
+      const v = cost[j - 1][s0] + sse(s0, e); if (v < cost[j][e]) { cost[j][e] = v; split[j][e] = s0; }
+    }
+    let e = n;
+    for (let j = k; j > 0; j--) { const s0 = split[j][e]; if (j > 1) inner.push(Math.round((xs[s0 - 1] + xs[s0]) / 2)); e = s0; }
+    inner.reverse();
   }
-  const limits = []; let e = n;
-  for (let j = k; j > 0; j--) { const s = cut[j][e]; if (j > 1) limits.push(Math.round((xs[s - 1] + xs[s]) / 2)); e = s; }
-  state[current].edges = [10, ...limits.reverse(), 450];
-  state[current].manual = {};
-  render();
+  inner = [...new Set(inner)].filter(v => v > 10 && v < cap).sort((a, b) => a - b);
+  st.edges = [10, ...inner, cap];
+  st.manual = {};
+}
+function recut(g) { if (state[g].method !== "manual") { cut(g); fitH(g); } }
+$("method").addEventListener("change", e => { state[current].method = e.target.value; recut(current); syncInputs(); render(); });
+$("cap").addEventListener("change", e => {
+  const v = parseInt(e.target.value, 10);
+  if (!isNaN(v) && v > 20) { state[current].cap = v; if (state[current].method === "manual") state[current].method = "jenks"; recut(current); syncInputs(); render(); }
 });
-for (const g of Object.keys(DATA)) fitH(g);
+for (const [id, d] of [["minus", -1], ["plus", 1]]) $(id).addEventListener("click", () => {
+  const st = state[current], k = st.edges.length - 1 + d;
+  if (k < 2 || k > 20) return;
+  if (st.method === "manual") st.method = "jenks";
+  st.edges = new Array(k + 1).fill(0);           // only the number of classes matters for the cut
+  cut(current); fitH(current); syncInputs(); render();
+});
+for (const g of Object.keys(DATA)) { state[g].cap = percentile(g, 0.9); fitH(g); }
 syncInputs();
 render();
 </script>
