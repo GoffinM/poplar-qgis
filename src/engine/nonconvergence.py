@@ -21,7 +21,7 @@ from typing import Callable, List, Optional
 import numpy as np
 
 from .capacity import capacity as unit_capacity
-from .migration import MigrationResult, migrate
+from .migration import EPSILON, MigrationResult, migrate
 
 STOP = "stop"
 RAISE_DMAX = "raise_dmax"
@@ -200,10 +200,12 @@ def migrate_with_policy(
                 raise ValueError("the 'sink' policy needs a ring of sink cells")
             return _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messages)
 
-    result = migrate(population, cap, receivable, x, y, settings.k, settings.tolerance, settings.max_iterations)
+    result = migrate(population, cap, receivable, x, y, settings.k, settings.tolerance, settings.max_iterations,
+                     export_all=~receivable)
     unallocated = np.zeros(len(population))
     if not result.converged:
-        leftover = np.where(result.population - cap >= settings.tolerance, result.population - cap, 0.0)
+        excess = result.population - cap
+        leftover = np.where((excess >= settings.tolerance) | (~receivable & (excess > EPSILON)), excess, 0.0)
         reason = ("plus aucune unité n'a de place libre" if result.receivers_exhausted
                   else f"nombre maximal d'itérations atteint ({settings.max_iterations})")
         message = f"La migration n'a pas convergé ({reason}) : {leftover.sum():,.0f} habitants en excès.".replace(",", " ")
@@ -225,6 +227,7 @@ def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messag
         all_population, all_capacity, all_receivable,
         np.concatenate([x, sink.x]), np.concatenate([y, sink.y]),
         settings.k, settings.tolerance, settings.max_iterations,
+        export_all=~all_receivable,
     )
     if not result.converged:
         raise NonConvergenceError(

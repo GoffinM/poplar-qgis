@@ -13,9 +13,14 @@ The population is conserved exactly: it is only moved, never rounded.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Optional
 
 import numpy as np
 from scipy.spatial import cKDTree
+
+
+EPSILON = 1e-9
+"""Numerical zero, in inhabitants."""
 
 
 @dataclass
@@ -40,6 +45,7 @@ def migrate(
     k: int = 3,
     tolerance: float = 1.0,
     max_iterations: int = 10_000,
+    export_all: Optional[np.ndarray] = None,
 ) -> MigrationResult:
     """Move the excess population to the nearest units with free capacity.
 
@@ -47,6 +53,10 @@ def migrate(
     no-inflow and evacuated units). A unit is a source if its excess is at
     least ``tolerance`` inhabitants, and a receiver if it is receivable and
     has at least ``tolerance`` free places.
+
+    Units flagged in ``export_all`` (no-inflow zones) send away all their
+    excess, even below the tolerance, so that their population never
+    exceeds their ceiling (decision of 29/09/2026).
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -56,13 +66,17 @@ def migrate(
     capacity = np.asarray(capacity, dtype=np.float64)
     receivable = np.asarray(receivable, dtype=bool)
     coords = np.column_stack([np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)])
+    strict = np.zeros(len(population), dtype=bool) if export_all is None else np.asarray(export_all, dtype=bool)
+
+    def is_source(excess: np.ndarray) -> np.ndarray:
+        return (excess >= tolerance) | (strict & (excess > EPSILON))
 
     moved = 0.0
     iterations = 0
     exhausted = False
     while True:
         excess = population - capacity
-        sources = np.flatnonzero(excess >= tolerance)
+        sources = np.flatnonzero(is_source(excess))
         if len(sources) == 0:
             break
         receivers = np.flatnonzero(receivable & (capacity - population >= tolerance))
@@ -82,7 +96,7 @@ def migrate(
         moved += float(excess[sources].sum())
 
     remaining = float(np.maximum(population - capacity, 0).sum())
-    converged = not np.any(population - capacity >= tolerance)
+    converged = not np.any(is_source(population - capacity))
     return MigrationResult(population, iterations, converged, moved, remaining, exhausted)
 
 

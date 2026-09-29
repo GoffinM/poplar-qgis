@@ -32,15 +32,13 @@
 | Ancien algorithme, mêmes données, un seul pas | **57 habitants perdus** (164 357 → 164 300), à cause des arrondis et du transfert en densité |
 | Vitesse | **6,1 s** pour 2,25 millions d'unités dont 5 % en excès (5 itérations). Objectif : moins de 60 s. Muramvya : instantané |
 
-## 4. Effet de la tolérance entière, à connaître
+## 4. Tolérance entière et zones sans migration (décision du 29/09/2026)
 
-Avec une tolérance d'**un habitant**, un excès de moins d'un habitant reste dans sa maille (décision du 29/09/2026). Il n'est pas perdu : il part dès qu'il atteint un habitant. La conséquence est que **chaque maille peut dépasser son plafond de moins d'un habitant**.
+Avec une tolérance d'**un habitant**, un excès de moins d'un habitant reste dans sa maille. Il n'est pas perdu : il part dès qu'il atteint un habitant.
 
-L'effet est visible sur les zones sans migration découpées en nombreux petits morceaux. À Muramvya, la forêt compte 1 899 morceaux, peu peuplés chacun. En un an, sa population passe de 9 746 à 9 932 habitants, au lieu de rester à 9 746 : sur ces 186 habitants de croissance, la plupart restent sur place, par fractions de moins d'un habitant par morceau.
+**Exception décidée le 29/09/2026 : les zones sans migration et les zones évacuées exportent tout leur excès**, même les fractions d'habitant. Leur population reste ainsi exactement égale à leur population de base.
 
-Ce surplus est **borné** (moins d'un habitant par morceau, donc moins de 1 899 pour la forêt) et **ne s'accumule pas** d'une année à l'autre : dès qu'un morceau atteint un habitant d'excès, celui-ci part. Il sera signalé dans le rapport.
-
-**Si ce comportement ne convient pas pour les zones sans migration**, une variante simple consiste à ce que ces zones exportent **tout** leur excès, même fractionnaire. Leur population resterait alors exactement égale à leur population de base, et la tolérance continuerait de s'appliquer ailleurs. **À décider.**
+Sans cette exception, à Muramvya, la forêt (1 899 petits morceaux) serait passée de 9 746 à 9 932 habitants en un an. Avec l'exception, elle reste à 9 746 habitants après 36 années, à 10⁻⁶ près.
 
 ## 5. Documentation
 

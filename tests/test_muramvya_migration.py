@@ -31,7 +31,7 @@ def test_one_step_2024_2025(start):
     assert abs(report.balance_error) < 1e-6                                  # I1
     eligible = ~units.no_inflow
     assert np.all(outcome.population[eligible] - outcome.capacity[eligible] < 1)   # I2
-    assert np.all(outcome.population[units.no_inflow] <= grown[units.no_inflow] + 1e-9)  # I3
+    np.testing.assert_allclose(outcome.population[units.no_inflow], p0[units.no_inflow], atol=1e-6)  # I3
     assert report.moved > 0
 
 
@@ -47,10 +47,9 @@ def test_thirty_six_annual_steps_stay_consistent(start):
     assert population.sum() == pytest.approx(p0.sum() * 1.022 ** 36, rel=1e-12)
     cap = capacity(units.area_km2, p0, dmax, units.no_inflow)
     assert np.all(population - cap < 1)
-    # With a tolerance of one inhabitant, each no-inflow unit may keep less than one
-    # inhabitant above its ceiling: the forest stays within that bound.
+    # No-inflow units export all their excess, even below one inhabitant (A7-bis c1).
     forest = units.no_inflow
-    assert population[forest].sum() - p0[forest].sum() < forest.sum()
+    np.testing.assert_allclose(population[forest], p0[forest], atol=1e-6)
 
 
 def test_legacy_algorithm_loses_population_where_the_new_one_conserves_it(start):

@@ -35,7 +35,7 @@ Quand une maille dépasse son plafond d'au moins **un habitant**, l'excès part,
 - **Personne ne s'installe dans une zone sans migration.**
 - **Le résultat est reproductible** : les mêmes données donnent toujours le même résultat.
 
-**Un excès de moins d'un habitant reste sur place.** Il s'ajoute à la croissance de l'année suivante et part dès qu'il atteint un habitant. Chaque maille peut donc dépasser son plafond de moins d'un habitant.
+**Un excès de moins d'un habitant reste sur place.** Il s'ajoute à la croissance de l'année suivante et part dès qu'il atteint un habitant. Une maille ordinaire peut donc dépasser son plafond de moins d'un habitant. **Exception :** les zones sans migration exportent tout leur excès, même inférieur à un habitant, pour que leur population reste strictement stable.
 
 ## Paramètres utiles
 

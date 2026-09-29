@@ -61,6 +61,13 @@ def test_excess_below_one_inhabitant_stays_in_place():
     assert result.converged and result.iterations == 0
 
 
+def test_no_inflow_units_export_even_a_fraction_of_an_inhabitant():
+    no_inflow = np.array([True, False])
+    result = migrate([10.4, 0.0], [10.0, 10.0], ~no_inflow, [0.0, 1.0], [0.0, 0.0], export_all=no_inflow)
+    np.testing.assert_allclose(result.population, [10.0, 0.4])
+    assert result.converged
+
+
 def test_tolerance_must_be_a_whole_number():
     with pytest.raises(ValueError):
         migrate([1.0], [1.0], [True], [0.0], [0.0], tolerance=0.5)
@@ -174,11 +181,12 @@ def test_invariants_on_random_grids(seed):
     dmax = np.full(n, 400.0)
     cap = capacity(area, p0, dmax, no_inflow)
     grown = p0 * 1.3
-    result = migrate(grown, cap, ~no_inflow, xs.ravel(), ys.ravel())
+    result = migrate(grown, cap, ~no_inflow, xs.ravel(), ys.ravel(), export_all=no_inflow)
     assert result.converged
     assert result.population.sum() == pytest.approx(grown.sum(), rel=1e-12)          # I1
     assert np.all(result.population - cap < 1)                                          # I2
     assert np.all(result.population[no_inflow] <= grown[no_inflow] + 1e-9)            # I3: never receive
+    assert np.all(result.population[no_inflow] <= cap[no_inflow] + 1e-6)              # I3: back to P0
     assert np.all(result.population >= 0)                                               # I7
 
 
