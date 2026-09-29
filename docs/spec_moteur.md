@@ -30,6 +30,7 @@
 | Zones sans migration | Vecteur (polygones) | non | Zones qui ne reçoivent jamais de migration (A7 = c) |
 | Paramètres | Table (GeoPackage, CSV) ou valeur unique | oui | Voir §2.3 |
 | Projections démographiques | Table | non | Totaux cibles par zone et par année, pour le recalage (§5.2) |
+| Toits (bâti) | Vecteur (polygones, ou points avec un champ de surface), lu directement depuis sa source : PostGIS, GeoPackage, shapefile, WFS, GeoParquet | non (phase 6) | Empreintes des bâtiments pour le calage surface de toit → population (§3 bis) |
 
 ### 2.2 Paramètres du scénario
 
@@ -90,6 +91,33 @@ Chaque paramètre peut être donné sous l'une de ces formes, de la plus simple 
 - **Population de base** `P0_u` : somme sur les pixels du raster de base de (densité × surface commune entre pixel et unité).
 - **Mise en œuvre (phase 4).** Seules les mailles traversées par une limite sont découpées, avec la géométrie OGR/GDAL. Les mailles intérieures restent entières (une unité = une maille) et sont traitées en tableau. Le moteur manipule un tableau 1D d'unités, pas une image.
 - **Sorties raster** : pour chaque maille, population = somme des unités, et densité = population / surface utile totale de la maille. Une couche vectorielle des unités peut aussi être produite en option.
+
+## 3 bis. Lecture des toits et affectation aux unités
+
+**Volumes visés** : 38 000 bâtiments pour Muramvya, et **de plusieurs centaines de milliers à quelques millions** pour des emprises régionales ou nationales.
+
+**Principe.** Un bâtiment est réduit à un **point** (son centroïde) et à sa **surface de toit**, comme dans la pratique actuelle. Le moteur ne conserve jamais les polygones en mémoire.
+
+| Étape | Mise en œuvre |
+|---|---|
+| 1. Filtrage à la source | Seuls les bâtiments de l'emprise de la zone d'étude sont demandés (filtre spatial OGR). Pour PostGIS, le filtre et le calcul du centroïde et de la surface s'exécutent **sur le serveur** (`ST_Centroid`, `ST_Area`), si bien que seuls des points et des nombres transitent |
+| 2. Lecture par paquets | Lecture de 50 000 à 100 000 bâtiments à la fois. Pour chaque paquet, on extrait x, y et la surface dans des tableaux numpy (3 réels par bâtiment : environ 24 Mo par million) |
+| 3. Surface en projection métrique | Si la source est en degrés (EPSG:4326, cas des jeux mondiaux), les géométries sont reprojetées dans le système de la grille avant de calculer la surface |
+| 4. Affectation aux unités | Pour une maille entière, l'affectation est un simple calcul d'indice (`floor((x − x0) / cell_size)`), vectorisé. Le test point-dans-polygone (OGR) n'est fait que pour les points qui tombent dans une maille découpée, soit une petite fraction du total |
+| 5. Stockage | Un tableau (unité, surface) par bâtiment. On garde la surface **de chaque bâtiment**, et pas seulement la somme par unité, car une régression non linéaire se calcule bâtiment par bâtiment avant d'être sommée (§3 bis.1) |
+
+**Entrée « points » acceptée.** Si l'utilisateur a déjà extrait les centroïdes avec un champ de surface, les étapes 1 à 3 se réduisent à la lecture de deux coordonnées et d'un champ.
+
+**Objectif de performance** : 1 million de bâtiments lus et affectés en **moins de 2 minutes** sur un poste standard, à partir d'un GeoPackage local. Il sera vérifié par un test sur un jeu synthétique d'un million de polygones.
+
+### 3 bis.1 Points à préciser
+
+| # | Question | Proposition |
+|---|---|---|
+| B1 | Quel est le type de la base source (PostGIS, GeoPackage sur un serveur de fichiers, jeu mondial) ? | Prendre en charge toutes les sources OGR. Optimiser en priorité celle qui sera utilisée |
+| B2 | Faut-il un **centroïde** ou un **point intérieur** (`PointOnSurface`) ? Le centroïde d'un bâtiment en L peut tomber hors du bâtiment, et parfois dans une maille voisine | Centroïde par défaut (pratique actuelle), point intérieur en option |
+| B3 | La régression est-elle appliquée **par bâtiment** (population = f(surface du toit), puis somme) ou **par zone** (population = f(somme des surfaces)) ? | Garder la surface par bâtiment pour permettre les deux (étape 5) |
+| B4 | Quels attributs utiles porte chaque bâtiment (type, hauteur, nombre de niveaux, indice de confiance) ? | Les lire s'ils existent, pour un calage par strate et un filtrage des détections douteuses |
 
 ## 4. Capacité
 
