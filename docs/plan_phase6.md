@@ -126,3 +126,7 @@ Chaque étape passe tous les tests avant la suivante, et je vous signale tout é
 ## 6. Modèle final (29/09/2026, après la maquette de l'onglet Calage)
 
 Habitants **entiers par toit** selon la classe de surface ; classes entre plancher et plafond (percentile, valeur ou aucun ; 1er et 90e percentiles par défaut) ; découpage par ruptures naturelles, surfaces égales, percentiles ou à la main ; un seul paramètre ajusté au recensement, la **surface de toit par habitant** ; valeurs modifiables ; recalage proposé mais non appliqué (facteur 1), alerte à ±2 % ; vues Distribution et Cumul. Détail : spécification §3 ter.3.
+
+## 7. À faire après le retour de test (demande du 29/09/2026)
+
+**Téléchargement automatique des toits** : un bouton « Télécharger les toits de la zone d'étude » qui va chercher les bâtiments d'une source publique en ligne (Google Open Buildings en priorité, puis Overture Maps), sur l'emprise de la zone d'étude, et les enregistre en GeoPackage local réutilisable. Plan à soumettre avant de coder. Également : calcul du centroïde et de la surface côté serveur pour les grandes bases PostGIS.

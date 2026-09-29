@@ -1,0 +1,111 @@
+{
+  "name": "Muramvya – toits calés",
+  "language": "fr",
+  "cell_size": 250,
+  "density_unit": "hab/km2",
+  "study_area": {
+    "source": "commune_muramvya.shp"
+  },
+  "typology": {
+    "source": "commune_muramvya.shp",
+    "field": "Type"
+  },
+  "admin_units": {
+    "source": "commune_muramvya.shp",
+    "field": "COMMUNES"
+  },
+  "exclusions": [
+    {
+      "name": "Forêt",
+      "source": "zone_sans_migration.shp",
+      "behaviour": "no_inflow"
+    }
+  ],
+  "base_population": {
+    "raster": "pop2023_muramvya.tif",
+    "boundary_mode": "area_weighted",
+    "source": "buildings"
+  },
+  "time": {
+    "base_year": 2024,
+    "end_year": 2060,
+    "time_step": 5,
+    "output_years": [
+      2025,
+      2030,
+      2035,
+      2040,
+      2045,
+      2050,
+      2055,
+      2060
+    ],
+    "migration_frequency": "annual",
+    "first_migration_year": 2025
+  },
+  "parameters": {
+    "growth_rate": {
+      "*": {
+        "2024.5": 2.199,
+        "2027.5": 2.231,
+        "2032.5": 2.137,
+        "2037.5": 1.917,
+        "2042.5": 1.706,
+        "2047.5": 1.599,
+        "2052.5": 1.408,
+        "2057.5": 1.29
+      }
+    },
+    "dmax": {
+      "zones": [
+        {
+          "source": "commune_muramvya.shp",
+          "field": "Type"
+        }
+      ],
+      "values": {
+        "Rural": 2500,
+        "Urbain1": 10000,
+        "Urbain2": 7500
+      }
+    }
+  },
+  "migration": {
+    "k": 3,
+    "tolerance": 1,
+    "policy": "stop"
+  },
+  "indicators": [
+    {
+      "type": "water",
+      "parameters": {
+        "water_per_capita": 20,
+        "non_domestic_share": 10,
+        "network_efficiency": 75,
+        "peak_day_factor": 1.3,
+        "peak_hour_factor": 1.8
+      }
+    }
+  ],
+  "output": {
+    "directory": "outputs"
+  },
+  "description": "Population de départ calculée à partir des 38 942 toits des classeurs, calée sur la population administrative 2024",
+  "calibration": {
+    "buildings": {
+      "source": "buildings_muramvya.gpkg",
+      "area_field": "area_m2"
+    },
+    "strata": {
+      "source": "commune_muramvya.shp",
+      "field": "COMMUNES",
+      "group_field": "Type"
+    },
+    "census": {
+      "MURAMVYA  RURAL": 136759,
+      "MURAMVYA URBAIN": 34251
+    },
+    "census_year": 2024,
+    "recalibrate": false
+  }
+}
