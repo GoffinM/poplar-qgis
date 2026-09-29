@@ -41,7 +41,7 @@ Le scénario `data/test/muramvya/scenario_muramvya.json` reprend les taux par p�
 | Simulation de 36 ans sur **1 million de mailles** (100 m sur 100 × 100 km), migration annuelle, 2,6 millions d'habitants déplacés au total | **29 s**, contre 146 s avant l'optimisation (les combinaisons zone × classe sont désormais calculées une seule fois) |
 | Muramvya, de 2024 à 2060 | 7 s |
 
-## 4. Conventions retenues, à confirmer
+## 4. Conventions retenues (validées le 29/09/2026)
 
 | # | Convention | Raison |
 |---|---|---|
