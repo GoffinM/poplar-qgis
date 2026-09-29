@@ -571,6 +571,8 @@ Le moteur est livré sous forme de **plugin QGIS**, compatible avec QGIS 3.40 LT
 
 **Algorithmes Processing.** Les mêmes fonctions sont disponibles dans la boîte à outils de traitement de QGIS, pour les traitements par lots et le Model Builder.
 
+**Choix des couches (décision du 29/09/2026).** Chaque liste de couches a un bouton « … » : fichier (avec choix de la sous-couche d'un GeoPackage), ou explorateur des sources de QGIS (PostGIS, GeoPackage, SpatiaLite). Le plugin transmet au moteur une source lisible par GDAL/OGR : chemin et sous-couche, filtre QGIS en `where`, ou chaîne `PG:` pour PostGIS. Le mot de passe d'une base n'est jamais écrit dans un scénario ni dans `scenario_used.json` : il est ajouté en mémoire au moment du calcul. Les couches temporaires et les services web sont refusés avec une explication.
+
 **Hors QGIS.** Le moteur fonctionne aussi en ligne de commande, à partir d'un fichier de scénario. C'est utile pour les tests et les longs calculs.
 
 Une maquette des fenêtres sera proposée pour validation avant de développer la phase 5.

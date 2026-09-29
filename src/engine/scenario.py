@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, List, Optional
 
@@ -132,7 +133,9 @@ class Scenario:
     # --- paths --------------------------------------------------------------------
 
     def path(self, value: str) -> str:
-        return value if os.path.isabs(value) else os.path.normpath(os.path.join(self.base_dir, value))
+        if is_connection(value) or os.path.isabs(value):
+            return value
+        return os.path.normpath(os.path.join(self.base_dir, value))
 
     # --- parameters ---------------------------------------------------------------
 
@@ -163,7 +166,7 @@ class Scenario:
         data["base_population"] = {"raster": data.pop("base_population_raster"), "boundary_mode": data.pop("boundary_mode"),
                                    "value_type": data.pop("population_value_type")}
         data["output"] = {"directory": data.pop("output_directory"), "per_run": data.pop("output_per_run")}
-        return _drop_none(data)
+        return _without_passwords(_drop_none(data))
 
     def save(self, path: str) -> None:
         with open(path, "w", encoding="utf-8") as handle:
@@ -360,6 +363,28 @@ def validate(scenario: Scenario) -> List[Message]:
         if spec.type not in REGISTRY:
             invalid("indicators.type", spec.type, " | ".join(sorted(REGISTRY)))
     return errors
+
+
+def is_connection(value: str) -> bool:
+    """Database or service connection (``PG:…``, ``MSSQL:…``, ``https://…``) rather than a file path.
+
+    A Windows drive (``C:\\…``) has a single letter before the colon.
+    """
+    return bool(re.match(r"^[A-Za-z][A-Za-z0-9+.-]+:", value or ""))
+
+
+PASSWORD = re.compile(r"\s*\bpassword\s*=\s*('[^']*'|\S+)", re.IGNORECASE)
+
+
+def _without_passwords(value: Any) -> Any:
+    """Scenario files never hold database passwords (they stay in QGIS or in ~/.pgpass)."""
+    if isinstance(value, dict):
+        return {k: _without_passwords(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_without_passwords(v) for v in value]
+    if isinstance(value, str) and is_connection(value):
+        return PASSWORD.sub("", value)
+    return value
 
 
 def _drop_none(value: Any) -> Any:

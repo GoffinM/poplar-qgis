@@ -44,6 +44,9 @@ QListWidget#tabs::item:selected {{ background: {t['teal_soft']}; color: {t['ink'
     border-left: 3px solid {t['teal']}; font-weight: 600; }}
 QListWidget#tabs::item:disabled {{ color: {t['muted']}; }}
 
+QToolButton#browse::menu-indicator {{ image: none; width: 0px; }}
+QToolButton#browse {{ padding: 0 6px; }}
+
 QFrame#footer {{ background: {t['panel']}; border-top: 1px solid {t['line']}; }}
 
 QGroupBox {{ border: 1px solid {t['line']}; border-radius: 4px; margin-top: 18px; padding: 10px 8px 8px 8px; }}

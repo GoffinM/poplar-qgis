@@ -12,8 +12,9 @@ from qgis.PyQt.QtWidgets import (
     QStackedWidget, QToolButton, QVBoxLayout,
 )
 
+from ..compat import with_password
 from ..engine import runs
-from ..engine.scenario import ScenarioError, scenario_from_dict
+from ..engine.scenario import ScenarioError, is_connection, scenario_from_dict
 from ..i18n import current_language, tip, tr
 from ..results import load_rasters
 from ..task import RunTask
@@ -31,6 +32,25 @@ HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scena
               "parameters": "parametres_et_scenario", "indicators": "resultats_et_indicateurs",
               "calibration": "prise_en_main", "run": "non_convergence", "results": "resultats_et_indicateurs",
               "report": "resultats_et_indicateurs"}
+
+
+def _sources(value):
+    """Every layer input of a scenario dict ({"source": …})."""
+    if isinstance(value, dict):
+        if isinstance(value.get("source"), str):
+            yield value
+        for item in value.values():
+            yield from _sources(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _sources(item)
+
+
+def _with_passwords(data):
+    data = copy.deepcopy(data)
+    for spec in _sources(data):
+        spec["source"] = with_password(spec["source"])
+    return data
 
 
 def default_scenario() -> dict:
@@ -196,7 +216,7 @@ class MainDialog(QDialog):
         return os.path.dirname(self.path) if self.path else os.getcwd()
 
     def absolute(self, path):
-        if not path:
+        if not path or is_connection(path):
             return path
         return path if os.path.isabs(path) else os.path.normpath(os.path.join(self.base_dir(), path))
 
@@ -260,24 +280,30 @@ class MainDialog(QDialog):
         self.iface.messageBar().pushSuccess("Poplar", tr("main.saved", path=path))
 
     def scenario(self):
-        """Engine scenario built from the window (raises ScenarioError with every problem)."""
-        return scenario_from_dict(self.collect(), self.base_dir())
+        """Engine scenario built from the window (raises ScenarioError with every problem).
+
+        Database passwords of this session are added here, for the run only:
+        the scenario file and the copy written with the results never hold them.
+        """
+        return scenario_from_dict(_with_passwords(self.collect()), self.base_dir())
 
     # --- checks and run -----------------------------------------------------------
 
     def check(self) -> bool:
         page = self.page("run")
         language = current_language()
+        layers = [(False, tr("layers.unsupported", name=spec.get("name", ""), provider=spec["unsupported"]))
+                  for spec in _sources(self.collect()) if spec.get("unsupported")]
+        layers += [(False, tr("check.buffer_missing", name=name))
+                   for name in self.page("data").exclusions_without_buffer()]
         try:
             scenario = self.scenario()
         except ScenarioError as error:
-            page.show_checks([(False, m.render(language)) for m in error.messages])
+            page.show_checks(layers + [(False, m.render(language)) for m in error.messages])
             self.last_check = False
             self._update_states(self.data)
             return False
-        items = [(True, tr("check.scenario_ok"))]
-        for name in self.page("data").exclusions_without_buffer():
-            items.append((False, tr("check.buffer_missing", name=name)))
+        items = ([] if layers else [(True, tr("check.scenario_ok"))]) + layers
         if not scenario.output_directory:
             items.append((False, tr("check.no_output")))
         page.show_checks(items)

@@ -326,7 +326,7 @@ class ParameterTableWidget(QGroupBox):
         self.sync_rows()
 
     def _layer(self, zone):
-        return find_or_add_layer(self.dialog.absolute(zone.get("source")), zone.get("layer"))
+        return find_or_add_layer(self.dialog.absolute(zone.get("source")), zone.get("layer"), where=zone.get("where"))
 
     def store(self):
         """The parameter in the scenario format (None if no value at all)."""

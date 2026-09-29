@@ -406,5 +406,17 @@
  "library.open.tip.title": "Partir de ce scénario",
  "library.open.tip": "Charge le scénario dans la fenêtre comme nouveau scénario : l'original de la bibliothèque n'est pas modifié.",
  "library.save": "Enregistrer",
- "run.warnings": "{count} avertissement(s), dont : {first} (voir le rapport)"
+ "run.warnings": "{count} avertissement(s), dont : {first} (voir le rapport)",
+ "layers.browse.tip.title": "Ajouter une couche",
+ "layers.browse.tip": "Choisir un fichier (shapefile, GeoPackage, GeoTIFF…) ou une couche d'une base de données (PostGIS, GeoPackage, SpatiaLite) : elle est ajoutée au projet et sélectionnée.",
+ "layers.file": "Fichier…",
+ "layers.sources": "Base de données ou autre source…",
+ "layers.vector_files": "Couches vectorielles",
+ "layers.raster_files": "Rasters",
+ "layers.all_files": "Tous les fichiers",
+ "layers.sublayer": "Couche du fichier",
+ "layers.sublayer_label": "Ce fichier contient plusieurs couches ; laquelle utiliser ?",
+ "layers.invalid": "La couche « {name} » n'a pas pu être ouverte.",
+ "layers.unsupported": "La couche « {name} » (source {provider}) ne peut pas être lue par le moteur de calcul : enregistrez-la en GeoPackage (clic droit › Exporter › Sauvegarder les entités sous…).",
+ "layers.wrong_type": "La couche « {name} » n'a pas le bon type de géométrie pour cette liste (des polygones sont attendus)."
 }

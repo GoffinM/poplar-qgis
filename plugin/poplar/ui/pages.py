@@ -7,7 +7,7 @@ so the window, the Processing algorithm and the command line share one format.
 import os
 
 from qgis.core import QgsCoordinateReferenceSystem, QgsProject
-from qgis.gui import QgsFileWidget, QgsMapLayerComboBox, QgsProjectionSelectionWidget
+from qgis.gui import QgsFileWidget, QgsProjectionSelectionWidget
 from qgis.PyQt.QtCore import Qt, QUrl
 from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
@@ -24,7 +24,7 @@ from ..engine import runs
 from ..results import QUANTITIES, available_outputs
 from .parameter_table import ParameterTableWidget
 from .widgets import (
-    add_row, choice_combo, find_or_add_layer, format_series, layer_with_field, parse_series, set_combo_value,
+    add_row, layer_combo, choice_combo, find_or_add_layer, format_series, layer_with_field, parse_series, set_combo_value,
     source_of,
 )
 
@@ -159,9 +159,8 @@ class DataPage(Page):
         layout = QVBoxLayout(self)
 
         box, form = _box("data.territory")
-        self.study = QgsMapLayerComboBox()
-        self.study.setFilters(POLYGON_FILTER)
-        add_row(form, "data.study_area", self.study)
+        widget, self.study = layer_combo(POLYGON_FILTER)
+        add_row(form, "data.study_area", widget)
         widget, self.typology, self.typology_field = layer_with_field(POLYGON_FILTER)
         add_row(form, "data.typology", widget)
         widget, self.admin, self.admin_field = layer_with_field(POLYGON_FILTER, allow_empty=True)
@@ -169,9 +168,8 @@ class DataPage(Page):
         layout.addWidget(box)
 
         box, form = _box("data.population")
-        self.raster = QgsMapLayerComboBox()
-        self.raster.setFilters(RASTER_FILTER)
-        add_row(form, "data.raster", self.raster)
+        widget, self.raster = layer_combo(RASTER_FILTER, raster=True)
+        add_row(form, "data.raster", widget)
         self.value_type = choice_combo([("density", tr("data.value_type.density")),
                                         ("count", tr("data.value_type.count"))])
         add_row(form, "data.value_type", self.value_type)
@@ -196,7 +194,7 @@ class DataPage(Page):
         header.setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         header.setSectionResizeMode(1, QHeaderView.ResizeMode.Interactive)
-        self.exclusions.setColumnWidth(1, 190)
+        self.exclusions.setColumnWidth(1, 230)
         self.exclusions.setMinimumHeight(110)
         inner.addWidget(self.exclusions)
         buttons = QHBoxLayout()
@@ -246,12 +244,11 @@ class DataPage(Page):
         row = self.exclusions.rowCount()
         self.exclusions.insertRow(row)
         self.exclusions.setItem(row, 0, QTableWidgetItem(item.get("name", "")))
-        layers = QgsMapLayerComboBox()
-        layers.setFilters(VECTOR_FILTER)
-        layer = find_or_add_layer(self.dialog.absolute(item.get("source")), item.get("layer"))
+        widget, layers = layer_combo(VECTOR_FILTER)
+        layer = find_or_add_layer(self.dialog.absolute(item.get("source")), item.get("layer"), where=item.get("where"))
         if layer is not None:
             layers.setLayer(layer)
-        self.exclusions.setCellWidget(row, 1, layers)
+        self.exclusions.setCellWidget(row, 1, widget)
         behaviour = choice_combo([(b, tr(f"behaviour.{b}")) for b in BEHAVIOURS], item.get("behaviour", "no_inflow"))
         behaviour.setToolTip(tip("data.exclusions.behaviour"))
         self.exclusions.setCellWidget(row, 2, behaviour)
@@ -312,11 +309,14 @@ class DataPage(Page):
         self.projection_preview.style().unpolish(self.projection_preview)
         self.projection_preview.style().polish(self.projection_preview)
 
+    def exclusion_layer(self, row):
+        return self.exclusions.cellWidget(row, 1).combo.currentLayer()
+
     def exclusions_without_buffer(self):
         """Names of the exclusion layers made of lines or points that have no buffer width."""
         names = []
         for row in range(self.exclusions.rowCount()):
-            layer = self.exclusions.cellWidget(row, 1).currentLayer()
+            layer = self.exclusion_layer(row)
             buffer = self.exclusions.item(row, 4).text().strip() if self.exclusions.item(row, 4) else ""
             if layer is not None and needs_buffer(layer) and not buffer:
                 name = self.exclusions.item(row, 0).text() if self.exclusions.item(row, 0) else ""
@@ -326,7 +326,8 @@ class DataPage(Page):
     def load(self, data):
         def select(combo, spec, raster=False):
             if spec:
-                layer = find_or_add_layer(self.dialog.absolute(spec.get("source")), spec.get("layer"), raster)
+                layer = find_or_add_layer(self.dialog.absolute(spec.get("source")), spec.get("layer"), raster,
+                                          spec.get("where"))
                 if layer is not None:
                     combo.setLayer(layer)
 
@@ -378,7 +379,7 @@ class DataPage(Page):
         }
         exclusions = []
         for row in range(self.exclusions.rowCount()):
-            spec = source_of(self.exclusions.cellWidget(row, 1).currentLayer())
+            spec = source_of(self.exclusion_layer(row))
             if not spec:
                 continue
             spec["name"] = self.exclusions.item(row, 0).text() if self.exclusions.item(row, 0) else ""

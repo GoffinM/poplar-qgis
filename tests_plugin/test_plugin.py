@@ -180,7 +180,7 @@ def test_exclusion_made_of_lines_needs_a_buffer(iface, scenario_copy, tmp_path):
     data = dialog.page("data")
     data._add_exclusion({"name": "RN7"})
     row = data.exclusions.rowCount() - 1
-    data.exclusions.cellWidget(row, 1).setLayer(road)
+    data.exclusions.cellWidget(row, 1).combo.setLayer(road)
     data.exclusions.cellWidget(row, 2).setCurrentIndex(1)  # relocate
     data.exclusions.item(row, 3).setText("2027")
     assert not dialog.check()
@@ -337,6 +337,129 @@ def test_older_scenarios_are_converted(iface, scenario_copy):
     QgsProject.instance().clear()
 
 
+def _two_layer_geopackage(path):
+    from osgeo import ogr, osr
+
+    srs = osr.SpatialReference()
+    srs.ImportFromEPSG(32735)
+    datasource = ogr.GetDriverByName("GPKG").CreateDataSource(path)
+    for name, geometry_type, wkt in (("provinces", ogr.wkbPolygon, "POLYGON ((781000 9626000, 809000 9626000, "
+                                      "809000 9651000, 781000 9651000, 781000 9626000))"),
+                                     ("forages", ogr.wkbPoint, "POINT (795000 9638000)")):
+        layer = datasource.CreateLayer(name, srs, geometry_type)
+        layer.CreateField(ogr.FieldDefn("nom", ogr.OFTString))
+        feature = ogr.Feature(layer.GetLayerDefn())
+        feature.SetGeometry(ogr.CreateGeometryFromWkt(wkt))
+        feature.SetField("nom", name)
+        layer.CreateFeature(feature)
+    datasource = None
+    return path
+
+
+def test_layers_are_chosen_from_files(iface, scenario_copy, tmp_path, monkeypatch):
+    from qgis.PyQt.QtWidgets import QFileDialog, QInputDialog, QMessageBox
+    from poplar.ui import widgets
+    from poplar.ui.main_dialog import MainDialog
+
+    path = _two_layer_geopackage(str(tmp_path / "zonage.gpkg"))
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    growth = dialog.page("parameters").tables["growth_rate"]
+    warnings = []
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args[2]))
+    monkeypatch.setattr(QFileDialog, "getOpenFileName", lambda *args, **kwargs: (path, ""))
+
+    # A GeoPackage with two layers: the user picks one
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args, **kwargs: ("provinces", True))
+    layer = widgets.pick_file(growth.layer)
+    assert layer is not None and growth.layer.currentLayer() is layer and not warnings
+    assert widgets.source_of(layer) == {"source": path, "layer": "provinces"}
+    assert widgets.pick_file(growth.layer) is layer                      # chosen twice: added once
+    growth.field.setField("nom")
+    assert list(growth.values()) == ["provinces", "*"]
+
+    # Points in a list of polygons: explained, not selected
+    monkeypatch.setattr(QInputDialog, "getItem", lambda *args, **kwargs: ("forages", True))
+    assert widgets.pick_file(growth.layer) is None and "polygones" in warnings[-1]
+    assert growth.layer.currentLayer() is layer
+    QgsProject.instance().clear()
+
+
+def test_layer_filters_and_other_sources(iface, scenario_copy, tmp_path, monkeypatch):
+    import qgis.gui
+    from qgis.core import QgsVectorLayer
+    from poplar.compat import SECRETS, engine_source, postgres_layer
+    from poplar.ui import widgets
+    from poplar.ui.main_dialog import MainDialog
+
+    # A filter set in QGIS is passed to the engine
+    path = _two_layer_geopackage(str(tmp_path / "zonage.gpkg"))
+    filtered = QgsVectorLayer(f"{path}|layername=provinces", "provinces", "ogr")
+    filtered.setSubsetString("\"nom\" = 'provinces'")
+    assert engine_source(filtered) == {"source": path, "layer": "provinces", "where": "\"nom\" = 'provinces'"}
+    QgsProject.instance().addMapLayer(filtered)
+    assert widgets.find_or_add_layer(path, "provinces", where="\"nom\" = 'provinces'") is filtered
+
+    # PostGIS: connection string without the password, which is added for the run only
+    uri = ("dbname='sig' host='srv.sher.be' port=5432 user='analyste' password='s3cret' sslmode=require "
+           "key='id' srid=32735 type=MultiPolygon table=\"burundi\".\"communes\" (geom) sql=\"province\" = 'Muramvya'")
+    postgis = QgsVectorLayer(uri, "communes", "postgres")
+    spec = engine_source(postgis)
+    assert spec == {"source": "PG:dbname='sig' host='srv.sher.be' port='5432' user='analyste' sslmode='require'",
+                    "layer": "burundi.communes(geom)", "where": "\"province\" = 'Muramvya'"}
+    assert SECRETS[spec["source"]] == "s3cret"
+    again = postgres_layer(spec, "communes")
+    assert engine_source(again) == spec                                  # a scenario reopens the same table
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    data = dialog.collect()
+    data["admin_units"] = dict(spec, field="COMMUNE")
+    dialog.data = data
+    from poplar.ui.main_dialog import _with_passwords
+    assert "password='s3cret'" in _with_passwords(data)["admin_units"]["source"]
+    assert "s3cret" not in json.dumps(data)
+
+    # A memory layer cannot be read by the engine: refused when chosen, reported by the check
+    memory = QgsVectorLayer("Polygon?crs=EPSG:32735", "brouillon", "memory")
+    warnings = []
+    from qgis.PyQt.QtWidgets import QMessageBox
+    monkeypatch.setattr(QMessageBox, "warning", lambda *args: warnings.append(args[2]))
+    growth = dialog.page("parameters").tables["growth_rate"]
+    assert widgets.set_new_layer(growth.layer, memory) is None and "GeoPackage" in warnings[-1]
+    QgsProject.instance().addMapLayer(memory)
+    growth.layer.setLayer(memory)
+    assert not dialog.check()
+    assert any("brouillon" in dialog.page("run").checks.item(i).text() for i in range(dialog.page("run").checks.count()))
+
+    # « Database or other source… »: the QGIS source browser
+    class Uri:
+        uri, name, providerKey = f"{path}|layername=provinces", "provinces (base)", "ogr"
+
+        def isValid(self):
+            return True
+
+    class Browser:
+        def __init__(self, *args):
+            pass
+
+        def setWindowTitle(self, title):
+            pass
+
+        def exec(self):
+            return True
+
+        def uri(self):
+            return Uri()
+
+    monkeypatch.setattr(qgis.gui, "QgsDataSourceSelectDialog", Browser)
+    growth.layer.setLayer(None)
+    chosen = widgets.pick_source(growth.layer)
+    assert chosen is not filtered and chosen.name() == "provinces (base)"   # no filter: another layer
+    assert growth.layer.currentLayer() is chosen
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
@@ -387,7 +510,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 5
-    assert version() == "0.2.1"
+    assert version() == "0.2.2"
     AboutDialog()
 
 

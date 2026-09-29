@@ -406,5 +406,17 @@
  "library.open.tip.title": "Start from this scenario",
  "library.open.tip": "Loads the scenario in the window as a new scenario: the original in the library is not changed.",
  "library.save": "Save",
- "run.warnings": "{count} warning(s), including: {first} (see the report)"
+ "run.warnings": "{count} warning(s), including: {first} (see the report)",
+ "layers.browse.tip.title": "Add a layer",
+ "layers.browse.tip": "Choose a file (shapefile, GeoPackage, GeoTIFF…) or a database layer (PostGIS, GeoPackage, SpatiaLite): it is added to the project and selected.",
+ "layers.file": "File…",
+ "layers.sources": "Database or other source…",
+ "layers.vector_files": "Vector layers",
+ "layers.raster_files": "Rasters",
+ "layers.all_files": "All files",
+ "layers.sublayer": "Layer of the file",
+ "layers.sublayer_label": "This file holds several layers; which one should be used?",
+ "layers.invalid": "The layer “{name}” could not be opened.",
+ "layers.unsupported": "The layer “{name}” (source {provider}) cannot be read by the calculation engine: save it as a GeoPackage (right click › Export › Save Features As…).",
+ "layers.wrong_type": "The layer “{name}” does not have the right geometry type for this list (polygons are expected)."
 }

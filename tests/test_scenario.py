@@ -74,3 +74,23 @@ def test_parameter_forms():
     assert table.for_key("Urbain").value_at(2033) == 4
     with pytest.raises(ValueError):
         parse_parameter("r", "fast")
+
+
+def test_connections_are_not_paths_and_passwords_are_never_saved(tmp_path):
+    from engine.scenario import is_connection, scenario_from_dict
+
+    assert is_connection("PG:dbname='gis' host='srv'") and is_connection("https://example.org/wfs")
+    assert not is_connection("C:\\data\\zones.shp") and not is_connection("zones.shp")
+    source = "PG:dbname='gis' host='srv' user='sher' password='s3cret'"
+    data = {
+        "study_area": {"source": source, "layer": "public.communes(geom)"},
+        "typology": {"source": "C:\\data\\typo.shp", "field": "Type"},
+        "base_population": {"raster": "pop.tif"},
+        "time": {"base_year": 2024, "end_year": 2030},
+        "parameters": {"growth_rate": 2.0, "dmax": {"zones": [{"source": source, "field": "type"}], "values": {"*": 1}}},
+    }
+    scenario = scenario_from_dict(data, str(tmp_path))
+    assert scenario.path(scenario.study_area.source) == source          # used as is, with its password
+    saved = scenario.to_dict()
+    assert saved["study_area"]["source"] == "PG:dbname='gis' host='srv' user='sher'"
+    assert "s3cret" not in str(saved)

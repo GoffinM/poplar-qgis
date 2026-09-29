@@ -12,8 +12,14 @@ Cette page déroule un premier calcul sur le jeu d'exemple de Muramvya, fourni a
 
 - **Scénario** : nom, langue du rapport, dossier des résultats, taille de maille (250 m) et système de calcul, qui doit être en mètres.
 - **Données** : zone d'étude, typologie et son champ (`Type`), unités administratives, raster de population et son contenu (densité ou nombre d'habitants par pixel), zones d'exclusion (la forêt est « sans nouvel arrivant »).
-- **Paramètres** : années (2024 → 2060), pas de temps, TCAM et densités maximales par classe, réglages de la migration.
+- **Paramètres** : années (2024 → 2060), pas de temps, TCAM et densités maximales, chacun lié à sa couche de zones, réglages de la migration.
 - **Indicateurs** : demande en eau potable (dotation, rendement, pointes).
+
+**Choisir une couche** : chaque liste propose les couches du projet. Le bouton **…** à côté ajoute une couche qui n'y est pas encore :
+- **Fichier…** : shapefile, GeoPackage, GeoJSON, GeoTIFF… Si le fichier contient plusieurs couches, l'outil demande laquelle ;
+- **Base de données ou autre source…** : l'explorateur de QGIS, avec les connexions PostGIS, GeoPackage et SpatiaLite déjà configurées.
+
+Un **filtre** posé sur une couche dans QGIS (clic droit › Filtrer…) est repris par le calcul. Pour une base PostGIS, le mot de passe n'est jamais écrit dans le fichier de scénario : il reste dans QGIS (ou dans le fichier `pgpass` du poste). Une couche temporaire (« scratch layer ») ou un service web ne peuvent pas être lus par le moteur : enregistrez-les d'abord en GeoPackage.
 
 Passez la souris sur un libellé pour lire sa bulle d'aide. Le bouton **?** en haut de la fenêtre ouvre la page d'aide de l'onglet affiché.
 
