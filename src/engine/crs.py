@@ -119,7 +119,7 @@ def choose_crs(requested: Optional[str], raster_wkt: str, lonlat_bounds: Tuple[f
         source = "scenario"
         if not is_metric_projected(wkt):
             raise ValueError(f"the calculation CRS must be projected in metres: {requested}")
-    elif is_metric_projected(raster_wkt):
+    elif raster_wkt and is_metric_projected(raster_wkt):
         wkt, source = raster_wkt, "raster"
     else:
         wkt, source = utm_wkt(lon_c, lat_c), AUTO_UTM

@@ -115,6 +115,9 @@ class Scenario:
     density_unit: str = "hab/km2"
     boundary_mode: str = "area_weighted"
     population_value_type: str = "density"
+    population_source: str = "raster"
+    """``raster`` (population raster) or ``buildings`` (roofs calibrated on the census, section ``calibration``)."""
+    calibration: Optional[Dict[str, Any]] = None
     """Content of the population raster: ``density`` (in ``density_unit``) or ``count`` per pixel."""
     crs: Optional[str] = None
     """Calculation CRS (EPSG code, WKT, ``auto-utm`` or ``auto-equal-area``); see engine.crs."""
@@ -164,7 +167,8 @@ class Scenario:
         data = asdict(self)
         data.pop("base_dir")
         data["base_population"] = {"raster": data.pop("base_population_raster"), "boundary_mode": data.pop("boundary_mode"),
-                                   "value_type": data.pop("population_value_type")}
+                                   "value_type": data.pop("population_value_type"),
+                                   "source": data.pop("population_source")}
         data["output"] = {"directory": data.pop("output_directory"), "per_run": data.pop("output_per_run")}
         return _without_passwords(_drop_none(data))
 
@@ -237,7 +241,11 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
     study_area = vector(required(data, "study_area", ""), "study_area")
     typology = vector(required(data, "typology", ""), "typology", needs_field=True)
     base_population = required(data, "base_population", "") or {}
-    raster = required(base_population, "raster", "base_population.") if base_population else None
+    population_source = base_population.get("source", "raster") if base_population else "raster"
+    if population_source == "buildings":
+        raster = base_population.get("raster") or ""
+    else:
+        raster = required(base_population, "raster", "base_population.") if base_population else None
     time_data = required(data, "time", "") or {}
     parameters = required(data, "parameters", "") or {}
 
@@ -286,6 +294,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
         cell_size=float(data.get("cell_size", 250.0)), density_unit=data.get("density_unit", "hab/km2"),
         boundary_mode=base_population.get("boundary_mode", "area_weighted"),
         population_value_type=base_population.get("value_type", "density"), crs=data.get("crs"),
+        population_source=population_source, calibration=data.get("calibration"),
         parameter_zones=vector(data.get("parameter_zones"), "parameter_zones", needs_field=True),
         admin_units=vector(data.get("admin_units"), "admin_units", needs_field=True),
         exclusions=exclusions, projections=projections, migration=migration, indicators=indicators,
@@ -328,6 +337,15 @@ def validate(scenario: Scenario) -> List[Message]:
         invalid("density_unit", scenario.density_unit, " | ".join(DENSITY_FACTORS))
     if scenario.boundary_mode not in ("area_weighted", "renormalized"):
         invalid("base_population.boundary_mode", scenario.boundary_mode, "area_weighted | renormalized")
+    if scenario.population_source not in ("raster", "buildings"):
+        invalid("base_population.source", scenario.population_source, "raster | buildings")
+    if scenario.population_source == "buildings" or scenario.calibration:
+        from .roof_population import parse_calibration
+
+        try:
+            parse_calibration(scenario.calibration or {})
+        except ValueError as error:
+            errors.append(message("scenario_invalid_parameter", detail=str(error)))
     if scenario.population_value_type not in ("density", "count"):
         invalid("base_population.value_type", scenario.population_value_type, "density | count")
     if scenario.extrapolation not in (CONSTANT, LINEAR):

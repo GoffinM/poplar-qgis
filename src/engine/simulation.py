@@ -33,9 +33,11 @@ from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
 from .report import StepReport
-from .scenario import NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError
+from .scenario import NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError, VectorInput
 from .timeline import PER_STEP, build_timeline
-from .units import Layer, Zone, build_sink_units, build_units
+from .units import NO_VALUE, Layer, Zone, build_sink_units, build_units
+from .roof_population import parse_calibration, population_from_roofs, strata_from_features
+from .roofs import read_roofs
 from .tables import TableError, read_projections
 from .vector_io import BufferRequired, read_features, union_all
 
@@ -199,6 +201,10 @@ def run(
                        failure, failure_year)
     _write_run_report(scenario, result, model, clock.time() - started)
     scenario.save(os.path.join(out_dir, "scenario_used.json"))
+    if model.calibration_report is not None:
+        with open(os.path.join(out_dir, "calibration.json"), "w", encoding="utf-8") as handle:
+            json.dump(model.calibration_report, handle, ensure_ascii=False, indent=1)
+        outputs.append(os.path.join(out_dir, "calibration.json"))
     if scenario.output_per_run:
         finish_run(out_dir, scenario.name, result.status, _output_years(result.outputs))
     return result
@@ -211,15 +217,19 @@ class _Model:
     def load(cls, scenario: Scenario) -> "_Model":
         self = cls()
         self.warnings: List[Message] = []
-        raster_path = scenario.path(scenario.base_population_raster)
-        _check_file(raster_path)
-        source_raster = read_raster(raster_path)
+        from_roofs = scenario.population_source == "buildings"
+        source_raster = None
+        if scenario.base_population_raster:  # optional with roofs: it then only aligns the grid
+            raster_path = scenario.path(scenario.base_population_raster)
+            _check_file(raster_path)
+            source_raster = read_raster(raster_path)
 
         # Calculation CRS: projected, in metres (spec §3). Input layers are reprojected to it.
         study_lonlat = union_all(f.geometry for f in _read(scenario, scenario.study_area, WGS84_WKT))
         xmin_d, xmax_d, ymin_d, ymax_d = study_lonlat.GetEnvelope()
         try:
-            choice = choose_crs(scenario.crs, source_raster.crs_wkt, (xmin_d, ymin_d, xmax_d, ymax_d))
+            choice = choose_crs(scenario.crs, source_raster.crs_wkt if source_raster else "",
+                                (xmin_d, ymin_d, xmax_d, ymax_d))
         except ValueError:
             raise ScenarioError([message("crs_not_metric", crs=str(scenario.crs))]) from None
         crs = choice.wkt
@@ -229,14 +239,16 @@ class _Model:
             self.warnings.append(message("crs_area_distortion", distortion=round(choice.max_area_distortion * 100, 2)))
 
         # Population raster as a density in hab/km2, in the calculation CRS.
-        density = population_to_density(source_raster, scenario.population_value_type,
-                                        float(to_hab_per_km2(1.0, scenario.density_unit)))
-        if not srs_from_wkt(source_raster.crs_wkt).IsSame(srs_from_wkt(crs)):
-            pixel = min(native_pixel_m(source_raster), scenario.cell_size)
-            density, ratio = reproject_density(density, crs, pixel)
-            self.warnings.append(message("raster_reprojected", name=_crs_name(crs), pixel=round(pixel, 1),
-                                         correction=round((ratio - 1) * 100, 3)))
-        self.raster = density
+        self.raster = None
+        if source_raster is not None:
+            density = population_to_density(source_raster, scenario.population_value_type,
+                                            float(to_hab_per_km2(1.0, scenario.density_unit)))
+            if not srs_from_wkt(source_raster.crs_wkt).IsSame(srs_from_wkt(crs)):
+                pixel = min(native_pixel_m(source_raster), scenario.cell_size)
+                density, ratio = reproject_density(density, crs, pixel)
+                self.warnings.append(message("raster_reprojected", name=_crs_name(crs), pixel=round(pixel, 1),
+                                             correction=round((ratio - 1) * 100, 3)))
+            self.raster = density
 
         study = union_all(f.geometry for f in _read(scenario, scenario.study_area, crs))
         outside = [g for e in scenario.exclusions if e.behaviour == OUTSIDE for g in _read_exclusion(scenario, e, crs)]
@@ -258,49 +270,57 @@ class _Model:
                     dated_values.append(i)
         if dated_geoms:
             layers.append(Layer("event", dated_geoms, dated_values))
+        # Attribute layers (parameter zones, strata, administrative units): a file used by several
+        # of them is cut with the cells once, and each attribute is derived from that single cut.
+        shared = _SharedLayers(scenario, crs)
         if scenario.parameter_zones is not None:
-            spec = scenario.parameter_zones
-            features = _read(scenario, spec, crs)
-            layers.append(Layer("param_zone", [f.geometry for f in features],
-                                [str(f.attributes[spec.field]) for f in features]))
-        # Parameters linked to their own zones (spec §2.3 bis); a layer used twice is read once.
-        parameter_layers: Dict[str, Tuple[str, ...]] = {}
-        zone_layers: Dict[Tuple, str] = {}
+            shared.add("param_zone", scenario.parameter_zones, scenario.parameter_zones.field)
+        parameter_layers: Dict[str, Tuple[str, ...]] = {}  # parameters linked to their own zones (spec §2.3 bis)
+        zone_names: Dict[Tuple, str] = {}
         for name in scenario.parameters:
             names = []
             for spec in scenario.parameter_zones_of(name):
                 key = (scenario.path(spec.source), spec.layer, spec.where, spec.field)
-                if key not in zone_layers:
-                    zone_layers[key] = f"zones_{len(zone_layers)}"
-                    features = _read(scenario, spec, crs)
-                    layers.append(Layer(zone_layers[key], [f.geometry for f in features],
-                                        [str(f.attributes[spec.field]) for f in features]))
-                names.append(zone_layers[key])
+                if key not in zone_names:
+                    zone_names[key] = f"zones_{len(zone_names)}"
+                    shared.add(zone_names[key], spec, spec.field)
+                names.append(zone_names[key])
             if names:
                 parameter_layers[name] = tuple(names)
+        calibration, strata_groups, strata_census = None, {}, {}
+        if from_roofs:
+            calibration = parse_calibration(scenario.calibration or {})
+            if calibration.strata is not None:
+                spec = calibration.strata
+                vector = VectorInput(spec.source, spec.layer, spec.where, spec.field)
+                shared.add("stratum", vector, spec.field)
+                _, _, strata_groups, strata_census = strata_from_features(shared.features(vector), spec)
         if scenario.admin_units is not None:
-            spec = scenario.admin_units
-            features = _read(scenario, spec, crs)
-            layers.append(Layer("admin", [f.geometry for f in features],
-                                [str(f.attributes[spec.field]) for f in features]))
+            shared.add("admin", scenario.admin_units, scenario.admin_units.field)
+        layers.extend(shared.layers())
 
         xmin, xmax, ymin, ymax = study.GetEnvelope()
         margin = 0.0
         if scenario.migration.policy == SINK:
             margin = (scenario.migration.sink_width_cells + 1) * scenario.cell_size
-        origin = (self.raster.geotransform[0], self.raster.geotransform[3])
+        origin = (self.raster.geotransform[0], self.raster.geotransform[3]) if self.raster else (0.0, 0.0)
         self.grid = Grid.covering((xmin - margin, ymin - margin, xmax + margin, ymax + margin),
                                   scenario.cell_size, crs, origin=origin)
         self.units = build_units(self.grid, study, zones, union_all(no_inflow) if no_inflow else None, layers)
+        shared.derive(self.units)
         if self.units.report.unclassified_area_km2 > 0.01:
             self.warnings.append(message("typology_gaps", area=round(self.units.report.unclassified_area_km2, 2)))
-        self.p0, _ = base_population_from_density(self.units, self.raster, "hab/km2", scenario.boundary_mode)
+        self.calibration_report = None
+        if not from_roofs:
+            self.p0, _ = base_population_from_density(self.units, self.raster, "hab/km2", scenario.boundary_mode)
 
         self.tables = scenario.parameter_tables()
         for name, names in parameter_layers.items():
             self.tables[name].layers = names
             self.warnings.extend(_unused_keys(self.tables[name], self.units))
         self.density_unit = scenario.density_unit
+        if from_roofs:
+            self.p0 = self._population_from_roofs(scenario, calibration, crs, study, strata_groups, strata_census)
         for name in ("growth_rate", "dmax"):
             try:
                 unit_values(self.tables[name], self.units, scenario.time.base_year)
@@ -321,6 +341,35 @@ class _Model:
             capacity = sink_units.area_km2 * float(to_hab_per_km2(sink_dmax, scenario.density_unit))
             self.sink = Sink(sink_units.cx, sink_units.cy, capacity, np.zeros(len(sink_units)))
         return self
+
+    def _population_from_roofs(self, scenario, calibration, crs, study, strata_groups, strata_census) -> np.ndarray:
+        """Starting population from the roofs calibrated on the census (plan of phase 6, step 6.3)."""
+        roof_source = calibration.buildings
+        roof_source.source = scenario.path(roof_source.source)
+        _check_file(roof_source.source)
+        xmin, xmax, ymin, ymax = study.GetEnvelope()
+        try:
+            roofs = read_roofs(roof_source, crs, extent=(xmin, ymin, xmax, ymax))
+        except (ValueError, RuntimeError) as error:
+            raise ScenarioError([message("roofs_unreadable", path=roof_source.source, detail=str(error))]) from None
+        calibration.census = {**strata_census, **calibration.census}
+        start = scenario.time.start_year if scenario.time.start_mode == PROJECTION else scenario.time.base_year
+        target_year = float(calibration.target_year if calibration.target_year is not None else start)
+        default_growth = None
+        growth = self.tables["growth_rate"].series.get("*")
+        if growth is not None and calibration.census_year is not None and calibration.census_year != target_year:
+            low, high = sorted((float(calibration.census_year), target_year))
+            default_growth = growth.mean(low, high)
+        stratum_of_unit = self.units.values("stratum") if calibration.strata is not None else None
+        result = population_from_roofs(calibration, roofs, self.units, stratum_of_unit, strata_groups, target_year,
+                                       default_growth)
+        self.calibration_report = result.report
+        report = result.report
+        self.warnings.append(message("roofs_calibrated", kept=report["roofs"]["kept"], read=report["roofs"]["read"],
+                                     population=round(report["total"])))
+        for name in report["roofs"].get("unknown_usage") or []:
+            self.warnings.append(message("roofs_unknown_usage", category=name or "∅"))
+        return result.per_unit
 
     def dmax(self, year: float) -> np.ndarray:
         return to_hab_per_km2(unit_values(self.tables["dmax"], self.units, year), self.density_unit)
@@ -364,12 +413,57 @@ class _Model:
 
     def resolution_warnings(self, scenario: Scenario) -> List[Message]:
         warnings = []
-        if scenario.cell_size > max(self.raster.pixel_width, self.raster.pixel_height) + 1e-9:
+        if self.raster is not None and scenario.cell_size > max(self.raster.pixel_width, self.raster.pixel_height) + 1e-9:
             warnings.append(message("resolution_coarse_cell", cell=scenario.cell_size,
                                     pixel=self.raster.pixel_width))
         if scenario.time.migration_frequency == PER_STEP and scenario.time.time_step > 1:
             warnings.append(message("resolution_coarse_time", step=scenario.time.time_step))
         return warnings
+
+
+class _SharedLayers:
+    """Attribute layers grouped by source: each source is read and cut with the cells once."""
+
+    def __init__(self, scenario: Scenario, crs: str):
+        self.scenario, self.crs = scenario, crs
+        self.sources: Dict[Tuple, Tuple[str, list]] = {}
+        self.attributes: List[Tuple[str, Tuple, str]] = []
+
+    def _key(self, spec) -> Tuple:
+        return (self.scenario.path(spec.source), spec.layer, spec.where)
+
+    def features(self, spec) -> list:
+        key = self._key(spec)
+        if key not in self.sources:
+            self.sources[key] = (f"source_{len(self.sources)}", _read(self.scenario, spec, self.crs))
+        return self.sources[key][1]
+
+    def add(self, name: str, spec, field: str) -> None:
+        features = self.features(spec)
+        if features and field not in features[0].attributes:
+            raise ScenarioError([message("scenario_field_missing", field=field, path=self._key(spec)[0])])
+        self.attributes.append((name, self._key(spec), field))
+
+    def layers(self) -> List[Layer]:
+        return [Layer(name, [f.geometry for f in features], list(range(len(features))))
+                for name, features in self.sources.values()]
+
+    def derive(self, units) -> None:
+        """Codes of each attribute from the feature index of its source (then the source codes are dropped)."""
+        for name, key, field in self.attributes:
+            source_name, features = self.sources[key]
+            values = [str(f.attributes[field]) for f in features]
+            labels = sorted(set(values))
+            lookup = np.array([labels.index(v) for v in values] + [NO_VALUE], dtype=np.int64)
+            index = units.labels[source_name]
+            codes = units.codes[source_name]
+            feature = np.array(index + [len(values)], dtype=np.int64)[np.where(codes >= 0, codes, -1)]
+            units.codes[name] = lookup[feature]
+            units.labels[name] = labels
+        for source_name, _ in self.sources.values():
+            units.codes.pop(source_name, None)
+            units.labels.pop(source_name, None)
+        units.__dict__.pop("_combination_cache", None)
 
 
 def _unused_keys(table, units) -> List[Message]:

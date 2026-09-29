@@ -25,7 +25,7 @@ from .pages import (
     CalibrationPage, DataPage, IndicatorsPage, ParametersPage, ReportPage, ResultsPage, RunPage, ScenarioPage,
 )
 
-INFORMATION = {"crs_used", "raster_reprojected", "start_from_projection"}
+INFORMATION = {"crs_used", "raster_reprojected", "start_from_projection", "roofs_calibrated"}
 """Report lines that describe the run; every other warning is shown in the message bar."""
 ICONS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario",
