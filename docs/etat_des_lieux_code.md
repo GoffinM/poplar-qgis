@@ -5,7 +5,7 @@
 | **Objet** | Analyse du code fourni (commune test de Muramvya), sans modification |
 | **Référence** | `docs/BUR71_fiche_diagnostic_outil_SIG_population.md` |
 | **Date** | 29/09/2026 |
-| **Statut** | Analyse statique (lecture du code et inspection des données). Le code **n'a pas été exécuté** : les points marqués *« à confirmer à l'exécution »* restent des hypothèses |
+| **Statut** | v2 : décisions du 29/09 intégrées (§6 à §9). Analyse statique (lecture du code et inspection des données). Le code **n'a pas été exécuté** : les points marqués *« à confirmer à l'exécution »* restent des hypothèses |
 
 ---
 
@@ -226,122 +226,153 @@ Remarque sur le diagnostic D1 de la fiche : le code ne contient **ni boucle cell
 
 ---
 
-## 6. Ambiguïtés sur la logique métier (à trancher, je ne les ai pas tranchées)
+## 6. Ambiguïtés sur la logique métier et décisions
 
-| # | Question | Pourquoi c'est ambigu |
+Décisions recueillies auprès de Michel le 29/09/2026. Les lignes marquées **ouvert** restent à trancher.
+
+| # | Question | Décision |
 |---|---|---|
-| A1 | La migration doit-elle transférer des **habitants** (conservation stricte de la population) ou des **densités** (comportement actuel) ? | Les deux ne sont équivalents que si toutes les mailles ont la même surface. Ce n'est pas le cas en bordure |
-| A2 | Faut-il reproduire **exactement** la règle « 3 plus proches voisins en déficit, partage égal, sans limite de distance », ou peut-on la faire évoluer (voisinage borné, pondération par la capacité ou la distance) ? | Une migration vectorisée efficace (§7, phase 3) sera plus naturelle avec un voisinage borné. Il faut décider si la non-régression doit être exacte ou tolérante |
-| A3 | Que doit devenir l'excédent quand il ne reste plus de capacité ? | Le code actuel boucle indéfiniment. Options possibles : le laisser sur place, élargir le rayon, le signaler dans le rapport |
-| A4 | `Pmax = max(densité 2023, dmax)` : une maille déjà au-dessus de `dmax` en 2023 garde-t-elle sa densité comme plafond pour **tous** les horizons ? | C'est ce que fait le code (`Pmax` calculé une seule fois). Mais la croissance la fait ensuite déborder dès le premier horizon |
-| A5 | Taux de croissance : 4,9 % **par an** (exposant à corriger à 2 pour 2023 → 2025) ou **pour la période** ? | L'exposant de 1 est incohérent avec un TCAM |
-| A6 | Horizons suivants : `P2030value` est-il calculé à partir de la population **après migration** de 2025, ou à partir de 2023 ou 2025 **avant migration** ? | L'étape n'est pas dans le code. Les résultats changent fortement selon le cas |
-| A7 | Zones sans migration : faut-il les **retirer** (population sortie du total, comme aujourd'hui) ou les **garder figées** (population conservée, sans échange) ? | La fiche parle de « zones d'exclusion » sans préciser |
-| A8 | Unités de `dmax` : le code travaille en **hab/km²**, la fiche en **hab/ha** | Il faut choisir l'unité de l'interface et du fichier de paramètres (facteur 100) |
-| A9 | Quelle couche est réellement donnée au script de migration, et comment `ID` et `P2030value`…`P2060value` y sont-ils ajoutés ? | Étape manuelle non documentée (voir F12) |
+| A1 | Faut-il transférer des habitants ou des densités ? | **Densités.** La maille reste l'unité de travail en densité, ce qui permet de gérer les fragments de surface différente. ⚠️ Voir la remarque R1 ci-dessous : il faut confirmer comment la surface intervient dans le transfert |
+| A2 | Faut-il garder la règle des « 3 plus proches voisins » ? | **Oui.** Elle a été retenue pour faire converger le modèle et reste pertinente. Le nombre de voisins deviendra un paramètre, avec 3 par défaut |
+| A3 | Que devient l'excédent quand il n'y a plus de capacité ? | Le calcul ne doit plus boucler indéfiniment. Il doit détecter la non-convergence, l'annoncer par un message explicite et proposer des options (détail au §8.4) : augmenter les densités max, de façon globale ou par zone ; déverser l'excédent dans des mailles « puits » en périphérie ; enregistrer la population non relocalisée. **Dans tous les cas**, un rapport d'exécution lisible et un raster par pas de temps indiquent si tout a pu être réparti |
+| A4 | Une maille déjà au-dessus de `dmax` en 2023 garde-t-elle sa densité comme plafond pour tous les horizons (`Pmax = max(densité 2023, dmax)`) ? | **Ouvert** |
+| A5 | Le taux de croissance est-il annuel ou par période ? | La croissance devient un **paramètre**, défini par des valeurs cibles à des années charnières (par exemple 2026, 2040, 2060), avec une **interpolation linéaire** par défaut entre elles. L'exposant de 1 entre 2023 et 2025 compensait un décalage de dates entre le recensement et la base de données du bâti : c'est un bug à corriger. L'année de la population de base doit donc devenir un paramètre explicite |
+| A6 | Un horizon repart-il de la population après ou avant la migration de l'horizon précédent ? | **Après** la migration de l'horizon précédent |
+| A7 | Zones sans migration : faut-il les retirer du calcul ou les garder figées ? | **Ouvert** |
+| A8 | Unité des densités : hab/km² ou hab/ha ? | **Ouvert.** Le code utilise hab/km², la fiche hab/ha |
+| A9 | Comment se fait l'étape manuelle (identifiant, colonnes 2030 à 2060) ? | **Sans objet** : cette étape est entièrement automatisée dans le nouvel outil |
+
+### Remarques sur les décisions A1 et arrondis (signalées, non tranchées)
+
+**R1 – Le transfert de densité doit tenir compte des surfaces pour conserver la population.** Le code actuel retire un excès de X hab/km² à la source, puis ajoute X/3 hab/km² à chacune des 3 destinations, quelle que soit leur surface.
+
+Exemple avec une maille source entière de 6,25 ha qui dépasse de 800 hab/km² : l'excédent est de 50 habitants.
+- Si les 3 destinations sont des mailles entières, elles reçoivent 16,7 habitants chacune. Total : 50, la population est conservée.
+- Si l'une d'elles est un fragment de 1 ha, elle ne reçoit que 2,7 habitants. Total : 36, donc **14 habitants disparaissent**.
+- Inversement, un fragment qui émet vers des mailles entières **crée** de la population.
+
+Variante proposée, qui garde le travail en densités :
+- population à déplacer = excès de densité × surface de la source ;
+- chaque destination reçoit sa part de population ;
+- cette part est reconvertie en densité : part ÷ surface de la destination.
+
+La population est alors conservée exactement. Mais sur les fragments, le résultat diffère de l'outil actuel. **À valider** : doit-on reproduire l'existant (avec un mode « compatibilité ») ou adopter cette variante comme comportement par défaut ?
+
+**R2 – L'arrondi actuel porte sur les densités, pas sur les populations.** Le code arrondit des densités en hab/km² à l'entier. Pour une maille de 250 m, 1 hab/km² correspond à 0,0625 habitant : les populations qui en résultent ne sont donc pas entières.
+
+Proposition :
+- calculer en réels (float32) ;
+- arrondir la **population** de chaque maille à l'entier au moment des sorties, avec une méthode qui conserve le total (répartition des restes) ;
+- produire les rasters de densité à partir de ces populations entières.
+
+**À valider.**
 
 ---
 
 ## 7. Réponses aux questions Q1 à Q8 de la fiche
 
-| # | Réponse d'après le code | Reste à confirmer |
+| # | Question de la fiche | État |
 |---|---|---|
-| **Q1** Répartition PyQGIS / R, référent | **100 % QGIS** dans ce qui a été fourni : un modèle Model Builder pour la préparation et un script PyQGIS/Processing pour la migration. **Aucun code R.** Le calage est fait dans Excel (non fourni). Indices sur les auteurs : chemin de travail `C:/Users/LGI/…/BUR71` (l. 65), chemin commenté `C:/Users/Keyvan/…/OUG05` (l. 66). Le script a été repris de projet en projet (NGA03 → OUG05 → CAM12 → BUR71) | Existe-t-il du R en dehors de ce dépôt, par exemple pour le calage ou pour les horizons ? Qui est le référent : LGI, c'est-à-dire Lionel ? |
-| **Q2** Fonctionnement de la migration | Excès = `P_sum − Pmax` (en densité). Il est réparti **à parts égales** entre les **3 mailles en déficit les plus proches** (distance entre centroïdes, **sans rayon maximal**), sans vérifier leur capacité. On **itère** jusqu'à ce qu'il n'y ait plus aucune maille en excès. **Excédent sans capacité : non géré, boucle infinie.** Détail complet au §4.2 | Voir A1 à A3 |
-| **Q3** Grille ou zones | Les **densités max** sont fixées **par zone** (polygones de la commune, champ `Type` = Rural / Urbain1 / Urbain2) puis appliquées à une grille de 250 m. Le **taux de croissance** est **unique** et codé en dur (4,9 %). Les **exclusions** sont des polygones | Format souhaité pour BUR71 (fiche §3.2) |
-| **Q4** Années charnières et horizons | Base **2023**. Horizons prévus dans le code (l. 111) : **2025, 2030, 2035, 2040, 2045, 2050, 2055, 2060**, soit un pas de 5 ans après 2025. Seul 2025 est calculé dans le modèle | Années charnières des paramètres (taux, `dmax`), si elles doivent varier dans le temps |
-| **Q5** Recalage sur des projections officielles | **Pas de recalage** dans le code. L'Excel `Pop admin2024` donne des totaux communaux, et le raster 2023 y est déjà calé (écart de 0,16 % à Muramvya). Le ratio E21 (somme des communes / 5 751 850) suggère une vérification de cohérence faite à la main | Quelle projection officielle utiliser, et à quelle échelle (nationale, provinciale, communale) ? |
-| **Q6** Résolution et emprise | Jeu test : **250 m** (paramètre `Dimension polygone`, identique au pixel du raster), 27,3 × 24,5 km, 3 109 mailles valides | Résolution et emprise cibles de BUR71 (commune, province, pays ?) |
-| **Q7** Politique d'envoi à des API d'IA | Le code ne permet pas d'y répondre | Entièrement à trancher |
-| **Q8** Définition de l'urbain | Le code n'a **pas de seuil urbain**. L'urbain vient d'une **typologie administrative** en entrée (`Type` : Rural / Urbain1 / Urbain2), qui ne sert qu'à choisir `dmax` : 2 500 / 10 000 / 7 500 hab/km², soit 25 / 100 / 75 hab/ha | Seuil de densité, taille minimale de tache, référence nationale (ISTEEBU ?) |
+| **Q1** | Quelle est la répartition entre PyQGIS et R, et qui est le référent ? | **Réglé.** Tout est dans QGIS : le modèle `.model3` établit la population de référence, le script Python fait la migration. Il n'y a pas de R. Auteur du code : Keyvan (dossier `C:/Users/Keyvan` dans le script ; orthographe à confirmer). Le nouvel outil sera entièrement dans QGIS et Python |
+| **Q2** | Comment fonctionne la migration ? | **Réglé** pour la description (§4.2) : 3 plus proches voisins en déficit, partage égal, itérations jusqu'à ce qu'il n'y ait plus d'excès. Référent : Keyvan. Les évolutions sont celles de A2, A3 et R1 |
+| **Q3** | Les paramètres sont-ils fournis sur une grille ou sur des zones ? | **Réglé.** Les paramètres (densités max, croissance…) sont donnés dans des **couches vectorielles d'entrée** (shapefile ou GeoPackage). Par défaut, une valeur uniforme dans le temps et dans l'espace ; en option, des valeurs qui varient par zone et par année charnière. La **typologie** est libre : ses classes et leurs noms sont définis par l'utilisateur (urbain / périurbain / rural, haut / bas standing, capitale / ville secondaire / ville satellite…) |
+| **Q4** | Quelles années charnières et quels horizons de sortie ? | **Réglé.** Tout devient paramétrable : année de départ, année finale (par exemple 2026 → 2060), **pas de temps libre** (10 ans, 5 ans, 1 an, ou moins d'un an), années de sortie au choix. Le calcul enchaîne automatiquement tous les pas jusqu'à l'horizon final |
+| **Q5** | Faut-il recaler sur les projections démographiques officielles (totaux nationaux ou provinciaux par année) ? Si oui, lesquelles ? | **Ouvert.** Le code ne fait aucun recalage. Le raster 2023 est déjà calé sur les totaux communaux de l'Excel `Pop admin2024` |
+| **Q6** | Quelle résolution cible, sur quelle emprise ? | **Réglé en partie.** La taille de maille devient un **paramètre**. On l'agrandit pour les grandes emprises, afin de limiter la mémoire. On descend rarement sous 250 m, car une maille doit contenir plusieurs bâtiments. L'emprise cible de BUR71 reste à préciser pour dimensionner le traitement par blocs |
+| **Q7** | Quelle est la politique interne sur l'envoi de données vers des API d'IA externes (pour l'assistant de calage de niveau B) ? | **Ouvert.** Le code ne permet pas d'y répondre |
+| **Q8** | Quelle définition de l'urbain retenir (seuil de densité, taille minimale de tache, référence nationale) ? | **Ouvert**, à réfléchir. Aujourd'hui l'urbain n'est qu'une typologie d'entrée, qui ne sert qu'à choisir `dmax` |
 
 ---
 
-## 8. Proposition de plan de développement par phases
+## 8. Exigences retenues pour le nouvel outil
 
-Ce plan reprend le phasage de la fiche (§5), ajusté à ce que révèle le code. **Aucune ligne de code ne sera écrite avant validation.** Chaque phase se termine par des tests pytest verts et une comparaison aux sorties de référence.
+### 8.1 Grille de calcul
+
+- La taille de maille est un paramètre, 250 m par défaut. Elle est en pratique rarement inférieure à 250 m.
+- Si la maille de calcul est plus grossière que le raster d'entrée, on agrège en **conservant la population** : on somme les populations, puis on recalcule la densité.
+- Si elle est plus fine, on désagrège uniformément, avec un avertissement : l'affinage ne crée pas d'information.
+- Les mailles partiellement couvertes (en bordure) portent leur **surface utile**. C'est l'équivalent raster des fragments actuels.
+
+### 8.2 Typologie et paramètres
+
+- Une couche vectorielle de zones porte un champ de classe dont les valeurs sont libres. Les densités max, les taux de croissance et les exclusions sont définis par classe ou par zone.
+- Chaque paramètre peut prendre une valeur unique (uniforme dans le temps et dans l'espace, c'est le défaut), une valeur par zone, ou une valeur par zone **et** par année charnière.
+- Entre les années charnières, l'interpolation est linéaire par défaut.
+- Fichier de scénario (JSON) qui enregistre tous les paramètres d'un run.
+
+### 8.3 Déroulé temporel
+
+- Paramètres : année de la population de base (2023 pour BUR71), année de départ, année finale, pas de temps (y compris fractionnaire), années de sortie.
+- À chaque pas de temps : croissance avec le taux interpolé et un exposant égal à la durée réelle du pas, puis migration. Le pas suivant repart de la population **après migration**.
+- La croissance entre l'année de base et l'année de départ est calculée explicitement : c'est la correction du bug A5.
+
+### 8.4 Non-convergence
+
+- **Contrôle préalable à chaque pas.** Si la population totale dépasse la capacité totale (somme de `Pmax` × surface), la non-convergence est **certaine** et détectée avant d'itérer. Comme la règle des k plus proches voisins n'a pas de limite de distance, toute capacité libre est atteignable : ce contrôle global suffit.
+- **Garde-fou** : un nombre maximal d'itérations, et un seuil de tolérance sur l'excès restant.
+- **Politique en cas de non-convergence**, fixée dans le scénario ou choisie en cours de run depuis le plugin :
+  1. **arrêt** avec un message explicite (par défaut) ;
+  2. **hausse des densités max** de x % (+10 %, +20 %…), sur toute l'emprise ou sur des zones choisies. L'outil calcule et propose la hausse minimale nécessaire, et l'utilisateur la valide ;
+  3. **mailles puits en périphérie** : une couronne de mailles hors du périmètre accueille l'excédent ;
+  4. **population non relocalisée** : elle est enregistrée et reportée par année et par zone.
+- **Rapport d'exécution** : fichier texte ou JSON lisible, avec pour chaque pas les populations totales avant et après, le nombre d'itérations, la convergence, la population non relocalisée et les ajustements appliqués. Il comprend aussi un **raster de population non relocalisée** par pas de sortie.
+
+---
+
+## 9. Plan de développement révisé
+
+**Aucune ligne de code ne sera écrite avant validation.** Chaque phase se termine par des tests pytest verts et une comparaison aux sorties de référence.
 
 ### Phase 0 – Référence et spécification
 
-**Objectif :** figer ce que fait l'outil actuel avant de le remplacer.
-
-- **Réorganiser le dépôt** selon `CLAUDE.md` : `legacy/` pour le code et `data/test/muramvya/` pour les données, sans aucune modification de contenu. Écrire un `README`.
-- **Produire les sorties de référence** en exécutant la chaîne actuelle sur Muramvya (modèle, puis migration pour 2025 et au moins un horizon suivant). Deux options :
-  - (a) vous l'exécutez dans votre QGIS et versionnez le résultat dans `reference_outputs/muramvya/`, en y joignant le détail des étapes manuelles (A9) ;
-  - (b) j'essaie d'installer QGIS en mode sans interface dans l'environnement de développement, j'exécute le code tel quel dans une copie de travail, sans toucher à `legacy/`, et je documente tout écart.
-- **Rédiger `docs/spec_migration.md`** : spécification formelle de l'algorithme (§4), avec des micro-cas calculés à la main (5 × 5 mailles) qui serviront de tests unitaires.
-- **Décisions à obtenir** : les ambiguïtés A1 à A9.
-
-**Livrable :** référence versionnée, spécification validée, décisions actées.
+- **Réorganiser le dépôt** selon `CLAUDE.md` : le code dans `legacy/`, les données dans `data/test/muramvya/`. Le contenu des fichiers n'est pas modifié.
+- **Produire les sorties de référence de l'outil actuel sur Muramvya** (modèle, puis migration pour 2025). Je propose d'essayer de lancer QGIS ici, sans interface, pour exécuter le code d'origine. Si ce n'est pas possible, vous l'exécutez de votre côté et versionnez le résultat dans `reference_outputs/`.
+- **Rédiger `docs/spec_moteur.md`** : spécification de la migration et des exigences du §8. Elle inclut des cas de test calculés à la main (grilles de 5 × 5 mailles, fragments, non-convergence).
+- **Décisions à obtenir** : A4, A7, A8, R1, R2, Q5, Q8.
 
 ### Phase 1 – Socle du moteur (`src/engine/`, sans import de `qgis`)
 
-**Objectif :** remplacer l'étape 1 (le modèle) par un traitement **matriciel**.
+- Grille de calcul paramétrable : agrégation et désagrégation en conservant la population, surface utile des mailles.
+- Rasterisation de la typologie libre, des zones et des exclusions.
+- Calcul de `Pmax`, avec correction des défauts F1 à F3.
+- Croissance sur un pas de temps quelconque.
+- Contrôle de conservation de la population.
+- Tests : cas de la spécification, puis comparaison avec la sortie de préparation de référence.
 
-- Lecture et écriture des rasters GDAL en float32, avec une grille de calcul alignée sur le raster.
-- Rasterisation des zones (`Type` → `dmax`) et des exclusions.
-- Calcul de `Pmax` : règle actuelle, avec correction des défauts F1 à F3 selon ce qui aura été décidé.
-- Croissance, avec l'exposant conforme à la décision A5.
-- Contrôle de conservation systématique : population totale avant et après, par zone.
-- Tests : micro-cas, puis comparaison avec la couche `P2023entrée` / `Pmax` de référence.
+### Phase 2 – Migration et non-convergence
 
-### Phase 2 – Migration de référence
+- Migration vectorisée en numpy/scipy (`cKDTree`), avec k voisins (3 par défaut).
+- Deux modes : « compatibilité » (reproduit l'existant, arrondis compris) et « conservatif » (variante R1 et arrondi final R2, si vous les validez).
+- Contrôle préalable de capacité, garde-fous, les 4 politiques de non-convergence, rapport d'exécution et raster de population non relocalisée.
+- Tests : cas de la spécification, puis Muramvya comparé à `reference_outputs/`.
 
-**Objectif :** reproduire fidèlement l'algorithme actuel en numpy/scipy, pour valider la non-régression.
+### Phase 3 – Déroulé temporel et paramètres spatio-temporels
 
-- Recherche des k plus proches voisins avec `scipy.spatial.cKDTree`, partage égal, itérations jusqu'à ce qu'il n'y ait plus d'excès.
-- Mode « compatibilité » avec les arrondis entiers, pour comparer aux résultats actuels.
-- Mode « corrigé » en float, avec conservation stricte.
-- Garde-fous : nombre maximal d'itérations, traitement de l'excédent sans capacité (décision A3), rapport de convergence.
-- Tests : micro-cas de la spécification, puis Muramvya comparé à `reference_outputs/` avec les tolérances qui auront été convenues.
-
-### Phase 3 – Pas de temps, paramètres spatio-temporels, scénario
-
-**Objectif :** traiter D2 à D4.
-
-- Chaînage automatique des horizons (décision A6), avec calcul annuel en interne et sorties aux années choisies.
-- Lecture de `zones` et `parametres` en GeoPackage (et shapefile), interpolation linéaire.
-- Contrôles des paramètres : chevauchements, valeurs aberrantes, cohérence `dmax` / densité.
-- Fichier de scénario YAML/JSON (parseur JSON de la bibliothèque standard, ou YAML si la bibliothèque est déjà fournie avec QGIS, **à vérifier avant d'en dépendre**).
+- Année de base, année de départ, année finale, pas de temps libre, années de sortie.
+- Enchaînement automatique des pas après migration.
+- Lecture des couches de paramètres (shapefile ou GeoPackage), valeurs par défaut uniformes, interpolation linéaire, contrôles de cohérence.
+- Fichier de scénario JSON. Rapport d'exécution consolidé sur tout le run.
 
 ### Phase 4 – Performance et grandes emprises
 
-**Objectif :** traiter D1.
+- Traitement par blocs pour la croissance, les capacités et les sorties.
+- Pour la migration, la recherche des voisins porte uniquement sur les mailles concernées (en excès et en déficit), ce qui réduit fortement le volume.
+- Mesures de mémoire et de temps à différentes tailles de maille, sur l'emprise cible de BUR71.
 
-- Traitement par blocs avec recouvrement (le recouvrement étant égal au rayon de migration), lecture et écriture fenêtrées avec GDAL.
-- Migration vectorisée par blocs. Selon la décision A2, elle suppose peut-être un voisinage borné : sinon, la migration « sans limite de distance » impose un traitement global de l'ensemble des mailles en excès.
-- Mesures de mémoire et de temps sur une emprise nationale synthétique, à la résolution cible (Q6).
+### Phase 5 – Plugin QGIS
 
-### Phase 5 – Calage intégré (niveau A)
+- Algorithme Processing et panneau de paramètres : typologie, pas de temps, horizons, taille de maille, politique de non-convergence.
+- Calcul en tâche de fond (`QgsTask`), avec progression et journal.
+- **Dialogue interactif en cas de non-convergence** : l'outil propose une hausse des densités, des mailles puits ou l'enregistrement de la population non relocalisée, et l'utilisateur choisit.
+- Chargement des résultats et du rapport dans QGIS. Tests dans QGIS 3.40 LTR et QGIS 4.
 
-**Objectif :** traiter D5.
+**Premier livrable exploitable : phases 0 à 5.**
 
-- Régression surface de toit → population : polynomiale, log-linéaire, par morceaux, par strate.
-- Validation croisée, diagnostics, bornes de validité.
-- **Prérequis :** le fichier Excel de calage actuel et les données de bâti, qui n'ont pas été fournis.
+### Phases suivantes
 
-### Phase 5 bis – Extension urbaine
-
-- Statut urbain, extension ou nouveau noyau, année d'urbanisation, tache urbaine, statistiques par zone (`scipy.ndimage`).
-- **Prérequis :** la définition de l'urbain (Q8).
-
-### Phase 6 – Plugin QGIS
-
-- Algorithme Processing, panneau de paramètres, calcul en tâche de fond (`QgsTask`), journal.
-- Imports via `qgis.PyQt`.
-- Tests dans QGIS 3.40 LTR et QGIS 4.
-
-### Phase 7 – Assistant IA BYOK (niveau B, optionnel)
-
-- **Prérequis :** la politique d'envoi de données (Q7).
-
-### Phase 8 – Recette
-
-- Non-régression complète, installateur zip, documentation utilisateur et note méthodologique.
-
-**Premier livrable exploitable : phases 0 à 4.** Le moteur est alors testé, fidèle à l'existant et performant, et peut déjà être utilisé en ligne de commande. Les phases 5 à 6 ajoutent le calage et l'interface. La phase 7 peut venir plus tard.
-
-**Changements par rapport à la fiche :**
-- La migration « de référence » est avancée en phase 2, avant les paramètres spatio-temporels. C'est l'élément le plus risqué, et il conditionne la non-régression.
-- La performance vient après, en phase 4, une fois le comportement figé par les tests.
-- L'étape « R » disparaît : il n'y a pas de code R dans ce qui a été fourni.
+| Phase | Contenu | Prérequis |
+|---|---|---|
+| 6 | Calage intégré bâti → population (niveau A) | Fichier Excel de calage et données de bâti |
+| 6 bis | Repérage de l'extension urbaine | Définition de l'urbain (Q8) |
+| 7 | Assistant IA BYOK (niveau B) | Politique d'envoi des données (Q7) |
+| 8 | Recette : non-régression complète, installateur zip, documentation | — |
