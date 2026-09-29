@@ -238,7 +238,7 @@ Décisions recueillies auprès de Michel le 29/09/2026. Les lignes marquées **o
 | A4 | Une maille déjà au-dessus de `dmax` à l'année de base garde-t-elle sa densité comme plafond ? | **Oui, par défaut** : le plafond d'une maille déjà en surcharge est sa densité de l'année de base (`Pmax = max(densité de base, dmax)`), comme aujourd'hui. Une option pour ramener progressivement ces mailles vers un seuil plus faible est notée pour plus tard, sans être développée pour l'instant |
 | A5 | Le taux de croissance est-il annuel ou par période ? | La croissance devient un **paramètre**, défini par des valeurs cibles à des années charnières (par exemple 2026, 2040, 2060), avec une **interpolation linéaire** par défaut entre elles. L'exposant de 1 entre 2023 et 2025 compensait un décalage de dates entre le recensement et la base de données du bâti : c'est un bug à corriger. L'année de la population de base doit donc devenir un paramètre explicite |
 | A6 | Un horizon repart-il de la population après ou avant la migration de l'horizon précédent ? | **Après** la migration de l'horizon précédent |
-| A7 | Que devient la population qui habite dans une zone sans migration ? | **Option c : ne plus accueillir personne** (plafond d'export à préciser, A7-bis au §8.2). La zone ne reçoit aucune population venue d'ailleurs. Ses habitants restent comptés et croissent, et l'excédent issu de leur croissance migre vers les mailles autorisées. On ne supprime jamais d'habitants déjà présents |
+| A7 | Que devient la population qui habite dans une zone sans migration ? | **Option c : ne plus accueillir personne.** Le plafond d'export est la population de l'année de base (A7-bis = c1). La zone ne reçoit aucune population venue d'ailleurs. Ses habitants restent comptés et croissent, et l'excédent issu de leur croissance migre vers les mailles autorisées. On ne supprime jamais d'habitants déjà présents |
 | A8 | Quelle unité pour les densités : hab/km² ou hab/ha ? | **Les deux sont possibles** : l'unité est un paramètre secondaire. L'utilisateur saisit et lit les densités dans l'unité de son choix (hab/km² ou hab/ha). Le moteur convertit tout en interne dans une seule unité, et le rapport rappelle l'unité utilisée. La cohérence est ainsi garantie |
 | A9 | Comment se fait l'étape manuelle (identifiant, colonnes 2030 à 2060) ? | **Sans objet** : cette étape est entièrement automatisée dans le nouvel outil |
 
@@ -312,9 +312,7 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 - Chaque paramètre peut prendre une valeur unique (uniforme dans le temps et dans l'espace, c'est le défaut), une valeur par zone, ou une valeur par zone **et** par année charnière.
 - Entre les années charnières, l'interpolation est linéaire par défaut.
 - **Unité des densités** : c'est un paramètre secondaire (hab/km² ou hab/ha). Les densités sont converties à la lecture vers une unité interne unique, puis reconverties à l'écriture. L'unité figure dans le scénario, dans les noms ou métadonnées des sorties et dans le rapport (A8).
-- **Zones sans migration** (A7, option c) : elles ne sont jamais destinataires d'une migration. Leurs habitants restent comptés et croissent. Le plafond au-delà duquel leur excédent part ailleurs reste à préciser (sous-question A7-bis ci-dessous) :
-  - **c1** : le plafond est la population de l'année de base. Toute la croissance est exportée, et la population de la zone reste constante ;
-  - **c2** : le plafond est calculé comme pour les autres mailles (`max(densité de base, dmax de la classe)`). La zone croît jusqu'à ce plafond, puis exporte l'excédent.
+- **Zones sans migration** (A7 = option c, A7-bis = c1) : elles ne reçoivent jamais de population venue d'ailleurs. Leurs habitants restent comptés. Leur plafond est leur **population de l'année de base** : toute leur croissance est exportée vers les mailles autorisées, et leur population reste constante.
 - **Mailles déjà en surcharge** à l'année de base : leur plafond est leur densité de base (A4). L'option « ramener vers un seuil plus faible » est notée pour plus tard, sans être développée.
 - Fichier de scénario (JSON) qui enregistre tous les paramètres d'un run.
 
@@ -345,9 +343,9 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 ### Phase 0 – Référence et spécification
 
 - ~~Réorganiser le dépôt~~ : **fait** le 29/09/2026.
-- **Produire les sorties de référence de l'outil actuel sur Muramvya** (modèle, puis migration pour 2025). Je propose d'essayer de lancer QGIS ici, sans interface, pour exécuter le code d'origine. Si ce n'est pas possible, vous l'exécutez de votre côté et versionnez le résultat dans `reference_outputs/`.
+- **Sorties de référence** : **fournies** le 29/09/2026 (`reference_outputs/muramvya/`) et analysées au §10. Il reste à documenter la procédure qui les a produites (§10.5).
 - **Rédiger `docs/spec_moteur.md`** : spécification de la migration et des exigences du §8. Elle inclut des cas de test calculés à la main (grilles de 5 × 5 mailles, fragments, non-convergence).
-- **Décisions encore à obtenir** : A7-bis (plafond des zones sans migration, c1 ou c2) ; Q8 (définition de l'urbain), nécessaire seulement pour la phase 6 bis.
+- **Décisions encore à obtenir** : questions sur les résultats de référence (§10.5) ; Q8 (définition de l'urbain), nécessaire seulement pour la phase 6 bis.
 
 ### Phase 1 – Socle du moteur (`src/engine/`, sans import de `qgis`)
 
@@ -396,3 +394,77 @@ La population totale est conservée exactement. L'ancien comportement reste disp
 | 6 bis | Repérage de l'extension urbaine | Définition de l'urbain (Q8) |
 | 7 | Assistant IA BYOK (niveau B) | Politique d'envoi des données (Q7) |
 | 8 | Recette : non-régression complète, installateur zip, documentation | — |
+
+---
+
+## 10. Analyse des résultats de référence (Muramvya)
+
+Fichiers analysés : `reference_outputs/muramvya/p2023_entree.*` (sortie du modèle) et `pentree_final.*` (résultat final). Ils ont été produits avec QGIS 3.34.11.
+
+### 10.1 Grille
+
+- **4 386 mailles**, 215,1 km² au total. On compte 2 202 mailles entières et 2 184 fragments (bords de commune, limite rural/urbain, forêt). 699 mailles sont multi-parties, et 65 ont une surface arrondie à zéro.
+- Les deux fichiers ont exactement la même géométrie. `pentree_final` ajoute un identifiant `ID` unique (de 157 020 à 161 405), ce qui écarte le risque F12 pour ce jeu.
+- Le champ `Area` est en **km² avec 3 décimales** : une maille entière vaut 0,062 au lieu de 0,0625. Cela ne correspond pas au modèle `.model3` fourni, qui calcule `$area/100`. Par ailleurs, `p2023_entree` contient un champ `P2024` et pas de champ `Name`. **La version du modèle qui a produit ces résultats n'est donc pas exactement celle du dépôt.**
+
+### 10.2 Bilan de la population 2023 : 6,4 % des habitants disparaissent avant toute projection
+
+| Étape | Population | Écart |
+|---|---|---|
+| Raster `POP2023` (hab/km² × 0,0625 km²) | 171 280 | |
+| Population située dans la forêt (zone sans migration, supprimée) | − 7 144 | confirme A7 : ces habitants sortent du calcul |
+| Commune hors forêt | 164 136 | |
+| Grille, avec l'aire géométrique réelle des mailles | 161 375 | − 2 761 : découpage des bords, à expliquer |
+| Grille, avec le champ `Area` tronqué à 3 décimales | **160 397** | − 978 : l'arrondi de la surface (0,062 au lieu de 0,0625) retire 0,8 % |
+
+La population de la forêt est estimée à partir des centres de pixels.
+
+Le total de l'Excel pour Muramvya (171 010) correspond au raster, et non à la grille. **Nouvelle anomalie F19** : la surface est stockée arrondie, et c'est cette surface arrondie qui sert à convertir les densités en populations. Dans le nouvel outil, la surface sera calculée en float à partir de la géométrie, sans arrondi.
+
+### 10.3 Croissance
+
+- `P2025value` vaut bien 1,049 × `P2023value`, comme dans le modèle. Mais **ce champ n'est pas utilisé dans le résultat final** : `PopD2025` en diffère sur 3 204 mailles.
+- Évolution des totaux dans `pentree_final` :
+
+| Période | Population au début → à la fin | Croissance annuelle moyenne |
+|---|---|---|
+| 2023 → 2024 | 160 397 → 164 805 | 2,75 % |
+| 2024 → 2025 | → 168 429 | 2,20 % |
+| 2025 → 2030 | → 188 078 | 2,23 % |
+| 2030 → 2035 | → 209 056 | 2,14 % |
+| 2035 → 2040 | → 229 872 | 1,92 % |
+| 2040 → 2045 | → 250 162 | 1,71 % |
+| 2045 → 2050 | → 270 811 | 1,60 % |
+| 2050 → 2055 | → 290 425 | 1,41 % |
+| 2055 → 2060 | → 309 642 | 1,29 % |
+
+- Les taux **décroissent par période** et n'ont rien à voir avec les 4,9 % du modèle. Ils ressemblent à une projection démographique officielle. C'est cohérent avec les besoins exprimés (taux variables dans le temps, recalage optionnel), mais **la source de ces taux n'est pas dans le code fourni**.
+- La colonne 2024 est une étape de croissance seule, sans migration : 95 mailles y dépassent leur `Pmax`, dont 91 des 93 mailles en surcharge dès 2023.
+
+### 10.4 Plafonds et migration
+
+- Chaque `Pop<année>` est un **entier**, et `PopD<année>` vaut exactement `Pop<année> / Area`. Ce résultat est donc déjà construit selon R2 : on arrondit les populations et on en déduit les densités.
+- Après migration, aucune maille ne dépasse son `Pmax`, à une exception près en 2060.
+- **En revanche, le plafond effectif est d'environ 0,91 × `Pmax`, et non `Pmax` :**
+  - une maille rurale entière est saturée à **141 habitants (2 274 hab/km²)**, alors que 2 500 × 0,062 = 155 habitants ;
+  - 640 mailles rurales sont bloquées exactement à cette valeur en 2060 ;
+  - en zone urbaine, la densité maximale atteint 0,912 × 10 000 ;
+  - les 93 mailles en surcharge en 2023 croissent de 2,7 % en 2024, puis **tombent à 0,912 × leur densité 2023 en 2025** (par exemple 16 597 → 15 129 hab/km²) et restent figées ensuite. Elles perdent environ 9 % de leur population en 2025, ce qui contredit A4.
+- Ce facteur uniforme d'environ 1/1,097 fait penser à une **remise à l'échelle après la migration** (par exemple un recalage sur un total cible) ou à des `Pmax` différents lors du calcul. **À expliquer (§10.5).**
+- Les nouvelles mailles peuplées sont rares : entre 29 et 64 par période, pour 95 à 264 habitants. L'essentiel de la migration se fait vers des mailles déjà habitées.
+
+### 10.5 Questions pour pouvoir utiliser ces résultats comme référence de non-régression
+
+| # | Question |
+|---|---|
+| RF1 | Quelle procédure a mené de `p2023_entree` à `pentree_final` ? Le script de migration a-t-il été lancé pour chaque horizon, avec quelle couche d'entrée, et comment les colonnes ont-elles été rassemblées ? |
+| RF2 | D'où viennent les taux de croissance par période (2,75 % en 2023-2024, 2,2 % en 2024-2030, … 1,29 % en 2055-2060) ? D'une projection officielle, et laquelle ? |
+| RF3 | Pourquoi le plafond effectif est-il d'environ 0,91 × `Pmax` ? Y a-t-il eu une remise à l'échelle après la migration, ou des `Pmax` différents ? |
+| RF4 | Pourquoi l'année 2024 : est-ce l'année du recensement administratif de l'Excel ? |
+| RF5 | Existe-t-il une version plus récente du `.model3` (surface en km², champ `P2024`) ? |
+
+**Utilisation possible dès maintenant :**
+- `p2023_entree` sert de référence pour la phase 1 (règle de `Pmax`, densité par maille), avec des tolérances qui tiennent compte de F19 ;
+- `pentree_final` sert de référence **qualitative** pour les phases 2 et 3 : totaux, absence de dépassement du plafond, forme de la diffusion.
+
+Une comparaison chiffrée exacte avec `pentree_final` suppose les réponses RF1 à RF3.
