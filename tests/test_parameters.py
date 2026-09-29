@@ -87,3 +87,23 @@ def test_load_parameters_csv(tmp_path):
     tables = load_parameters_csv(str(path))
     assert tables["growth_rate"].for_key("Rural").value_at(2033) == pytest.approx(2.5)
     assert tables["dmax"].for_key("Urbain1").value_at(2050) == pytest.approx(10000)
+
+
+def test_zone_value_takes_precedence_over_class_and_default(utm35s_wkt):
+    from engine.grid import Grid
+    from engine.parameters import unit_means, unit_values
+    from engine.units import Layer, Zone, build_units
+    from helpers import square
+
+    grid = Grid.covering((0, 0, 750, 250), 250, utm35s_wkt)
+    typology = [Zone(square(0, 0, 500, 250), "Rural"), Zone(square(500, 0, 750, 250), "Urbain")]
+    zones = Layer("param_zone", [square(0, 0, 250, 250)], ["pole"])
+    units = build_units(grid, square(0, 0, 750, 250), typology, layers=[zones])
+    rates = ParameterTable("growth_rate", {
+        "*": TimeSeries.constant(2.0),
+        "Urbain": TimeSeries.constant(4.0),
+        "pole": TimeSeries((2026, 2040), (6.0, 3.0)),
+    })
+    values = unit_values(rates, units, 2033)
+    np.testing.assert_allclose(values, [4.5, 2.0, 4.0])
+    np.testing.assert_allclose(unit_means(rates, units, 2026, 2040), [4.5, 2.0, 4.0])

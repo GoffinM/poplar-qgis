@@ -99,6 +99,16 @@ class ParameterTable:
             return self.series[DEFAULT_KEY]
         raise KeyError(f"parameter {self.name!r} has no value for class {key!r} and no default ('*')")
 
+    def for_keys(self, keys: Sequence[Optional[str]]) -> TimeSeries:
+        """Series of the first key that has a value (e.g. zone, then class), else the default."""
+        for key in keys:
+            if key is not None and key in self.series:
+                return self.series[key]
+        if DEFAULT_KEY in self.series:
+            return self.series[DEFAULT_KEY]
+        wanted = ", ".join(repr(k) for k in keys if k is not None)
+        raise KeyError(f"parameter {self.name!r} has no value for {wanted} and no default ('*')")
+
     def value_by_class(self, class_names: Sequence[str], year: float) -> np.ndarray:
         return np.array([self.for_key(name).value_at(year) for name in class_names], dtype=np.float64)
 
@@ -141,3 +151,34 @@ def load_parameters_csv(path: str, extrapolation: str = CONSTANT) -> Dict[str, P
         years, values = zip(*points)
         tables.setdefault(parameter, ParameterTable(parameter)).series[key] = TimeSeries(years, values, extrapolation)
     return tables
+
+
+def unit_series(table: ParameterTable, units, zone_layer: Optional[str] = "param_zone") -> Tuple[List[TimeSeries], np.ndarray]:
+    """Series of each distinct (zone, class) combination, and the combination of each unit.
+
+    A value given for a zone takes precedence over the value of the class,
+    which takes precedence over the default ``*`` (spec §2.3).
+    """
+    class_codes = units.codes["class"]
+    zone_codes = units.codes[zone_layer] if zone_layer and zone_layer in units.codes else np.full(len(units), -1)
+    pairs = np.stack([zone_codes, class_codes], axis=1)
+    combos, inverse = np.unique(pairs, axis=0, return_inverse=True)
+    series = []
+    for zone_code, class_code in combos:
+        zone = units.labels[zone_layer][zone_code] if zone_code >= 0 else None
+        cls = units.labels["class"][class_code] if class_code >= 0 else None
+        series.append(table.for_keys([None if zone is None else str(zone), cls]))
+    return series, inverse.ravel()
+
+
+def unit_values(table: ParameterTable, units, year: float, zone_layer: Optional[str] = "param_zone") -> np.ndarray:
+    """Value of the parameter for each unit at ``year``."""
+    series, index = unit_series(table, units, zone_layer)
+    return np.array([s.value_at(year) for s in series], dtype=np.float64)[index]
+
+
+def unit_means(table: ParameterTable, units, start: float, end: float,
+               zone_layer: Optional[str] = "param_zone") -> np.ndarray:
+    """Mean of the parameter over [start, end] for each unit (spec §5.1)."""
+    series, index = unit_series(table, units, zone_layer)
+    return np.array([s.mean(start, end) for s in series], dtype=np.float64)[index]
