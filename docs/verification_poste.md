@@ -77,6 +77,20 @@ Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exe
 | C.5 | Vue **Cumul** | Parts cumulées des toits et de la population, part de chaque classe |
 | C.6 | Cochez « Population de départ calculée à partir des toits », puis lancez | Le calcul part des toits ; onglet Rapport : **Ouvrir le rapport complet (HTML)** montre le calage et ses graphiques |
 
+## 4 ter. Toits dans une base PostGIS (facultatif)
+
+1. Charger les toits de Muramvya dans la base (OSGeo4W Shell), avec votre serveur, votre base et votre utilisateur :
+   `ogr2ogr -f PostgreSQL "PG:host=SERVEUR dbname=BASE user=UTILISATEUR" data\test\muramvya\buildings_muramvya.gpkg -nln burundi.batiments -lco SPATIAL_INDEX=GIST`
+2. Dans QGIS : **Explorateur › PostgreSQL › Nouvelle connexion**, avec de préférence un service, un fichier pgpass ou une configuration d'authentification ; puis **Tester la connexion**.
+
+| # | Action | Résultat attendu |
+|---|---|---|
+| D.1 | Onglet Calage : bouton **…** de « Couche des toits » › **Base de données ou autre source…** › `burundi.batiments` ; surface `area_m2` | La table est ajoutée au projet et sélectionnée |
+| D.2 | Strates, population connue, puis **Calculer le calage** | Mêmes chiffres qu'avec le fichier : 38 942 toits, +0,05 % et +0,61 % |
+| D.3 | **Enregistrer…** le scénario et l'ouvrir dans un éditeur de texte | `"source": "PG:dbname=… host=… user=…"`, sans mot de passe |
+| D.4 | Fermer QGIS, le rouvrir, **Ouvrir…** le scénario | La table est retrouvée (noter si QGIS demande le mot de passe) |
+| D.5 | Noter la durée de « Calculer le calage » | Quelques secondes pour Muramvya ; à mesurer sur une grande table |
+
 ## 5. Manque de place (facultatif)
 
 1. Onglet **Paramètres** : mettez la densité max de la ligne `Rural` à **600**, puis lancez le calcul.
