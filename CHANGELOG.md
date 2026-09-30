@@ -3,6 +3,11 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.7.2 – 30/09/2026
+
+- **Overture deux fois plus rapide** : les bâtiments sont traités par paquets de 5 000, au lieu d'un par un. Pour Muramvya, on passe ici de 25 s à 12,5 s, avec exactement les mêmes bâtiments.
+- Outils de diagnostic du téléchargement : `tools/test_debit.py` (débit vers Overture et Google) et `tools/diag_overture.py` (temps de lecture par GDAL seul).
+
 ## 0.7.1 – 30/09/2026
 
 - **Couche des mailles à la demande** : bouton **Générer** dans l'onglet Scénario. Il écrit la couche de l'exécution choisie dans le format voulu, sans relancer le calcul : moins d'une seconde pour Muramvya, contre 6 s pour un calcul. On peut donc lancer les calculs avec « Aucune » et ne générer la couche qu'au besoin.

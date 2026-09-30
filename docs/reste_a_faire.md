@@ -1,4 +1,4 @@
-# Reste à faire (état au 30/09/2026, version 0.7.1)
+# Reste à faire (état au 30/09/2026, version 0.7.2)
 
 ## 0. Version de référence 0.4.0 (30/09)
 

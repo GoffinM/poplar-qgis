@@ -357,13 +357,22 @@ def _write(found, zone, output, kind, min_confidence, wanted, options, progress,
                 # No SetIgnoredFields(): with the GDAL 3.10 of QGIS 3.40, skipping columns cuts the
                 # « sources » field down to its first sub-field. Reading them all costs about a third more.
                 source_layer.SetSpatialFilterRect(*bounds)
+                fields = _field_indexes(source_layer.GetLayerDefn(), definition)
                 out.StartTransaction()
                 in_file = 0
+                batch: list = []
                 if cancelled is not None and cancelled():
                     raise DownloadCancelled(key)
                 for feature in source_layer:
                     counts["read"] += 1
                     in_file += 1
+                    geometry = feature.GetGeometryRef()
+                    if geometry is not None and not geometry.IsEmpty():
+                        batch.append((feature, geometry.Clone()))
+                    if len(batch) >= BATCH:
+                        _flush(batch, out, definition, fields, transform, mask, polygons, min_confidence, wanted,
+                               counts, by_source, years)
+                        batch = []
                     if counts["read"] % 2000 == 0:
                         if cancelled is not None and cancelled():
                             raise DownloadCancelled(key)
@@ -371,8 +380,9 @@ def _write(found, zone, output, kind, min_confidence, wanted, options, progress,
                         progress((number + in_file / (in_file + 100_000)) / max(1, len(found)))
                         if told is not None:
                             told(counts["read"])
-                    _one(feature, out, definition, transform, mask, polygons, min_confidence, wanted,
-                         counts, by_source, years)
+                _flush(batch, out, definition, fields, transform, mask, polygons, min_confidence, wanted,
+                       counts, by_source, years)
+                batch = []
                 out.CommitTransaction()
                 source_layer = source = None
         finally:
@@ -381,42 +391,52 @@ def _write(found, zone, output, kind, min_confidence, wanted, options, progress,
     return counts, by_source, years
 
 
-def _one(feature, out, definition, transform, mask, polygons, min_confidence, wanted, counts, by_source, years):
-    geometry = feature.GetGeometryRef()
-    if geometry is None or geometry.IsEmpty():
+BATCH = 5000          # buildings tested against the zone at once (one call instead of one per building)
+EXTRA_FIELDS = ("class", "height", "num_floors")
+
+
+def _field_indexes(source_definition, definition) -> Dict[str, Tuple[int, int]]:
+    """Field name -> (index in the Overture file, index in the output): no lookup by name per building."""
+    return {name: (source_definition.GetFieldIndex(name), definition.GetFieldIndex(name))
+            for name in ("sources",) + EXTRA_FIELDS + ("area_m2", "confidence", "source", "year")}
+
+
+def _flush(batch, out, definition, fields, transform, mask, polygons, min_confidence, wanted, counts, by_source,
+           years) -> None:
+    if not batch:
         return
-    geometry = geometry.Clone()
-    geometry.Transform(transform)
-    centroid = geometry.Centroid()
-    if not mask.contains(np.array([centroid.GetX()]), np.array([centroid.GetY()]))[0]:
-        return
-    sources = _sources(feature.GetField("sources"))
-    main = sources[0] if sources else {}
-    name = SOURCES.get(main.get("dataset"), main.get("dataset") or "unknown")
-    if wanted is not None and name not in wanted:
-        counts["other_source"] += 1
-        return
-    confidence = main.get("confidence")
-    if min_confidence is not None and confidence is not None and confidence < min_confidence:
-        counts["low_confidence"] += 1              # the threshold applies to the sources that give a confidence
-        return
-    result = ogr.Feature(definition)
-    if polygons:
-        result.SetGeometry(ogr.ForceToMultiPolygon(geometry))
-    else:
-        result.SetGeometry(centroid)
-    result.SetField("area_m2", geometry.GetArea())
-    if confidence is not None:
-        result.SetField("confidence", float(confidence))
-    result.SetField("source", name)
-    year = str(main.get("update_time") or "")[:4]
-    if year.isdigit():
-        result.SetField("year", int(year))
-        years[int(year)] += 1
-    for field in ("class", "height", "num_floors"):
-        index = feature.GetFieldIndex(field)
-        if index >= 0 and feature.IsFieldSetAndNotNull(index):
-            result.SetField(field, feature.GetField(index))
-    out.CreateFeature(result)
-    counts["kept"] += 1
-    by_source[name] += 1
+    centroids = []
+    for _, geometry in batch:
+        geometry.Transform(transform)
+        centroids.append(geometry.Centroid())
+    inside = mask.contains(np.array([c.GetX() for c in centroids]), np.array([c.GetY() for c in centroids]))
+    sources_index = fields["sources"][0]
+    for i in np.flatnonzero(inside):
+        feature, geometry = batch[i]
+        sources = _sources(feature.GetField(sources_index)) if sources_index >= 0 else []
+        main = sources[0] if sources else {}
+        name = SOURCES.get(main.get("dataset"), main.get("dataset") or "unknown")
+        if wanted is not None and name not in wanted:
+            counts["other_source"] += 1
+            continue
+        confidence = main.get("confidence")
+        if min_confidence is not None and confidence is not None and confidence < min_confidence:
+            counts["low_confidence"] += 1          # the threshold applies to the sources that give a confidence
+            continue
+        result = ogr.Feature(definition)
+        result.SetGeometry(ogr.ForceToMultiPolygon(geometry) if polygons else centroids[i])
+        result.SetField(fields["area_m2"][1], geometry.GetArea())
+        if confidence is not None:
+            result.SetField(fields["confidence"][1], float(confidence))
+        result.SetField(fields["source"][1], name)
+        year = str(main.get("update_time") or "")[:4]
+        if year.isdigit():
+            result.SetField(fields["year"][1], int(year))
+            years[int(year)] += 1
+        for field in EXTRA_FIELDS:
+            index, target = fields[field]
+            if index >= 0 and feature.IsFieldSetAndNotNull(index):
+                result.SetField(target, feature.GetField(index))
+        out.CreateFeature(result)
+        counts["kept"] += 1
+        by_source[name] += 1
