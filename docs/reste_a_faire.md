@@ -61,7 +61,7 @@ Retours des collègues et décisions du 30/09/2026. Les notes de suivi §3.4 et 
 - **Sorties prévues** : la catégorie de chaque maille par année, l'année de changement, et les polygones des taches par date de sortie (lissés ; la grille reste la référence du calcul).
 - **En attendant**, dans la version du beta : un changement planifié peut être imité avec des paramètres liés à la zone et variables dans le temps (TCAM, densité maximale), avec deux années proches pour un changement net.
 - **Point d'architecture** : aujourd'hui, la catégorie est lue une fois par unité de calcul (`units.codes["class"]`), et le TCAM, la densité maximale et la capacité en dépendent. Il faudra la recalculer à chaque pas. C'est le cœur du chantier ; le banc de non-régression garantira qu'un calcul sans changement de catégorie reste identique.
-- **Étape suivante** : un plan détaillé à valider (règles, table des changements planifiés, hiérarchie, sorties) avant tout code.
+- **Plan détaillé** : `plan_categories_dynamiques.md` (règles, table des changements planifiés, hiérarchie, sorties, étapes, questions Q1 à Q10). À valider après le beta, avant tout code.
 
 ## 6. Plus tard
 
