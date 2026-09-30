@@ -123,6 +123,20 @@ def test_no_floor_no_ceiling_and_manual_overrides(tmp_path):
     assert entry["overridden"] == [3]
 
 
+def test_manual_cut_without_limits_falls_back_to_natural_breaks():
+    # the Calage tab may switch to « manual » before any limit is set: no error, natural breaks meanwhile
+    from engine.roof_population import GroupSettings, group_curve
+
+    areas = np.random.default_rng(1).lognormal(3.4, 0.5, 5_000)
+    weights = np.ones_like(areas)
+
+    def edges(cut):
+        curve, _ = group_curve(GroupSettings(cut=cut, n_classes=6), areas, weights, 20_000.0, {}, {})
+        return curve.edges
+
+    assert edges("manual") == edges("breaks")
+
+
 def test_invalid_group_settings_are_explained(tmp_path):
     from engine.scenario import ScenarioError
 

@@ -4,6 +4,7 @@ import os
 import re
 import shutil
 
+import numpy as np
 import pytest
 from qgis.core import QgsApplication, QgsProject
 from qgis.PyQt.QtWidgets import QLabel, QWidget
@@ -94,7 +95,9 @@ def test_dialog_run_loads_the_results(iface, scenario_copy):
     task.finished(True)
     groups = [g for g in QgsProject.instance().layerTreeRoot().findGroups()
               if g.name().startswith("Poplar – Muramvya – exemple – ")]
-    assert len(groups) == 1 and len(groups[0].findLayers()) == 2
+    nodes = groups[0].findLayers() if len(groups) == 1 else []
+    assert sorted(n.name() for n in nodes) == ["density 2025", "density 2030", "population 2025", "population 2030"]
+    assert sorted(n.name() for n in nodes if n.itemVisibilityChecked()) == ["density 2030", "population 2030"]
     assert os.path.dirname(dialog.results_directory()) == dialog.output_directory()  # one folder per run
     dialog.page("report").refresh()
     assert "2030" in dialog.page("report").text.toPlainText()
@@ -500,6 +503,21 @@ def test_calibration_tab(iface, scenario_copy, tmp_path):
     assert page.classes.rowCount() == 8 and len(page.chart.edges) == 9
     assert "écart +0,05" in page.totals.text() or "gap +0.05" in page.totals.text()
 
+    from poplar.ui.widgets import set_combo_value
+    shown = tuple(page.chart.edges)
+    set_combo_value(page.cut, "manual")                             # chosen in the list: no error, limits kept
+    assert page.settings["Rural"].cut == "manual" and page.settings["Rural"].edges == shown
+    probe = np.array([15.0, 35.0, 60.0, 100.0])
+    drawn = {}
+    for method in ("steps", "segments", "polynomial"):              # the chart draws the curve of the method
+        set_combo_value(page.method, method)
+        assert page.chart.curve.method == method
+        drawn[method] = tuple(np.round(page.chart.curve.population(probe), 3))
+        page.chart.grab()
+    assert len(set(drawn.values())) == 3
+    set_combo_value(page.method, "steps")
+    set_combo_value(page.cut, "breaks")
+
     page.n_classes.setValue(6)                                      # recut and refit at once
     assert page.classes.rowCount() == 6 and page.settings["Rural"].n_classes == 6
     page.chart.move_edge(2, 45)                                     # a limit dragged: manual cut
@@ -582,7 +600,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.3"
+    assert version() == "0.3.4"
     AboutDialog()
 
 

@@ -686,6 +686,8 @@ class CalibrationPage(QWidget):
         group.max_per_roof = max(self.max_per_roof.value(), group.min_per_roof)
         if group.cut != MANUAL_CUT:
             group.edges = None
+        elif not group.edges:                                # « manual » chosen in the list: keep the limits shown
+            group.edges = tuple(self.chart.edges)
         if recut:
             group.overrides = {}
             if group.values_from == AREA_PER_PERSON and self.groups[self.current].target:
@@ -748,7 +750,7 @@ class CalibrationPage(QWidget):
         self._building = False
         retained = entry.get("retained_values", list(curve.values))
         proposed = entry.get("proposed_values", retained)
-        self.chart.set_data(data.areas, data.weights, curve.edges, retained)
+        self.chart.set_data(data.areas, data.weights, curve.edges, retained, curve=curve)
         counts = entry.get("class_counts", [])
         means = entry.get("class_means", [])
         self._building = True

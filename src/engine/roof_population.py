@@ -320,10 +320,11 @@ def group_curve(group: GroupSettings, areas: np.ndarray, weights: np.ndarray, ta
     lower = 0.0 if floor is None else floor
     upper = ceiling if ceiling is not None else (float(np.ceil(above_floor.max())) + 1.0 if len(above_floor) else lower + 1)
     report["limits"] = {"floor": floor, "ceiling": ceiling, "exclude_above": exclude}
-    if group.cut == MANUAL_CUT:
+    if group.cut == MANUAL_CUT and group.edges:
         edges = tuple(group.edges)
     else:
-        edges = cut_classes(above_floor, group.n_classes, group.cut, lower, upper) if len(above_floor) else \
+        cut = group.cut if group.cut != MANUAL_CUT else BREAKS    # manual without limits yet: natural breaks
+        edges = cut_classes(above_floor, group.n_classes, cut, lower, upper) if len(above_floor) else \
             tuple(np.linspace(lower, upper, group.n_classes + 1))
     edges_array = np.asarray(edges, dtype=float)
 

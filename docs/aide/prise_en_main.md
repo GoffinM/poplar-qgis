@@ -31,7 +31,7 @@ Passez la souris sur un libellé pour lire sa bulle d'aide. Le bouton **?** en h
 
 ## 4. Consulter les résultats
 
-- À la fin du calcul, la population et la densité de l'horizon final sont chargées dans un groupe « Poplar – *nom du scénario* ».
+- À la fin du calcul, la population et la densité de **toutes les années de sortie** demandées dans les paramètres sont chargées dans un groupe « Poplar – *nom du scénario* ». Seule la dernière année est cochée, pour que la carte reste lisible : cochez les autres dans le panneau des couches.
 - Onglet **Résultats** : choisissez d'autres grandeurs et d'autres années à charger, ouvrez le tableau `summary.csv` ou le dossier.
 - Onglet **Rapport** : statut, bilans de chaque pas de temps, avertissements.
 

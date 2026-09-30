@@ -39,12 +39,13 @@ class CalibrationChart(QWidget):
 
     # --- data -----------------------------------------------------------------------
 
-    def set_data(self, areas, weights, edges, values, legacy=None):
+    def set_data(self, areas, weights, edges, values, legacy=None, curve=None):
         self.areas = np.asarray(areas, dtype=float)
         self.weights = np.asarray(weights, dtype=float) if weights is not None else np.ones(len(self.areas))
         self.edges = [float(e) for e in edges]
         self.values = [float(v) for v in values]
         self.legacy = legacy
+        self.curve = curve
         top = self.edges[-1] * 1.3 if self.edges else 150.0
         if len(self.areas):
             top = min(max(top, float(np.percentile(self.areas, 95))), float(np.percentile(self.areas, 99.5)) + 5)
@@ -56,7 +57,9 @@ class CalibrationChart(QWidget):
         self.update()
 
     def per_roof(self, areas):
-        """Inhabitants of roofs of the given areas, by class (steps), as the engine counts them."""
+        """Inhabitants of roofs of the given areas: the engine's curve (steps, segments or polynomial)."""
+        if getattr(self, "curve", None) is not None:
+            return self.curve.population(np.asarray(areas, dtype=float))
         if not self.edges:
             return np.zeros(len(areas))
         values = np.maximum.accumulate(np.asarray(self.values, dtype=float))

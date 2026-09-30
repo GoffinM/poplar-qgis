@@ -33,8 +33,12 @@ def available_outputs(directory):
     return {q: sorted(years, key=float) for q, years in found.items()}
 
 
-def load_rasters(directory, quantities, years, group_name):
-    """Add the chosen rasters to a layer group (created or reused) and style them."""
+def load_rasters(directory, quantities, years, group_name, visible=None):
+    """Add the chosen rasters to a layer group (created or reused) and style them.
+
+    The latest year ends up on top. With ``visible`` (a list of years), only those
+    layers are ticked, so that the map stays readable when many years are loaded.
+    """
     project = QgsProject.instance()
     root = project.layerTreeRoot()
     group = root.findGroup(group_name) or root.insertGroup(0, group_name)
@@ -49,7 +53,9 @@ def load_rasters(directory, quantities, years, group_name):
                 continue
             style_layer(layer, quantity)
             project.addMapLayer(layer, False)
-            group.insertLayer(0, layer)
+            node = group.insertLayer(0, layer)
+            if visible is not None:
+                node.setItemVisibilityChecked(year in visible)
             loaded.append(layer)
     return loaded
 

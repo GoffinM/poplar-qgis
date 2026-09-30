@@ -355,7 +355,10 @@ class MainDialog(QDialog):
                 "Poplar", tr("run.warnings", count=len(notable), first=notable[0].render(language)))
         years = sorted({os.path.basename(p).split("_")[-1][:-4] for p in result.outputs
                         if os.path.basename(p).startswith("population_")}, key=float)
-        self.load_results(["population", "density"], years[-1:])
+        wanted = {float(y) for y in (self.data.get("time") or {}).get("output_years") or []}
+        if wanted:                                  # the years asked for in the parameters, not the base year
+            years = [y for y in years if float(y) in wanted] or years
+        self.load_results(["population", "density"], years, visible=years[-1:])   # the last one shown
 
     def _offer_solutions(self, result):
         """Lack of room: offer the solutions, then run again with the one chosen (spec §7.2)."""
@@ -371,13 +374,13 @@ class MainDialog(QDialog):
         self.page("parameters").load(self.data)
         self.run()
 
-    def load_results(self, quantities, years):
+    def load_results(self, quantities, years, visible=None):
         directory = self.results_directory()
         group = f"Poplar – {self.data.get('name') or tr('main.untitled')}"
         run = runs.read_run(directory)
         if run is not None:
             group += f" – {run_title(run)}"
-        layers = load_rasters(directory, quantities, years, group)
+        layers = load_rasters(directory, quantities, years, group, visible)
         if layers:
             self.iface.messageBar().pushInfo("Poplar", tr("results.loaded", count=len(layers)))
 
