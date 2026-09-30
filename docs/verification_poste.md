@@ -1,6 +1,6 @@
 # Recette du plugin sur votre poste
 
-Version 0.4.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
+Version 0.5.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
 
 - Durée : environ 45 minutes. Les sections marquées « facultatif » ajoutent 15 minutes.
 - Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
@@ -8,18 +8,18 @@ Version 0.4.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 
 ## 0. Préparer
 
-1. **Plugin** : téléchargez `poplar-0.4.0.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.4.0.zip
+1. **Plugin** : téléchargez `poplar-0.5.0.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.5.0.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis décompressez l'archive. Le dossier `data/test/muramvya/` contient les scénarios et les données.
 3. Si une version précédente de Poplar est installée : **Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**.
 
-⚠️ Installez seulement `poplar-0.4.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
+⚠️ Installez seulement `poplar-0.5.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.4.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
+| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.5.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
 | I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
-| I.3 | Bouton **À propos** | Version 0.4.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
+| I.3 | Bouton **À propos** | Version 0.5.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
 
 ## 1. Scénario
 
@@ -86,6 +86,10 @@ Version 0.4.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | T.5 | Rouvrir la fenêtre, **Télécharger à nouveau** | « Déjà téléchargé le … » ; une confirmation est demandée |
 | T.6 | **Calculer le calage** | Rural 16,9 m² par habitant ; urbain 12,40 m², écart d'environ +1,0 % |
 | T.7 | Marge 2 km, **Télécharger**, puis **Annuler** en cours de route | « Téléchargement annulé » ; aucun fichier partiel dans le cache |
+| T.8 | **Source : Overture Maps**, marge 0 | Destination `toits\overture_buildings_commune_muramvya.gpkg` ; **Estimer** explique qu'il n'y a pas de tuiles à estimer |
+| T.9 | **Télécharger** | Environ une minute ; « ✔ Terminé : 39 385 toits… » (le nombre peut varier un peu avec la version mensuelle d'Overture) |
+| T.10 | Table attributaire de la couche | Champs `source` (google, microsoft, osm), `year`, `confidence` (Google seulement) |
+| T.11 | **Calculer le calage** | Rural 16,9 m² par habitant ; urbain environ 12,5 m² |
 
 ### Toits dans une base PostGIS (facultatif)
 

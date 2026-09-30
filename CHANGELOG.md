@@ -3,6 +3,14 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.5.0 – 30/09/2026
+
+- **Overture Maps** comme seconde source de toits, dans la même fenêtre de téléchargement (liste **Source**).
+  - Google, Microsoft et OpenStreetMap sont fusionnés sans doublons, et lus à distance pour la zone seulement : environ une minute pour une province.
+  - Chaque toit garde sa source, son année, sa confiance (Google) et son type et sa hauteur (OpenStreetMap).
+  - Muramvya : 39 385 bâtiments ; calage rural 16,9 et urbain 12,5 m² par habitant.
+- Banc de non-régression : cas `telechargement_overture` (réseau et pilote Parquet).
+
 ## 0.4.0 – 30/09/2026 : version de référence
 
 Consolidation avant les chantiers suivants (Overture, export Excel, rapport client) :

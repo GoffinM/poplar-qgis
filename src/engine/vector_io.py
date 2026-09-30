@@ -18,10 +18,10 @@ class Feature:
 
 def memory_datasource() -> ogr.DataSource:
     """In-memory vector datasource, across GDAL versions."""
-    driver = ogr.GetDriverByName("Memory")
-    if driver is not None:
-        return driver.CreateDataSource("")
-    return gdal.GetDriverByName("MEM").Create("", 0, 0, 0, gdal.GDT_Unknown)
+    mem = gdal.GetDriverByName("MEM")
+    if mem is not None and mem.GetMetadataItem("DCAP_VECTOR") == "YES":      # GDAL 3.11+: « Memory » deprecated
+        return mem.Create("", 0, 0, 0, gdal.GDT_Unknown)
+    return ogr.GetDriverByName("Memory").CreateDataSource("")
 
 
 def read_features(

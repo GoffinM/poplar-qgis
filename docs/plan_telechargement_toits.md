@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Validé le 30/09/2026 (§5) ; étapes 1 (moteur Google), 2 (contrôle Muramvya) et 3 (fenêtre du plugin, 0.3.5) réalisées |
+| **Statut** | Validé le 30/09/2026 (§5) ; étapes 1 à 4 réalisées (Google : 0.3.5 ; Overture : 0.5.0) |
 | **Demande** | Bouton « Télécharger les toits de la zone d'étude » ; Google Open Buildings en priorité, Overture Maps en deuxième source (accord du 30/09) |
 | **Durée estimée** | 3 à 4 jours pour Google (étapes 1 à 3) ; 1 à 2 jours de plus pour Overture (étape 4) |
 
@@ -108,3 +108,26 @@ from osgeo import gdal, ogr; print(gdal.__version__, ogr.GetDriverByName("Parque
   - Polygones : deux toits sont le même si leur **recouvrement** dépasse un seuil (par exemple 50 % de la surface du plus petit).
   - Points : le même si leurs centroïdes sont à moins d'une distance liée à la taille du toit (par exemple la moitié de √surface), et si les surfaces sont comparables (rapport entre 0,5 et 2).
   - Recherche des voisins avec `scipy.spatial.cKDTree`, déjà disponible. Le toit de la source prioritaire est gardé, et le rapport compte les toits appariés, ajoutés et écartés.
+
+## 8. Étape 4 : Overture Maps (30/09/2026, version 0.5.0)
+
+- **Organisation des données** : la version du 23/09/2026 compte 512 fichiers GeoParquet, 277 Go en tout. L'emprise d'un fichier entier ne sert à rien, elle couvre la moitié du globe. En revanche, chaque fichier est découpé en blocs de lignes triés dans l'espace, et chaque bloc porte son emprise ; GDAL saute les blocs hors zone.
+- **Méthode** :
+  1. demander aux 512 fichiers, en parallèle, combien de bâtiments ils ont dans la zone. Cela ne lit que quelques kilo-octets par fichier et prend environ **18 s** ;
+  2. lire, bloc par bloc, les fichiers qui en ont. Pour Muramvya, **un seul** fichier, lu en environ 16 s.
+  - Aucun index n'est à construire. La liste des fichiers de chaque version est gardée en cache.
+- **Résultat sur Muramvya**, dans les deux communes :
+
+| Source | Bâtiments |
+|---|---|
+| Google Open Buildings | 31 175 |
+| Microsoft ML Buildings | 7 519 |
+| OpenStreetMap | 691 |
+| **Total** | **39 385** (Google seul : 39 126) |
+
+- **Calage** avec ces toits : rural 16,9 m² par habitant, écart −0,9 % ; urbain 12,5 m², écart −1,0 %. Les écarts restent sous le seuil de 2 %.
+- **Tests** : sans réseau, avec un petit fichier GeoParquet ; avec réseau, sur Muramvya (dans un GDAL conda-forge avec pilote Parquet, pour les tests seulement). Le banc a un cas `telechargement_overture`.
+- **Points à connaître** :
+  - Overture remplace une partie des toits Google par leur version Microsoft ou OSM ;
+  - les toits Microsoft et OSM n'ont pas de confiance ;
+  - les types de bâtiments (OSM) sont presque absents au Burundi : 36 sur 94 722 dans le rectangle de Muramvya.

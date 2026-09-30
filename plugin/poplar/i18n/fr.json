@@ -604,5 +604,14 @@
  "calibration.downloaded": "Toits téléchargés : {kept} toits dans {file}, choisis comme couche des toits.",
  "water.with_default": "{name} (vide = {value})",
  "calibration.csv_source": "Tuile CSV Google Open Buildings de l'ancien scénario : {file}, lue directement. Choisir une couche la remplace.",
- "parameters.status_missing_layer": "Couche introuvable : {layer}. Les valeurs sont gardées telles quelles ; rechoisissez la couche."
+ "parameters.status_missing_layer": "Couche introuvable : {layer}. Les valeurs sont gardées telles quelles ; rechoisissez la couche.",
+ "download.source": "Source",
+ "download.source.tip.title": "Source des toits",
+ "download.source.tip": "Google Open Buildings : tuiles téléchargées et gardées en cache. Overture Maps : Google, Microsoft et OpenStreetMap fusionnés sans doublons, lus à distance pour la zone seulement (nouvelle version chaque mois).",
+ "download.source.google": "Google Open Buildings v3",
+ "download.source.overture": "Overture Maps (Google + Microsoft + OpenStreetMap)",
+ "download.source.no_parquet": "Le GDAL de ce QGIS ne lit pas le GeoParquet (pilote Parquet absent).",
+ "download.intro_overture": "Les bâtiments sont lus à distance dans la dernière version d'Overture Maps, qui fusionne Google Open Buildings, Microsoft et OpenStreetMap en retirant les doublons. Seuls ceux de la zone sont lus ; chaque toit garde sa source, son année et, pour OpenStreetMap, son type quand il est connu.",
+ "download.licence_overture": "Source : Overture Maps (Google Open Buildings, Microsoft, OpenStreetMap) – licence ODbL v1.0. À citer dans les rapports.",
+ "download.estimate_overture": "Overture est lu à distance, zone seule : pas de tuiles à estimer. Compter environ une minute pour une province (20 s pour trouver les fichiers, puis la lecture)."
 }

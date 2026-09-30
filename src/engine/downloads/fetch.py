@@ -36,8 +36,14 @@ class UrllibFetcher:
 
     def __init__(self, timeout: float = 60.0, proxy: Optional[str] = None):
         self.timeout = timeout
+        self.proxy = proxy
         handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})] if proxy else []
         self._opener = urllib.request.build_opener(*handlers)
+
+    def text(self, url: str) -> str:
+        """A small text document (a listing), read at once."""
+        with self._opener.open(url, timeout=self.timeout) as response:
+            return response.read().decode("utf-8")
 
     def size(self, url: str) -> Optional[int]:
         request = urllib.request.Request(url, method="HEAD")

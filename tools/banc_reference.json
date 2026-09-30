@@ -116,5 +116,30 @@
         "label": "Toits des classeurs retrouvés à l'identique (sur 38 942)"
       }
     }
+  },
+  "telechargement_overture": {
+    "title": "Overture Maps, dernière version (réseau et pilote Parquet) : chiffres d'ordre de grandeur, la source change chaque mois",
+    "figures": {
+      "roofs_kept": {
+        "value": 39385,
+        "tolerance": 2000,
+        "label": "Bâtiments dans les deux communes (release 2026-09-23.1 : 39 385)"
+      },
+      "google_share": {
+        "value": 0.79,
+        "tolerance": 0.1,
+        "label": "Part venant de Google Open Buildings"
+      },
+      "rural_m2_per_inhabitant": {
+        "value": 16.9,
+        "tolerance": 1.0,
+        "label": "Rural : m² de toit par habitant"
+      },
+      "urban_m2_per_inhabitant": {
+        "value": 12.5,
+        "tolerance": 1.0,
+        "label": "Urbain : m² de toit par habitant"
+      }
+    }
   }
 }

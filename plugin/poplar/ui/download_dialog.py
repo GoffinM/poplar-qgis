@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import (
 
 from ..compat import POLYGON_FILTER, with_password
 from ..engine.downloads.fetch import DownloadCancelled, FileCache, UrllibFetcher
+from ..engine.downloads import overture
 from ..engine.downloads.open_buildings import download_open_buildings, estimate
 from ..engine.downloads.zone import DownloadZone, EmptyZone, ZoneLayer
 from ..engine.library import slug
@@ -95,21 +96,31 @@ def _release(path):
     return len(ids)
 
 
+GOOGLE, OVERTURE = "google", "overture"
+FILE_PREFIX = {GOOGLE: "google_open_buildings", OVERTURE: "overture_buildings"}
+
+
 class DownloadTask(QgsTask):
     done = pyqtSignal(object, object)  # report, error (None and None when cancelled)
 
-    def __init__(self, zone, limit, crs_wkt, margin_m, output, cache, kind, min_confidence):
+    def __init__(self, zone, limit, crs_wkt, margin_m, output, cache, kind, min_confidence, source=GOOGLE):
         super().__init__(tr("download.task"), QgsTask.Flag.CanCancel)
         self.zone, self.limit, self.crs_wkt, self.margin_m = zone, limit, crs_wkt, margin_m
         self.output, self.cache, self.kind, self.min_confidence = output, cache, kind, min_confidence
+        self.source = source
         self.report = self.error = None
 
     def run(self):
         try:
             zone = DownloadZone.from_layers(self.zone, self.crs_wkt, self.margin_m, self.limit)
-            self.report = download_open_buildings(zone, self.output, self.cache, self.kind, self.min_confidence,
-                                                  lambda fraction: self.setProgress(100 * fraction),
-                                                  self.isCanceled)
+            step = lambda fraction: self.setProgress(100 * fraction)  # noqa: E731
+            if self.source == OVERTURE:
+                self.report = overture.download_overture(zone, self.output, self.cache.folder, self.cache.fetcher,
+                                                         self.kind, self.min_confidence, progress=step,
+                                                         cancelled=self.isCanceled)
+            else:
+                self.report = download_open_buildings(zone, self.output, self.cache, self.kind,
+                                                      self.min_confidence, step, self.isCanceled)
         except DownloadCancelled:
             return False
         except Exception as error:  # shown to the user; no traceback kept, it would hold the file open
@@ -139,7 +150,7 @@ class DownloadRoofsDialog(QDialog):
         self.layer = None
         layout = QVBoxLayout(self)
         layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinimumSize)   # grows with the messages
-        intro = QLabel(tr("download.intro"))
+        self.intro = intro = QLabel(tr("download.intro"))
         intro.setWordWrap(True)
         layout.addWidget(intro)
 
@@ -155,6 +166,13 @@ class DownloadRoofsDialog(QDialog):
         add_row(form, "download.margin", self.margin)
         widget, self.limit_layer = layer_combo(POLYGON_FILTER, allow_empty=True)
         add_row(form, "download.limit", widget)
+        self.source = choice_combo([(GOOGLE, tr("download.source.google")),
+                                    (OVERTURE, tr("download.source.overture"))])
+        if not overture.available():                  # GDAL without the Parquet driver
+            item = self.source.model().item(1)
+            item.setEnabled(False)
+            item.setToolTip(tr("download.source.no_parquet"))
+        add_row(form, "download.source", self.source)
         self.kind = choice_combo([("points", tr("download.kind.points")), ("polygons", tr("download.kind.polygons"))])
         add_row(form, "download.kind", self.kind)
         confidence = QWidget()
@@ -195,7 +213,7 @@ class DownloadRoofsDialog(QDialog):
         self.progress.setRange(0, 100)
         self.progress.setVisible(False)
         layout.addWidget(self.progress)
-        source = QLabel(tr("download.licence"))
+        self.licence = source = QLabel(tr("download.licence"))
         source.setWordWrap(True)
         source.setObjectName("hint")
         layout.addWidget(source)
@@ -212,15 +230,23 @@ class DownloadRoofsDialog(QDialog):
         layout.addWidget(self.buttons)
 
         self.zone_layer.layerChanged.connect(self._zone_changed)
+        self.source.currentIndexChanged.connect(lambda *args: self._source_changed())
         self.output.fileChanged.connect(lambda *args: self._show_existing())
         if zone_layer is not None:
             self.zone_layer.setLayer(zone_layer)
         self._zone_changed(self.zone_layer.currentLayer())
 
+    def _source_changed(self):
+        overture_chosen = self.source.currentData() == OVERTURE
+        self.intro.setText(tr("download.intro_overture" if overture_chosen else "download.intro"))
+        self.licence.setText(tr("download.licence_overture" if overture_chosen else "download.licence"))
+        self._zone_changed(self.zone_layer.currentLayer())
+
     def _zone_changed(self, layer):
         if layer is not None:
             name = slug(layer.name()) or "zone"
-            self.output.setFilePath(os.path.join(self.base_dir, "toits", f"google_open_buildings_{name}.gpkg"))
+            prefix = FILE_PREFIX[self.source.currentData()]
+            self.output.setFilePath(os.path.join(self.base_dir, "toits", f"{prefix}_{name}.gpkg"))
         self._show_existing()
 
     def _say(self, text, state="ok"):
@@ -267,6 +293,9 @@ class DownloadRoofsDialog(QDialog):
         if inputs is None:
             return None
         zone, limit, crs_wkt, margin = inputs
+        if self.source.currentData() == OVERTURE:          # read in place: nothing to count beforehand
+            self._say(tr("download.estimate_overture"))
+            return {"tiles": [], "missing": [], "bytes_to_download": None}
         QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
         try:
             area = DownloadZone.from_layers(zone, crs_wkt, margin, limit)
@@ -302,7 +331,7 @@ class DownloadRoofsDialog(QDialog):
         min_confidence = self.confidence.value() if self.confidence_on.isChecked() else None
         self.task_output = output
         self.task = DownloadTask(zone, limit, crs_wkt, margin, output, self._cache(), self.kind.currentData(),
-                                 min_confidence)
+                                 min_confidence, self.source.currentData())
         self.task.progressChanged.connect(lambda value: self.progress.setValue(int(value)))
         self.task.done.connect(self._finished)
         self._running(True)

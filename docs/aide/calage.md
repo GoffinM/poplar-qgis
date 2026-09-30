@@ -36,6 +36,19 @@ Le bouton **Télécharger les toits…** va chercher les toits de **Google Open 
 - Contrôle sur Muramvya : les toits des anciens classeurs sont ceux de Google Open Buildings v3. On en retrouve 38 936 sur 38 942 à l'identique.
 - Le téléchargement passe par le proxy des réglages de QGIS (**Préférences › Options › Réseau**) s'il y en a un.
 
+#### Source Overture Maps
+
+La liste **Source** propose aussi **Overture Maps**, qui fusionne Google Open Buildings, Microsoft et OpenStreetMap en retirant les doublons. Une nouvelle version sort chaque mois.
+
+- Rien n'est téléchargé en entier : les fichiers mondiaux sont lus à distance, pour la zone seulement. Comptez environ une minute pour une province : 20 s pour trouver les fichiers, puis la lecture.
+- Chaque toit garde sa **source** (`google`, `microsoft`, `osm`) et son **année**. Il garde aussi sa **confiance** si c'est un toit Google, et son **type** et sa **hauteur** quand OpenStreetMap les donne.
+- La surface est mesurée sur le contour, dans le système de calcul.
+- **Attention au seuil de confiance de l'onglet Calage** : les toits Microsoft et OpenStreetMap n'ont pas de confiance, donc un seuil activé les écarterait. Le seuil de la fenêtre de téléchargement, lui, ne s'applique qu'aux toits qui ont une confiance.
+- **Année des images** : l'année la plus fréquente parmi les toits (2023 à Muramvya).
+- **Licence** : ODbL v1.0 ; citez « Overture Maps » et ses sources.
+- Il faut le pilote Parquet de GDAL. QGIS 3.40 sous Windows l'a ; sinon, le choix est grisé.
+- À Muramvya (version du 23/09/2026) : **39 385 bâtiments**, dont 79 % de Google, 19 % de Microsoft et 2 % d'OpenStreetMap. On en comptait 39 126 avec Google seul. Calage : rural 16,9 m² par habitant (identique), urbain 12,5 m² (12,4 avec Google seul).
+
 ## 2. Strates et population connue
 
 - Une **strate** est un polygone qui a sa propre population connue (commune, colline…). Sans couche de strates, toute la zone d'étude forme une seule strate.

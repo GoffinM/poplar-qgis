@@ -604,5 +604,14 @@
  "calibration.downloaded": "Roofs downloaded: {kept} roofs in {file}, chosen as the roof layer.",
  "water.with_default": "{name} (empty = {value})",
  "calibration.csv_source": "Google Open Buildings CSV tile of the older scenario: {file}, read directly. Choosing a layer replaces it.",
- "parameters.status_missing_layer": "Layer not found: {layer}. The values are kept as they are; choose the layer again."
+ "parameters.status_missing_layer": "Layer not found: {layer}. The values are kept as they are; choose the layer again.",
+ "download.source": "Source",
+ "download.source.tip.title": "Roof source",
+ "download.source.tip": "Google Open Buildings: tiles downloaded and kept in a cache. Overture Maps: Google, Microsoft and OpenStreetMap merged without duplicates, read remotely for the zone only (new release every month).",
+ "download.source.google": "Google Open Buildings v3",
+ "download.source.overture": "Overture Maps (Google + Microsoft + OpenStreetMap)",
+ "download.source.no_parquet": "The GDAL of this QGIS cannot read GeoParquet (no Parquet driver).",
+ "download.intro_overture": "Buildings are read remotely from the latest Overture Maps release, which merges Google Open Buildings, Microsoft and OpenStreetMap without duplicates. Only those of the zone are read; each roof keeps its source, its year and, for OpenStreetMap, its type when known.",
+ "download.licence_overture": "Source: Overture Maps (Google Open Buildings, Microsoft, OpenStreetMap) – licence ODbL v1.0. To be cited in reports.",
+ "download.estimate_overture": "Overture is read remotely, zone only: no tiles to estimate. Count about a minute for a province (20 s to find the files, then the reading)."
 }

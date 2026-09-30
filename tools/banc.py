@@ -158,13 +158,39 @@ def case_download(folder):
     return {"roofs_kept": report["counts"]["kept"], "workbook_roofs_found": int((distance < 1).sum())}, seconds
 
 
+def case_overture(folder):
+    """Overture Maps (latest release) on the two communes: count, sources, calibration with these roofs."""
+    import copy
+
+    from engine._gdal import srs_from_epsg
+    from engine.downloads import overture
+    from engine.downloads.zone import DownloadZone, ZoneLayer
+    from engine.simulation import calibrate
+
+    zone = DownloadZone.from_layers(ZoneLayer(os.path.join(MURAMVYA, "commune_muramvya.shp")),
+                                    srs_from_epsg(32735).ExportToWkt())
+    output = os.path.join(folder, "overture.gpkg")
+    start = time.perf_counter()
+    report = overture.download_overture(zone, output, cache_folder=folder)
+    seconds = time.perf_counter() - start
+    scenario = _load("scenario_muramvya_toits.json", folder)
+    scenario.calibration = copy.deepcopy(scenario.calibration)
+    scenario.calibration["buildings"]["source"] = output
+    groups = calibrate(scenario)[0]["groups"]
+    return {"roofs_kept": report["counts"]["kept"],
+            "google_share": report["by_source"].get("google", 0) / max(1, report["counts"]["kept"]),
+            "rural_m2_per_inhabitant": groups["Rural"]["area_per_person"],
+            "urban_m2_per_inhabitant": groups["Urbain1"]["area_per_person"]}, seconds
+
+
 CASES = {
     "muramvya_raster": case_raster,
     "muramvya_toits_classeurs": case_legacy_roofs,
     "muramvya_toits": case_roofs,
     "telechargement_google": case_download,
+    "telechargement_overture": case_overture,
 }
-NETWORK = {"telechargement_google"}
+NETWORK = {"telechargement_google", "telechargement_overture"}
 
 
 def check(name, figures, expected):
@@ -201,6 +227,11 @@ def run_bench(folder, network=False, only=None):
             continue
         if name in NETWORK and not network:
             continue
+        if name == "telechargement_overture":
+            from engine.downloads import overture
+
+            if not overture.available():            # GDAL without the Parquet driver
+                continue
         case_folder = os.path.join(folder, name)
         os.makedirs(case_folder, exist_ok=True)
         figures, seconds = function(case_folder)

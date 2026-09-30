@@ -804,6 +804,42 @@ def test_downloading_again_replaces_the_layer_and_a_failure_keeps_the_former_roo
     QgsProject.instance().clear()
 
 
+def test_overture_chosen_in_the_download_window(iface, scenario_copy, tmp_path, monkeypatch):
+    from poplar.engine.downloads import overture
+    from poplar.engine.downloads.open_buildings import download_open_buildings
+    from poplar.i18n import tr
+    from poplar.ui.main_dialog import MainDialog
+
+    calls = []
+
+    def fake_overture(zone, output, cache_folder, fetcher, kind, min_confidence, progress=None, cancelled=None):
+        calls.append((kind, min_confidence))                          # same roofs as the Google fake, other file
+        return download_open_buildings(zone, output, FileCacheFake(cache_folder), kind, min_confidence)
+
+    class FileCacheFake:
+        def __new__(cls, folder):
+            from poplar.engine.downloads.fetch import FileCache
+
+            return FileCache(folder, _FakeTiles())
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(_with_calibration(scenario_copy))
+    page = dialog.page("calibration")
+    window = page.download_roofs(show=False)
+    item = window.source.model().item(1)
+    assert item.isEnabled() == overture.available()                   # needs the Parquet driver of GDAL
+    monkeypatch.setattr(overture, "available", lambda: True)
+    monkeypatch.setattr(overture, "download_overture", fake_overture)
+    window.cache_dir.setFilePath(str(tmp_path / "cache"))
+    window.source.setCurrentIndex(1)
+    assert os.path.basename(window.output.filePath()) == "overture_buildings_commune_muramvya.gpkg"
+    assert "Overture" in window.intro.text() and "ODbL" in window.licence.text()
+    assert window.estimate()["bytes_to_download"] is None and window.info.text() == tr("download.estimate_overture")
+    assert window.start(background=False)
+    assert calls == [("points", None)] and page.roof_layer.currentLayer().name().startswith("overture_buildings")
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
@@ -854,7 +890,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.4.0"
+    assert version() == "0.5.0"
     AboutDialog()
 
 
