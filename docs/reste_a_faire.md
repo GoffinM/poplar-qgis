@@ -1,4 +1,4 @@
-# Reste à faire (état au 30/09/2026, version 0.3.4)
+# Reste à faire (état au 30/09/2026, version 0.3.5)
 
 ## 0. Retour de test du 30/09 (corrigé en 0.3.4)
 
@@ -14,7 +14,8 @@
 ## 2. Téléchargement automatique des toits (`plan_telechargement_toits.md`, validé le 30/09)
 
 - Fait : moteur Google Open Buildings (tuiles, zone avec marge et limite, cache, rapport) et contrôle sur Muramvya.
-- Reste : fenêtre du plugin (étape 3), Overture (étape 4), aide et version 0.4.0.
+- Fait aussi : fenêtre du plugin (étape 3, version 0.3.5), à tester sur le poste (section 4 quater de `verification_poste.md`).
+- Reste : Overture (étape 4), puis version 0.4.0.
 - Bouton « Télécharger les toits de la zone d'étude » dans l'onglet Calage.
 - Sources : **Google Open Buildings v3** (priorité, décision B1), puis **Overture Maps** (si le GDAL de QGIS lit le Parquet distant), éventuellement Microsoft Building Footprints.
 - Emprise de la zone d'étude, téléchargement en tâche de fond (progression, annulation), cache local réutilisable (GeoPackage), rapport de ce qui a été téléchargé (source, date, version, nombre de toits).

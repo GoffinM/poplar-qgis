@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Validé le 30/09/2026 (§5) ; étape 1 (moteur Google) et étape 2 (contrôle Muramvya) réalisées |
+| **Statut** | Validé le 30/09/2026 (§5) ; étapes 1 (moteur Google), 2 (contrôle Muramvya) et 3 (fenêtre du plugin, 0.3.5) réalisées |
 | **Demande** | Bouton « Télécharger les toits de la zone d'étude » ; Google Open Buildings en priorité, Overture Maps en deuxième source (accord du 30/09) |
 | **Durée estimée** | 3 à 4 jours pour Google (étapes 1 à 3) ; 1 à 2 jours de plus pour Overture (étape 4) |
 
@@ -83,7 +83,7 @@ from osgeo import gdal, ogr; print(gdal.__version__, ogr.GetDriverByName("Parque
 | Q3 | Zone = strates **élargies d'une marge** (réglable), **sans sortir d'une limite** (frontière nationale) si elle est donnée. But : voir les abords déjà peuplés, qu'on pourrait croire libres pour l'extension |
 | Q4 | `toits/` à côté du scénario, cache réglable |
 | Q5 | Une source par téléchargement dans un premier temps ; fusion étudiée plus tard (§7) |
-| Q6 | Proxy : test à faire sur le poste (réponse du 30/09) |
+| Q6 | Test du 30/09 sur le réseau SHER : **aucun proxy** ; accès direct réussi par QGIS, par Python et par GDAL (lecture Overture à distance : 4 930 863 toits dans un fichier) |
 
 **À signaler pour plus tard (logique métier)** : les toits de la marge sont hors des strates recensées. Ils ne servent pas au calage, mais ils ont des habitants. Leur population et leurs paramètres (TCAM, densités) seraient **hérités de la strate la plus proche**. Cela rejoint l'extension urbaine et les strates dynamiques (notes §3.4 et §3.5) ; la règle est à valider à ce moment-là.
 

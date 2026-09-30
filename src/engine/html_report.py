@@ -193,6 +193,9 @@ def _calibration_section(calibration: Dict[str, Any], language: str) -> str:
         if roofs.get("unknown_usage"):
             parts.append(f"<li>{_esc(_t('unknown_usage', language))} : {_esc(', '.join(roofs['unknown_usage']))}</li>")
         parts.append("</ul>")
+    download = roofs.get("download")
+    if download:
+        parts.append(f"<p>{_esc(_t('roofs_source', language, dataset=download.get('dataset', ''), date=str(download.get('date', ''))[:10], licence=download.get('licence', '')))}</p>")
     strata = calibration.get("strata") or {}
     if strata:
         rows, classes = [], []

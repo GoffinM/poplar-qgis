@@ -14,6 +14,27 @@ L'onglet **Calage** calcule la population de départ à partir des **toits**, au
 
 Chaque toit est rattaché à une maille et à une strate par son **centroïde**.
 
+### Télécharger les toits
+
+Le bouton **Télécharger les toits…** va chercher les toits de **Google Open Buildings v3**, des données publiques accessibles sans compte, sur la zone d'étude.
+
+| Réglage | Rôle |
+|---|---|
+| Zone | Couche de polygones : par défaut, la couche des strates |
+| Marge | Élargit la zone (1 km par défaut) pour voir les abords : des secteurs qu'on pourrait croire libres pour l'extension sont parfois déjà très bâtis |
+| Sans sortir de | Facultatif : une limite que la zone élargie ne dépasse pas (frontière nationale, par exemple) |
+| Format | **Points** (centre, surface, confiance), suffisants pour le calage ; ou **polygones**, quatre fois plus lourds, pour la cartographie |
+| Seuil de confiance | Désactivé par défaut : Google ne publie que des toits de confiance ≥ 0,65 |
+| Enregistrer sous | GeoPackage, par défaut dans le dossier `toits` à côté du scénario |
+| Cache des tuiles | Les fichiers téléchargés y sont gardés et ne sont plus téléchargés ensuite, pour ce projet comme pour les autres |
+
+- **Estimer** donne la surface de la zone, le nombre de tuiles et les mégaoctets à télécharger. Pour Muramvya, il faut 129 Mo et environ 20 secondes ; pour le Burundi entier, environ 190 Mo.
+- À la fin, la couche est ajoutée au projet et choisie comme couche des toits, avec ses champs de surface et de confiance.
+- Un rapport `.download.json` est écrit à côté du GeoPackage : source, date, tuiles, toits lus et gardés, licence. Le rapport HTML du calage le reprend.
+- **Licence** : CC BY 4.0 ou ODbL v1.0. Citez « Google Open Buildings v3 » dans les rapports.
+- Contrôle sur Muramvya : les toits des anciens classeurs sont ceux de Google Open Buildings v3. On en retrouve 38 936 sur 38 942 à l'identique.
+- Le téléchargement passe par le proxy des réglages de QGIS (**Préférences › Options › Réseau**) s'il y en a un.
+
 ## 2. Strates et population connue
 
 - Une **strate** est un polygone qui a sa propre population connue (commune, colline…). Sans couche de strates, toute la zone d'étude forme une seule strate.

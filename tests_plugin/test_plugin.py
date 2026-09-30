@@ -550,6 +550,78 @@ def test_calibration_tab(iface, scenario_copy, tmp_path):
     QgsProject.instance().clear()
 
 
+class _FakeTiles:
+    """Serves 2 000 roofs of the workbooks as the Google tile 19c1; the other tiles have no buildings."""
+
+    def __init__(self):
+        from osgeo import ogr, osr
+
+        from poplar.engine.downloads.fetch import RemoteMissing
+
+        self.missing = RemoteMissing
+        datasource = ogr.Open(os.path.join(MURAMVYA, "buildings_muramvya.gpkg"))
+        layer = datasource.GetLayer(0)
+        wgs84 = osr.SpatialReference()
+        wgs84.ImportFromEPSG(4326)
+        wgs84.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        source = layer.GetSpatialRef().Clone()
+        source.SetAxisMappingStrategy(osr.OAMS_TRADITIONAL_GIS_ORDER)
+        transform = osr.CoordinateTransformation(source, wgs84)
+        rows = []
+        for index, feature in enumerate(layer):
+            if index % 19:
+                continue
+            point = feature.GetGeometryRef().Centroid()
+            lon, lat = transform.TransformPoint(point.GetX(), point.GetY())[:2]
+            rows.append(f"{lat:.8f},{lon:.8f},{feature.GetField('area_m2'):.4f},0.8,6G8GXM9W+MR9C")
+        self.rows = rows
+        self.calls = []
+
+    def size(self, url):
+        if "/19c1_" not in url:
+            raise self.missing(url)
+        return 1000
+
+    def fetch(self, url, path, progress=None, cancelled=None):
+        import gzip
+
+        self.calls.append(url)
+        if "/19c1_" not in url:
+            raise self.missing(url)
+        with gzip.open(path, "wt", encoding="utf-8") as handle:
+            handle.write("\n".join(self.rows) + "\n")
+
+
+def test_roofs_downloaded_from_the_calibration_tab(iface, scenario_copy, tmp_path):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(_with_calibration(scenario_copy))
+    page = dialog.page("calibration")
+    window = page.download_roofs(show=False)
+    assert window.zone_layer.currentLayer() == page.strata_layer.currentLayer()
+    assert window.output.filePath().endswith(os.path.join("toits", "google_open_buildings_commune_muramvya.gpkg"))
+    window.fetcher = _FakeTiles()
+    window.cache_dir.setFilePath(str(tmp_path / "cache"))
+    estimate = window.estimate()
+    assert [t["tile"] for t in estimate["tiles"]] == ["19c1"] and "19c1" not in estimate["missing"]
+    assert window.start(background=False)
+    counts = window.report["counts"]
+    assert counts["kept"] == len(window.fetcher.rows)
+    raw_key = re.compile(r"^[a-z_]+(\.[a-z_]+)+$")
+    texts = [w.text() for w in window.findChildren(QLabel)] + [w.toolTip() for w in window.findChildren(QWidget)]
+    assert not [t for t in texts if raw_key.match(t)]                  # every text of the window is translated
+    assert page.roof_layer.currentLayer() is window.layer and page.area_field.currentField() == "area_m2"
+    assert page.confidence_field.currentField() == "confidence"
+    assert os.path.exists(window.report["output"].replace(".gpkg", ".download.json"))
+
+    assert page.compute(background=False)
+    assert page.report["roofs"]["download"]["dataset"] == "Google Open Buildings v3"
+    window.fetcher.calls.clear()
+    assert window.estimate()["bytes_to_download"] == 0 and window.fetcher.calls == []     # tile in the cache
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
@@ -600,7 +672,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.4"
+    assert version() == "0.3.5"
     AboutDialog()
 
 

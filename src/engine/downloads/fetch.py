@@ -24,15 +24,21 @@ class RemoteMissing(Exception):
 
 
 class UrllibFetcher:
-    """Plain Python download (outside QGIS); follows the proxy set in the environment."""
+    """Plain Python download, streamed to disk.
 
-    def __init__(self, timeout: float = 60.0):
+    Without ``proxy``, the proxy of the system or the environment is used (as
+    browsers do); the plugin passes the proxy set in the QGIS options, if any.
+    """
+
+    def __init__(self, timeout: float = 60.0, proxy: Optional[str] = None):
         self.timeout = timeout
+        handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})] if proxy else []
+        self._opener = urllib.request.build_opener(*handlers)
 
     def size(self, url: str) -> Optional[int]:
         request = urllib.request.Request(url, method="HEAD")
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout) as response:
+            with self._opener.open(request, timeout=self.timeout) as response:
                 length = response.headers.get("Content-Length")
                 return int(length) if length else None
         except urllib.error.HTTPError as error:
@@ -43,7 +49,7 @@ class UrllibFetcher:
     def fetch(self, url: str, path: str, progress: Optional[Progress] = None,
               cancelled: Optional[Cancelled] = None) -> None:
         try:
-            response = urllib.request.urlopen(url, timeout=self.timeout)
+            response = self._opener.open(url, timeout=self.timeout)
         except urllib.error.HTTPError as error:
             if error.code == 404:
                 raise RemoteMissing(url) from error

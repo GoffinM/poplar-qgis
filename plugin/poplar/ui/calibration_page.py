@@ -161,6 +161,10 @@ class CalibrationPage(QWidget):
         form = QFormLayout(box)
         widget, self.roof_layer = layer_combo(VECTOR_FILTER, allow_empty=True)
         add_row(form, "calibration.roof_layer", widget)
+        download = QPushButton(tr("calibration.download"))
+        download.setToolTip(tip("calibration.download"))
+        download.clicked.connect(lambda: self.download_roofs())
+        form.addRow("", download)
         self.roof_file = QgsFileWidget()
         self.roof_file.setFilter("Google Open Buildings (*.csv *.csv.gz *.gz)")
         add_row(form, "calibration.roof_file", self.roof_file)
@@ -403,6 +407,22 @@ class CalibrationPage(QWidget):
                     break
             if "confidence" in names:
                 self.confidence_field.setField(names["confidence"])
+
+    def download_roofs(self, show=True):
+        """Open the download window on the strata zone; the roofs downloaded become the roof layer."""
+        from .download_dialog import DownloadRoofsDialog
+
+        dialog = DownloadRoofsDialog(self.strata_layer.currentLayer(), self.dialog.base_dir(), self)
+        dialog.downloaded.connect(self._roofs_downloaded)
+        if show:
+            dialog.exec()
+        return dialog
+
+    def _roofs_downloaded(self, layer):
+        if layer is None:
+            return
+        self.roof_file.setFilePath("")
+        self.roof_layer.setLayer(layer)            # area and confidence fields are found by their names
 
     def _strata_layer_changed(self, layer):
         """New strata layer: no group nor census field until chosen (never the first field by default)."""

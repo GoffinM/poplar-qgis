@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import csv
 import gzip
+import json
+import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional
 
@@ -71,6 +73,21 @@ def is_open_buildings(path: str) -> bool:
     return all(column in header for column in OPEN_BUILDINGS_COLUMNS[:3])
 
 
+def download_origin(source: str) -> Optional[Dict[str, object]]:
+    """Where roofs downloaded by Poplar come from (the ``.download.json`` written next to them), else None."""
+    from .downloads.open_buildings import report_path
+
+    if not source or source.startswith("PG:") or not os.path.isfile(source):
+        return None
+    try:
+        with open(report_path(source), encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return None
+    keys = ("dataset", "kind", "date", "licence", "attribution", "zone", "filters", "counts")
+    return {k: data[k] for k in keys if k in data}
+
+
 def usage_weights(usage: Optional[np.ndarray], coefficients: Dict[str, float]):
     """Coefficient of each roof, and the categories found that the table does not list (T1)."""
     default = float(coefficients.get(DEFAULT_KEY, 1.0))
@@ -101,6 +118,9 @@ def read_roofs(spec: RoofSource, crs_wkt: str, extent: Optional[Extent] = None) 
                                     confidence_field=spec.confidence_field)
     report: Dict[str, object] = {"source": "open_buildings" if open_buildings else "layer", "read": len(buildings),
                                  "usage": usage_counts(buildings.usage)}
+    download = download_origin(spec.source)
+    if download:
+        report["download"] = download
     keep = np.ones(len(buildings), dtype=bool)
     if spec.min_confidence is not None:
         if buildings.confidence is None:

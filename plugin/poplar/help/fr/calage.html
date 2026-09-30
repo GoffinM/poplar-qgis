@@ -18,6 +18,19 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td>Confiance</td><td>Seuil <b>désactivé par défaut</b> ; activé, il écarte les toits douteux</td></tr>
 </table>
 <p>Chaque toit est rattaché à une maille et à une strate par son <b>centroïde</b>.</p>
+<h3>Télécharger les toits</h3>
+<p>Le bouton <b>Télécharger les toits…</b> va chercher les toits de <b>Google Open Buildings v3</b>, des données publiques accessibles sans compte, sur la zone d'étude.</p>
+<table>
+<tr><th>Réglage</th><th>Rôle</th></tr>
+<tr><td>Zone</td><td>Couche de polygones : par défaut, la couche des strates</td></tr>
+<tr><td>Marge</td><td>Élargit la zone (1 km par défaut) pour voir les abords : des secteurs qu'on pourrait croire libres pour l'extension sont parfois déjà très bâtis</td></tr>
+<tr><td>Sans sortir de</td><td>Facultatif : une limite que la zone élargie ne dépasse pas (frontière nationale, par exemple)</td></tr>
+<tr><td>Format</td><td><b>Points</b> (centre, surface, confiance), suffisants pour le calage ; ou <b>polygones</b>, quatre fois plus lourds, pour la cartographie</td></tr>
+<tr><td>Seuil de confiance</td><td>Désactivé par défaut : Google ne publie que des toits de confiance ≥ 0,65</td></tr>
+<tr><td>Enregistrer sous</td><td>GeoPackage, par défaut dans le dossier <code>toits</code> à côté du scénario</td></tr>
+<tr><td>Cache des tuiles</td><td>Les fichiers téléchargés y sont gardés et ne sont plus téléchargés ensuite, pour ce projet comme pour les autres</td></tr>
+</table>
+<ul><li><b>Estimer</b> donne la surface de la zone, le nombre de tuiles et les mégaoctets à télécharger. Pour Muramvya, il faut 129 Mo et environ 20 secondes ; pour le Burundi entier, environ 190 Mo.</li><li>À la fin, la couche est ajoutée au projet et choisie comme couche des toits, avec ses champs de surface et de confiance.</li><li>Un rapport <code>.download.json</code> est écrit à côté du GeoPackage : source, date, tuiles, toits lus et gardés, licence. Le rapport HTML du calage le reprend.</li><li><b>Licence</b> : CC BY 4.0 ou ODbL v1.0. Citez « Google Open Buildings v3 » dans les rapports.</li><li>Contrôle sur Muramvya : les toits des anciens classeurs sont ceux de Google Open Buildings v3. On en retrouve 38 936 sur 38 942 à l'identique.</li><li>Le téléchargement passe par le proxy des réglages de QGIS (<b>Préférences › Options › Réseau</b>) s'il y en a un.</li></ul>
 <h2>2. Strates et population connue</h2>
 <ul><li>Une <b>strate</b> est un polygone qui a sa propre population connue (commune, colline…). Sans couche de strates, toute la zone d'étude forme une seule strate.</li><li>Le <b>groupe de régression</b> regroupe les strates qui partagent une même courbe (par exemple : rural, urbain). Sans groupe, chaque strate a sa courbe.</li><li>La <b>population connue</b> vient du recensement ou d'une projection validée. Elle se lit dans un champ de la couche ou se saisit dans le tableau.</li><li>Si l'<b>année visée</b> diffère de l'année de la population connue, celle-ci y est ramenée avec un <b>TCAM de décalage</b> (par défaut, celui du scénario).</li></ul>
 <p>Cliquez sur <b>Calculer le calage</b> : les toits sont lus une fois. Ensuite, tous les réglages du groupe réagissent immédiatement.</p>
