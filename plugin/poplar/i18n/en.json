@@ -228,7 +228,7 @@
  "water.peak_hour_factor": "Peak hour",
  "water.peak_hour_factor.tip.title": "Peak hour",
  "water.peak_hour_factor.tip": "Peak-hour factor.",
- "water.note": "A value, or values by year: \"2026: 20; 2040: 30\".",
+ "water.note": "Each parameter has its own tab: choose the layer and field it depends on (settlement type, service area, site…); the rows are filled with the values of the field. Two layers can be crossed. An empty tab keeps the default value.",
  "indicators.other": "Other uses (waste, energy, school places…) can be added here the same way.",
  "run.checks": "Checks",
  "run.check_button": "Check the scenario",
@@ -604,5 +604,6 @@
  "download.again": "Download again",
  "download.replace": "The roofs were already downloaded on {date} ({kept} roofs in {file}).\n\nDownload them again and replace this file?",
  "calibration.roof_origin": "✔ Roofs downloaded on {date}: {kept} roofs ({dataset}).",
- "calibration.downloaded": "Roofs downloaded: {kept} roofs in {file}, chosen as the roof layer."
+ "calibration.downloaded": "Roofs downloaded: {kept} roofs in {file}, chosen as the roof layer.",
+ "water.with_default": "{name} (empty = {value})"
 }

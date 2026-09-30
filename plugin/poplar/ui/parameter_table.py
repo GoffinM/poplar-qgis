@@ -47,12 +47,12 @@ def _number(text):
 
 
 class ParameterTableWidget(QGroupBox):
-    def __init__(self, name, dialog, parent=None):
+    def __init__(self, name, dialog, parent=None, tip_key=None):
         super().__init__(parent)
         self.name = name
         self.dialog = dialog
         self.years = []
-        self.setToolTip(tip(f"parameters.{name}"))
+        self.setToolTip(tip(tip_key or f"parameters.{name}"))
         layout = QVBoxLayout(self)
 
         row = QHBoxLayout()

@@ -380,6 +380,15 @@ def validate(scenario: Scenario) -> List[Message]:
 
         if spec.type not in REGISTRY:
             invalid("indicators.type", spec.type, " | ".join(sorted(REGISTRY)))
+        for name, value in spec.parameters.items():
+            for i, zone in enumerate(parameter_zone_inputs(value)):
+                if not zone.source or not zone.field:
+                    errors.append(message("scenario_missing_key",
+                                          key=f"indicators.{spec.type}.{name}.zones[{i}].source/field"))
+        try:
+            scenario.indicator_tables(spec)
+        except ValueError as error:
+            errors.append(message("scenario_invalid_parameter", detail=str(error)))
     return errors
 
 

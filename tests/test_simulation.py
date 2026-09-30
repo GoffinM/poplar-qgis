@@ -254,3 +254,41 @@ def test_parameter_zones_need_a_source_and_a_field(tmp_path):
     with pytest.raises(ScenarioError) as error:
         _run(tmp_path, parameters={"growth_rate": {"zones": [{"source": "x.gpkg"}], "values": {"*": 1}}})
     assert "growth_rate.zones[0]" in str(error.value)
+
+
+def test_water_parameters_each_linked_to_their_own_layer(tmp_path):
+    # allowance by settlement type, network efficiency by service area, fixed volumes by site: three layers
+    halves = _zones_layer(tmp_path, "types", [(box(0, 0, 5, 10), "A"), (box(5, 0, 10, 10), "B")], field="type")
+    bands = _zones_layer(tmp_path, "services", [(box(0, 0, 10, 5), "T"), (box(0, 5, 10, 10), "U")], field="service")
+    site = _zones_layer(tmp_path, "sites", [(box(0, 0, 2, 2), "usine")], field="site")
+    water = {"type": "water", "parameters": {
+        "water_per_capita": {"zones": [halves], "values": {"A": 20, "B": 60}},
+        "network_efficiency": {"zones": [bands], "values": {"T": 50, "*": 100, "V": 80}},
+        "non_domestic_volume": {"zones": [site], "values": {"usine": 40}},
+    }}
+    result, _ = _run(tmp_path, parameters={"growth_rate": 0.0, "dmax": 10000}, indicators=[water])
+
+    def grid(key):
+        return np.nan_to_num(read_raster(os.path.join(result.directory, f"{key}_2024.tif")).values)
+
+    domestic, production = grid("water_domestic"), grid("water_production_mean")
+    population = _population(result.directory, 2024)
+    np.testing.assert_allclose(domestic[:, :5], population[:, :5] * 20 / 1000)
+    np.testing.assert_allclose(domestic[:, 5:], population[:, 5:] * 60 / 1000)
+    consumption = grid("water_consumption_mean")
+    assert (consumption - domestic)[:2, :2].sum() == pytest.approx(40)          # the site's volume, on the site
+    assert (consumption - domestic)[2:, :].sum() == pytest.approx(0, abs=1e-9)
+    np.testing.assert_allclose(production[:5], consumption[:5] / 0.5)           # T: 50 %
+    np.testing.assert_allclose(production[5:], consumption[5:])                 # U: default 100 %
+    unused = [w.values["key"] for w in result.warnings if w.code == "parameter_key_unused"]
+    assert unused == ["V"]
+
+
+def test_water_allowance_missing_for_a_zone_is_explained(tmp_path):
+    from engine.scenario import ScenarioError
+
+    halves = _zones_layer(tmp_path, "types", [(box(0, 0, 5, 10), "A"), (box(5, 0, 10, 10), "B")], field="type")
+    water = {"type": "water", "parameters": {"water_per_capita": {"zones": [halves], "values": {"A": 20}}}}
+    with pytest.raises(ScenarioError) as error:
+        _run(tmp_path, indicators=[water])
+    assert [m.code for m in error.value.messages] == ["scenario_parameter_missing"]

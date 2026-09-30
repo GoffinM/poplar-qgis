@@ -34,7 +34,9 @@ from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
 from .report import StepReport
-from .scenario import NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError, VectorInput
+from .scenario import (
+    NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError, VectorInput, parameter_zone_inputs,
+)
 from .timeline import PER_STEP, build_timeline
 from .units import NO_VALUE, Layer, Zone, build_sink_units, build_units
 from .roof_population import parse_calibration, population_from_roofs, strata_from_features
@@ -298,16 +300,29 @@ class _Model:
             shared.add("param_zone", scenario.parameter_zones, scenario.parameter_zones.field)
         parameter_layers: Dict[str, Tuple[str, ...]] = {}  # parameters linked to their own zones (spec §2.3 bis)
         zone_names: Dict[Tuple, str] = {}
-        for name in scenario.parameters:
+
+        def zone_layers(specs) -> Tuple[str, ...]:
             names = []
-            for spec in scenario.parameter_zones_of(name):
+            for spec in specs:
                 key = (scenario.path(spec.source), spec.layer, spec.where, spec.field)
                 if key not in zone_names:
                     zone_names[key] = f"zones_{len(zone_names)}"
                     shared.add(zone_names[key], spec, spec.field)
                 names.append(zone_names[key])
+            return tuple(names)
+
+        for name in scenario.parameters:
+            names = zone_layers(scenario.parameter_zones_of(name))
             if names:
-                parameter_layers[name] = tuple(names)
+                parameter_layers[name] = names
+        # Indicator parameters have their own zones too, each from any layer (a water allowance by
+        # settlement type, a network efficiency by service area…).
+        indicator_layers: Dict[Tuple[int, str], Tuple[str, ...]] = {}
+        for index, indicator in enumerate(scenario.indicators):
+            for name, spec in indicator.parameters.items():
+                names = zone_layers(parameter_zone_inputs(spec))
+                if names:
+                    indicator_layers[(index, name)] = names
         calibration, strata_groups, strata_census = None, {}, {}
         if from_roofs:
             calibration = parse_calibration(scenario.calibration or {})
@@ -352,6 +367,17 @@ class _Model:
         self.indicators: List[Indicator] = [
             create_indicator(spec.type, scenario.indicator_tables(spec)) for spec in scenario.indicators
         ]
+        for (index, name), names in indicator_layers.items():
+            table = self.indicators[index].parameters[name]
+            table.layers = names
+            self.warnings.extend(_unused_keys(table, self.units))
+        for indicator in self.indicators:
+            for name, table in indicator.parameters.items():
+                try:
+                    unit_values(table, self.units, scenario.time.base_year)
+                except KeyError as error:
+                    raise ScenarioError([message("scenario_parameter_missing", parameter=name,
+                                                 detail=str(error))]) from None
         self.projections = _load_projections(scenario) if scenario.projections else None
 
         self.sink = None

@@ -41,7 +41,8 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>peak_day_factor</code> (coefficient de pointe journalière)</td><td>—</td><td>1</td></tr>
 <tr><td><code>peak_hour_factor</code> (coefficient de pointe horaire)</td><td>—</td><td>1</td></tr>
 </table>
-<p>Ces paramètres peuvent varier par classe, par zone et dans le temps, comme le TCAM.</p>
+<p>Chaque paramètre a <b>son propre onglet</b>, lié à la couche dont il dépend, comme le TCAM : la dotation par type d'habitat, le rendement par zone de service (un autre fichier de polygones), un volume fixe par site… Choisissez la couche et le champ dans les listes : les lignes du tableau se remplissent avec les valeurs du champ, <b>sans rien taper</b>, ce qui évite les erreurs de nom. Deux couches peuvent être croisées, et chaque valeur peut changer avec les années.</p>
+<ul><li>Une valeur saisie pour une zone absente de la couche est signalée par un avertissement.</li><li>Une zone sans valeur prend la ligne « Hors zones (défaut) ». Si cette ligne est vide pour la dotation, le calcul s'arrête en nommant le paramètre incomplet.</li><li>Un onglet vide garde la valeur par défaut du tableau ci-dessus.</li><li>Les anciens scénarios, où les valeurs étaient données par classe de typologie, sont convertis à l'ouverture : les onglets sont liés à la couche de typologie.</li></ul>
 <table>
 <tr><th>Résultat</th><th>Calcul</th></tr>
 <tr><td><code>water_domestic</code></td><td>population × dotation / 1 000 (m³/j)</td></tr>

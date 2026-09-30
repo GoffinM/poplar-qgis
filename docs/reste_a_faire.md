@@ -1,4 +1,4 @@
-# Reste à faire (état au 30/09/2026, version 0.3.5)
+# Reste à faire (état au 30/09/2026, version 0.3.7)
 
 ## 0. Retour de test du 30/09 (corrigé en 0.3.4)
 
@@ -10,6 +10,11 @@
 - **Régression par strate** (précision du 30/09) : une courbe par groupe de strates (rural, urbain), calée **uniquement sur le total recensé**. C'est ce que fait déjà l'onglet : la forme de la courbe vient d'une hypothèse (habitants proportionnels à la surface de toit, entiers, entre 1 et 15), et seul son niveau (la surface de toit par habitant) est ajusté au total. La régression multiple sur plusieurs strates reste dans le moteur, mais n'est plus prévue dans l'onglet.
 - **Export Excel** du calage : classeur .xlsx mis en forme, avec **graphiques Excel natifs** (distribution des surfaces, courbe d'habitants par toit, cumul), écrit sans nouvelle dépendance. Plan de contenu à soumettre.
 - **Rapport client Word** : plus tard, selon le modèle fourni par la SHER.
+
+## 1 bis. Indicateurs
+
+- Fait (0.3.7) : chaque paramètre de l'eau est lié à sa propre couche (liste déroulante des valeurs, croisement de deux couches), comme le TCAM.
+- **À préciser** : des besoins non domestiques tirés de l'**affectation des bâtiments** (toits industriels, commerces…). C'est une nouvelle règle de calcul, à valider : par exemple un volume par m² de toit, ou par bâtiment, pour chaque catégorie d'usage, sommé par maille. Aujourd'hui, les toits d'usage à coefficient 0 sont écartés à la lecture ; il faudrait les garder pour ce calcul.
 
 ## 2. Téléchargement automatique des toits (`plan_telechargement_toits.md`, validé le 30/09)
 

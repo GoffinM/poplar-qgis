@@ -76,7 +76,7 @@ def test_dialog_reads_and_writes_the_scenario(iface, scenario_copy):
     assert len(data["parameters"]["growth_rate"]["values"]["*"]) == 8
     assert "zones" not in data["parameters"]["growth_rate"]
     water = data["indicators"][0]["parameters"]
-    assert water["water_per_capita"]["*"] == 20 and water["network_efficiency"]["*"] == 75
+    assert water["water_per_capita"]["values"]["*"] == 20 and water["network_efficiency"]["values"]["*"] == 75
     scenario = scenario_from_dict(data, dialog.base_dir())
     assert scenario.time.end_year == 2030
     QgsProject.instance().clear()
@@ -638,6 +638,38 @@ def test_roofs_downloaded_from_the_calibration_tab(iface, scenario_copy, tmp_pat
     QgsProject.instance().clear()
 
 
+def test_water_parameters_linked_to_their_own_layers(iface, scenario_copy, tmp_path):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("indicators")
+    assert page.enabled.isChecked() and page.tabs.count() == 6
+    allowance, efficiency = page.tables["water_per_capita"], page.tables["network_efficiency"]
+    assert allowance.values() == {"*": 20}
+    from qgis.PyQt.QtCore import Qt
+
+    communes = next(layer for layer in QgsProject.instance().mapLayers().values()
+                    if layer.name().startswith("commune"))
+    allowance.layer.setLayer(communes)
+    allowance.field.setField("Type")                                  # rows filled with the values of the field
+    assert sorted(allowance.expected_keys()) == ["Rural", "Urbain1"]
+    rows = {allowance.table.item(r, 0).data(Qt.ItemDataRole.UserRole): r for r in range(allowance.table.rowCount())}
+    assert set(rows) >= {"Rural", "Urbain1", "*"}
+    for key, value in (("Rural", "20"), ("Urbain1", "60")):
+        allowance.table.item(rows[key], 1).setText(value)
+    efficiency.layer.setLayer(communes)
+    efficiency.field.setField("COMMUNES")                              # another field: another zoning
+    data = dialog.collect()
+    water = next(i for i in data["indicators"] if i["type"] == "water")["parameters"]
+    assert water["water_per_capita"]["zones"][0]["field"] == "Type"
+    assert water["water_per_capita"]["values"]["Urbain1"] == 60
+    assert water["network_efficiency"]["zones"][0]["field"] == "COMMUNES"
+    directory = _run_in_dialog(dialog)
+    assert os.path.exists(os.path.join(directory, "water_domestic_2030.tif"))
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
@@ -688,7 +720,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.6"
+    assert version() == "0.3.7"
     AboutDialog()
 
 

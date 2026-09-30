@@ -228,7 +228,7 @@
  "water.peak_hour_factor": "Pointe hor.",
  "water.peak_hour_factor.tip.title": "Pointe hor.",
  "water.peak_hour_factor.tip": "Coefficient de pointe horaire.",
- "water.note": "Une valeur, ou des valeurs par année : « 2026: 20; 2040: 30 ».",
+ "water.note": "Chaque paramètre a son onglet : choisissez la couche et le champ dont il dépend (le type, une zone de service, un site…), les lignes se remplissent avec les valeurs du champ. Deux couches peuvent être croisées. Un onglet vide garde la valeur par défaut.",
  "indicators.other": "D'autres usages (déchets, énergie, places scolaires…) pourront être ajoutés ici sur le même modèle.",
  "run.checks": "Vérifications",
  "run.check_button": "Vérifier le scénario",
@@ -604,5 +604,6 @@
  "download.again": "Télécharger à nouveau",
  "download.replace": "Les toits ont déjà été téléchargés le {date} ({kept} toits dans {file}).\n\nLes télécharger à nouveau et remplacer ce fichier ?",
  "calibration.roof_origin": "✔ Toits téléchargés le {date} : {kept} toits ({dataset}).",
- "calibration.downloaded": "Toits téléchargés : {kept} toits dans {file}, choisis comme couche des toits."
+ "calibration.downloaded": "Toits téléchargés : {kept} toits dans {file}, choisis comme couche des toits.",
+ "water.with_default": "{name} (vide = {value})"
 }

@@ -52,7 +52,12 @@ Le rapport indique :
 | `peak_day_factor` (coefficient de pointe journalière) | — | 1 |
 | `peak_hour_factor` (coefficient de pointe horaire) | — | 1 |
 
-Ces paramètres peuvent varier par classe, par zone et dans le temps, comme le TCAM.
+Chaque paramètre a **son propre onglet**, lié à la couche dont il dépend, comme le TCAM : la dotation par type d'habitat, le rendement par zone de service (un autre fichier de polygones), un volume fixe par site… Choisissez la couche et le champ dans les listes : les lignes du tableau se remplissent avec les valeurs du champ, **sans rien taper**, ce qui évite les erreurs de nom. Deux couches peuvent être croisées, et chaque valeur peut changer avec les années.
+
+- Une valeur saisie pour une zone absente de la couche est signalée par un avertissement.
+- Une zone sans valeur prend la ligne « Hors zones (défaut) ». Si cette ligne est vide pour la dotation, le calcul s'arrête en nommant le paramètre incomplet.
+- Un onglet vide garde la valeur par défaut du tableau ci-dessus.
+- Les anciens scénarios, où les valeurs étaient données par classe de typologie, sont convertis à l'ouverture : les onglets sont liés à la couche de typologie.
 
 | Résultat | Calcul |
 |---|---|

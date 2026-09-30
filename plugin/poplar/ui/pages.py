@@ -13,12 +13,13 @@ from qgis.PyQt.QtGui import QDesktopServices
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDoubleSpinBox, QFormLayout, QGroupBox, QHBoxLayout, QHeaderView,
     QInputDialog, QLabel, QLineEdit, QListWidget, QListWidgetItem, QPlainTextEdit, QProgressBar, QPushButton, QSpinBox,
-    QTableWidget, QTableWidgetItem, QTextBrowser, QVBoxLayout, QWidget,
+    QTableWidget, QTableWidgetItem, QTabWidget, QTextBrowser, QVBoxLayout, QWidget,
 )
 
 from ..compat import POLYGON_FILTER, RASTER_FILTER, VECTOR_FILTER, needs_buffer
 from ..engine.crs import AUTO_EQUAL_AREA, AUTO_UTM, is_metric_projected
 from ..engine.i18n import available_languages
+from ..engine.indicators import WaterDemand
 from ..i18n import tip, tr
 from ..engine import runs
 from ..results import QUANTITIES, available_outputs
@@ -530,32 +531,35 @@ WATER_PARAMETERS = ["water_per_capita", "non_domestic_share", "non_domestic_volu
 
 
 class IndicatorsPage(Page):
+    """Water demand: one table per parameter, each linked to the layer it depends on.
+
+    The allowance may follow the settlement type, the network efficiency the
+    service areas of another file, the fixed volumes a layer of sites: every
+    parameter has its own zones (and may cross two layers), as the growth rate.
+    """
+
     key = "indicators"
 
     def __init__(self, dialog):
         super().__init__()
+        self.dialog = dialog
         layout = QVBoxLayout(self)
         box = QGroupBox(tr("water.box"))
         inner = QVBoxLayout(box)
         self.enabled = QCheckBox(tr("water.enabled"))
         self.enabled.setToolTip(tip("water.enabled"))
         inner.addWidget(self.enabled)
-        self.table = QTableWidget(0, 1 + len(WATER_PARAMETERS))
-        self.table.setMinimumHeight(120)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table.setHorizontalHeaderLabels([tr("parameters.key")] + [tr(f"water.{p}") for p in WATER_PARAMETERS])
-        for i, p in enumerate(WATER_PARAMETERS, start=1):
-            self.table.horizontalHeaderItem(i).setToolTip(tip(f"water.{p}"))
-        inner.addWidget(self.table)
-        buttons = QHBoxLayout()
-        add = QPushButton(tr("common.add"))
-        add.clicked.connect(lambda: self._row("*", {}))
-        remove = QPushButton(tr("common.remove"))
-        remove.clicked.connect(lambda: self.table.removeRow(self.table.currentRow()))
-        buttons.addWidget(add)
-        buttons.addWidget(remove)
-        buttons.addStretch(1)
-        inner.addLayout(buttons)
+        self.tabs = QTabWidget()
+        self.tables = {}
+        for index, name in enumerate(WATER_PARAMETERS):
+            widget = ParameterTableWidget(name, dialog, tip_key=f"water.{name}")
+            default = WaterDemand.defaults.get(name)
+            widget.setTitle(tr(f"water.{name}") if default is None else
+                            tr("water.with_default", name=tr(f"water.{name}"), value=f"{default:g}"))
+            self.tables[name] = widget
+            self.tabs.addTab(widget, tr(f"water.{name}"))
+            self.tabs.setTabToolTip(index, tip(f"water.{name}"))
+        inner.addWidget(self.tabs)
         note = QLabel(tr("water.note"))
         note.setWordWrap(True)
         inner.addWidget(note)
@@ -566,41 +570,22 @@ class IndicatorsPage(Page):
         layout.addWidget(other)
         layout.addStretch(1)
 
-    def _row(self, key, values):
-        row = self.table.rowCount()
-        self.table.insertRow(row)
-        self.table.setItem(row, 0, QTableWidgetItem(key))
-        for i, p in enumerate(WATER_PARAMETERS, start=1):
-            self.table.setItem(row, i, QTableWidgetItem(format_series(values.get(p))))
-
     def load(self, data):
-        self.table.setRowCount(0)
         water = next((i for i in data.get("indicators", []) if i.get("type") == "water"), None)
         self.enabled.setChecked(water is not None)
-        if water is None:
-            self._row("*", {"water_per_capita": 20.0})
-            return
-        # Same format as the other parameters: a number, or {class or zone: number or {year: value}}.
-        by_key = {}
-        for p, spec in water.get("parameters", {}).items():
-            if isinstance(spec, dict):
-                for key, value in spec.items():
-                    by_key.setdefault(key, {})[p] = value
-            else:
-                by_key.setdefault("*", {})[p] = spec
-        for key, values in by_key.items():
-            self._row(key, values)
+        parameters = (water or {}).get("parameters") or {"water_per_capita": 20.0}
+        for name, widget in self.tables.items():
+            # older scenarios: {class: value} keys of the typology are converted to a link to its layer
+            widget.load(parameters.get(name), data.get("typology"), data.get("parameter_zones"))
 
     def store(self, data):
         indicators = [i for i in data.get("indicators", []) if i.get("type") != "water"]
         if self.enabled.isChecked():
             parameters = {}
-            for row in range(self.table.rowCount()):
-                key = self.table.item(row, 0).text().strip() or "*"
-                for i, p in enumerate(WATER_PARAMETERS, start=1):
-                    value = parse_series(self.table.item(row, i).text() if self.table.item(row, i) else "")
-                    if value is not None:
-                        parameters.setdefault(p, {})[key] = value
+            for name, widget in self.tables.items():
+                spec = widget.store()
+                if spec is not None:
+                    parameters[name] = spec
             indicators.append({"type": "water", "parameters": parameters})
         data["indicators"] = indicators
 
