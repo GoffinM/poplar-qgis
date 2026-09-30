@@ -9,8 +9,11 @@
 
 - Choix de la **source des habitants par classe** dans l'onglet Calage : surface de toit par habitant (actuel), **régression multiple** sur les strates (déjà dans le moteur, pas encore proposée dans l'onglet), ou saisie.
 - Affichage de la qualité de la régression (R², écarts par strate) dans l'onglet.
+- Attend des jeux de données avec **plusieurs strates recensées par groupe** (autres communes, ou recensement par colline). À Muramvya, chaque groupe n'a qu'un recensement : une seule équation pour huit inconnues.
+- **Export Excel « présentable »** du rapport de calage et des régressions : tableaux mis en forme, sans nouvelle dépendance (xlsx écrit directement).
+- **Rapport client** au format Word, rempli dans le modèle de la SHER : démarche, sources, hypothèses, calage, résultats. Attend le modèle Word et un exemple de rapport (voir la réponse du 30/09).
 
-## 2. Téléchargement automatique des toits (plan à soumettre avant de coder)
+## 2. Téléchargement automatique des toits (plan soumis le 30/09 : `plan_telechargement_toits.md`)
 
 - Bouton « Télécharger les toits de la zone d'étude » dans l'onglet Calage.
 - Sources : **Google Open Buildings v3** (priorité, décision B1), puis **Overture Maps** (si le GDAL de QGIS lit le Parquet distant), éventuellement Microsoft Building Footprints.
