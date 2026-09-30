@@ -19,7 +19,7 @@ Version 0.7.1. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 |---|---|---|
 | I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.7.2.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
 | I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
-| I.3 | Bouton **À propos** | Version 0.7.1 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
+| I.3 | Bouton **À propos** | Version 0.7.2 ; crédits « Michel – SHER (contributions : Keyvan, Marine, Assoumpta, Sophie) » |
 
 ## 1. Scénario
 

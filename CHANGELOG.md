@@ -6,7 +6,8 @@ Les dates sont celles de la publication de la version sur la branche de travail.
 ## 0.7.2 – 30/09/2026
 
 - **Overture deux fois plus rapide** : les bâtiments sont traités par paquets de 5 000, au lieu d'un par un. Pour Muramvya, on passe ici de 25 s à 12,5 s, avec exactement les mêmes bâtiments.
-- Outils de diagnostic du téléchargement : `tools/test_debit.py` (débit vers Overture et Google) et `tools/diag_overture.py` (temps de lecture par GDAL seul).
+- Crédits : Assoumpta et Sophie rejoignent les contributeurs.
+- Outils de diagnostic du téléchargement : `tools/test_debit.py` (débit vers Overture et Google) et `tools/diag_overture.py` (temps de lecture par GDAL seul), réunis dans `dist/outils_diagnostic.zip`.
 
 ## 0.7.1 – 30/09/2026
 
