@@ -532,6 +532,15 @@ def test_calibration_tab(iface, scenario_copy, tmp_path):
     page._set_view("distribution")
     page.chart.grab()
 
+    import zipfile
+
+    workbook = page.export_excel(str(tmp_path / "calage"), open_file=False)          # as shown: 6 classes
+    assert workbook.endswith("calage.xlsx")
+    with zipfile.ZipFile(workbook) as package:
+        classes = package.read("xl/worksheets/sheet2.xml").decode()
+    assert "<f>SUM(H5:H10)</f>" in classes                                           # 6 classes, not 8
+    assert any(str(workbook) in str(m) for m in iface.bar.messages)
+
     page.use_roofs.setChecked(True)
     data = dialog.collect()
     assert data["base_population"]["source"] == "buildings"
@@ -909,7 +918,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.5.1"
+    assert version() == "0.6.0"
     AboutDialog()
 
 

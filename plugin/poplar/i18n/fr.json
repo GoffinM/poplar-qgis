@@ -618,5 +618,11 @@
  "download.stage.build_index": "Aucun index publié pour cette version d'Overture : construction de l'index (lecture de l'en-tête des 512 fichiers, une seule fois, puis gardé en cache). Cela peut être long sur une connexion lente.",
  "download.stage.read": "Lecture de {files} fichier(s) Overture pour la zone…",
  "download.stage.read_count": "Lecture en cours : {count} bâtiments lus…",
- "download.cancelling": "Annulation en cours…"
+ "download.cancelling": "Annulation en cours…",
+ "calibration.excel": "Exporter en Excel…",
+ "calibration.excel.tip.title": "Classeur Excel du calage",
+ "calibration.excel.tip": "Synthèse, classes et distribution de chaque groupe avec leurs graphiques Excel, hypothèses et sources, tels qu'affichés (réglages en cours compris). Un calage.xlsx est aussi écrit à chaque calcul, dans le dossier des résultats.",
+ "calibration.excel_first": "Calculez d'abord le calage (bouton « Calculer le calage »).",
+ "calibration.excel_failed": "Le classeur n'a pas pu être écrit ({error}). Est-il ouvert dans Excel ?",
+ "calibration.excel_done": "Classeur du calage enregistré : {path}"
 }

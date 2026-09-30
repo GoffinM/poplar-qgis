@@ -195,6 +195,43 @@ class GroupData:
         return curve, report
 
 
+def refresh_report(report: Dict[str, Any], groups: Dict[str, "GroupData"], settings: Dict[str, "GroupSettings"],
+                   recalibrate: Optional[bool] = None) -> Dict[str, Any]:
+    """The calibration report with the settings being edited (no roof read again): groups, strata and totals.
+
+    The Calibration tab keeps the roofs of each group (:class:`GroupData`); this gives the report of what is
+    on screen, for an export, without running the calibration again.
+    """
+    import copy
+
+    fresh = copy.deepcopy(report)
+    recalibrate = fresh.get("recalibrated", False) if recalibrate is None else recalibrate
+    for name, data in groups.items():
+        group = settings.get(name) or GroupSettings()
+        curve, entry = data.curve(group)
+        per_roof = curve.population(data.areas) * data.weights
+        entry["cumulative"] = cumulative_distribution(data.areas, per_roof, until=curve.edges[-1] * 1.5) \
+            if len(data.areas) else {}
+        fresh.setdefault("groups", {}).setdefault(name, {}).update(entry)
+        for stratum in data.strata:
+            members = data.stratum_of_roof == stratum if data.stratum_of_roof is not None else slice(None)
+            computed = float(per_roof[members].sum())
+            row = fresh.setdefault("strata", {}).setdefault(stratum, {"group": name})
+            target = row.get("census_at_target")
+            proposed = target / computed if target and computed else 1.0
+            factor = proposed if recalibrate else 1.0
+            row.update({"computed": computed, "proposed_factor": proposed, "factor": factor,
+                        "population": computed * factor})
+            if target:
+                row["gap_percent"] = 100.0 * (computed / target - 1.0)
+                row["alert"] = abs(row["gap_percent"]) > ALERT_PERCENT
+    strata = fresh.get("strata") or {}
+    fresh["total_before_recalibration"] = float(sum(r.get("computed", 0.0) for r in strata.values()))
+    fresh["total"] = float(sum(r.get("population", 0.0) for r in strata.values()))
+    fresh["recalibrated"] = recalibrate
+    return fresh
+
+
 @dataclass
 class RoofPopulation:
     per_unit: np.ndarray

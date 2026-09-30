@@ -618,5 +618,11 @@
  "download.stage.build_index": "No published index for this Overture release: building it (reading the header of the 512 files, once, then kept in the cache). This can be long on a slow line.",
  "download.stage.read": "Reading {files} Overture file(s) for the zone…",
  "download.stage.read_count": "Reading: {count} buildings read…",
- "download.cancelling": "Cancelling…"
+ "download.cancelling": "Cancelling…",
+ "calibration.excel": "Export to Excel…",
+ "calibration.excel.tip.title": "Excel workbook of the calibration",
+ "calibration.excel.tip": "Summary, classes and distribution of each group with their Excel charts, assumptions and sources, as shown (current settings included). A calage.xlsx is also written by each run, in the results folder.",
+ "calibration.excel_first": "Compute the calibration first (« Compute the calibration » button).",
+ "calibration.excel_failed": "The workbook could not be written ({error}). Is it open in Excel?",
+ "calibration.excel_done": "Calibration workbook saved: {path}"
 }

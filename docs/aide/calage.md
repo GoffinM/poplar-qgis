@@ -115,3 +115,20 @@ Le fichier `calibration.json`, écrit avec les résultats, contient pour chaque 
 - les écarts ;
 - les distributions et les cumuls ;
 - les diagnostics.
+
+## 8. Classeur Excel du calage
+
+Le bouton **Exporter en Excel…** enregistre le calage **tel qu'il est affiché**, réglages en cours compris, dans un classeur `.xlsx`. Chaque calcul qui part des toits écrit aussi un `calage.xlsx` dans son dossier de résultats.
+
+| Feuille | Contenu |
+|---|---|
+| Synthèse | Toits lus et retenus, population calculée, recalage ; un tableau par groupe et par strate : m² de toit par habitant, population calculée et connue, écart, facteurs proposé et appliqué |
+| Classes – *groupe* | Limites, toits, surface moyenne, habitants proposés et retenus. La population de chaque classe est une **formule Excel** (toits × habitants) : changer un nombre d'habitants met la population à jour. Graphiques : habitants par toit selon la surface, et toits par classe |
+| Distribution – *groupe* | Toits par tranche de 1 m², parts cumulées des toits et de la population, avec leurs graphiques |
+| Hypothèses | Le modèle en cinq phrases, les réglages généraux et ceux de chaque groupe (plancher, plafond, découpage, surface par habitant ajustée ou saisie, valeurs modifiées à la main) |
+| Sources | Toits (fichier ou base, champ de surface ; pour un téléchargement : jeu de données, version, date, licence, citation), strates, population connue, version de Poplar |
+
+- Les graphiques sont de **vrais graphiques Excel**, liés aux cellules : on peut les modifier ou les copier dans un rapport.
+- Le mot de passe d'une base de données n'apparaît jamais dans le classeur.
+- En ligne de commande : `python -m engine excel <dossier de résultats>`.
+

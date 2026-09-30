@@ -65,4 +65,15 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <h2>7. Rapport</h2>
 <p>Le fichier <code>calibration.json</code>, écrit avec les résultats, contient pour chaque groupe :</p>
 <ul><li>les limites et les classes ;</li><li>les habitants proposés et retenus ;</li><li>la surface par habitant ;</li><li>les écarts ;</li><li>les distributions et les cumuls ;</li><li>les diagnostics.</li></ul>
+<h2>8. Classeur Excel du calage</h2>
+<p>Le bouton <b>Exporter en Excel…</b> enregistre le calage <b>tel qu'il est affiché</b>, réglages en cours compris, dans un classeur <code>.xlsx</code>. Chaque calcul qui part des toits écrit aussi un <code>calage.xlsx</code> dans son dossier de résultats.</p>
+<table>
+<tr><th>Feuille</th><th>Contenu</th></tr>
+<tr><td>Synthèse</td><td>Toits lus et retenus, population calculée, recalage ; un tableau par groupe et par strate : m² de toit par habitant, population calculée et connue, écart, facteurs proposé et appliqué</td></tr>
+<tr><td>Classes – <i>groupe</i></td><td>Limites, toits, surface moyenne, habitants proposés et retenus. La population de chaque classe est une <b>formule Excel</b> (toits × habitants) : changer un nombre d'habitants met la population à jour. Graphiques : habitants par toit selon la surface, et toits par classe</td></tr>
+<tr><td>Distribution – <i>groupe</i></td><td>Toits par tranche de 1 m², parts cumulées des toits et de la population, avec leurs graphiques</td></tr>
+<tr><td>Hypothèses</td><td>Le modèle en cinq phrases, les réglages généraux et ceux de chaque groupe (plancher, plafond, découpage, surface par habitant ajustée ou saisie, valeurs modifiées à la main)</td></tr>
+<tr><td>Sources</td><td>Toits (fichier ou base, champ de surface ; pour un téléchargement : jeu de données, version, date, licence, citation), strates, population connue, version de Poplar</td></tr>
+</table>
+<ul><li>Les graphiques sont de <b>vrais graphiques Excel</b>, liés aux cellules : on peut les modifier ou les copier dans un rapport.</li><li>Le mot de passe d'une base de données n'apparaît jamais dans le classeur.</li><li>En ligne de commande : <code>python -m engine excel &lt;dossier de résultats&gt;</code>.</li></ul>
 </body></html>

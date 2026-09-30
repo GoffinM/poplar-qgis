@@ -263,8 +263,12 @@ class CalibrationPage(QWidget):
         export.clicked.connect(lambda: self.export_calibration())
         load = QPushButton(tr("calibration.import"))
         load.clicked.connect(lambda: self.import_calibration())
+        self.excel_button = QPushButton(tr("calibration.excel"))
+        self.excel_button.setToolTip(tip("calibration.excel"))
+        self.excel_button.clicked.connect(lambda: self.export_excel())
         row.addWidget(self.compute_button)
         row.addWidget(self.status, 1)
+        row.addWidget(self.excel_button)
         row.addWidget(export)
         row.addWidget(load)
         layout.addLayout(row)
@@ -888,6 +892,38 @@ class CalibrationPage(QWidget):
         data = {name: group.to_dict() for name, group in self.settings.items()}
         with open(path, "w", encoding="utf-8") as handle:
             json.dump({"groups": data}, handle, ensure_ascii=False, indent=2)
+        return path
+
+    def export_excel(self, path=None, open_file=True):
+        """Workbook of the calibration as shown (settings being edited included): tables and native charts."""
+        from qgis.PyQt.QtCore import QUrl
+        from qgis.PyQt.QtGui import QDesktopServices
+
+        from ..engine.calibration_excel import write_calibration_workbook
+        from ..engine.roof_population import refresh_report
+
+        if self.report is None or not self.groups:
+            self._show_status(tr("calibration.excel_first"), warn=True)
+            return None
+        data = self.dialog.collect()
+        if not path:
+            name = data.get("name") or "calage"
+            default = os.path.join(self.dialog.base_dir() if getattr(self.dialog, "path", None)
+                                   else os.path.expanduser("~"), f"calage_{name}.xlsx".replace(" ", "_"))
+            path, _ = QFileDialog.getSaveFileName(self, tr("calibration.excel"), default, "Excel (*.xlsx)")
+            if not path:
+                return None
+        if not path.lower().endswith(".xlsx"):
+            path += ".xlsx"
+        report = refresh_report(self.report, self.groups, self.settings, self.recalibrate.isChecked())
+        try:
+            write_calibration_workbook(report, path, current_language(), data.get("calibration"), data.get("name", ""))
+        except OSError as error:                      # open in Excel, folder not writable…
+            self._show_status(tr("calibration.excel_failed", error=error), warn=True)
+            return None
+        self.dialog.iface.messageBar().pushSuccess("Poplar", tr("calibration.excel_done", path=path))
+        if open_file:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(path))
         return path
 
     def import_calibration(self, path=None):

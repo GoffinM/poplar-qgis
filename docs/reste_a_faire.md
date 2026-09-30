@@ -1,4 +1,4 @@
-# Reste à faire (état au 30/09/2026, version 0.5.1)
+# Reste à faire (état au 30/09/2026, version 0.6.0)
 
 ## 0. Version de référence 0.4.0 (30/09)
 
@@ -11,7 +11,7 @@
 ## 1. Calage : compléments
 
 - **Régression par strate** (précision du 30/09) : une courbe par groupe de strates (rural, urbain), calée **uniquement sur le total recensé**. C'est ce que fait déjà l'onglet : la forme de la courbe vient d'une hypothèse (habitants proportionnels à la surface de toit, entiers, entre 1 et 15), et seul son niveau (la surface de toit par habitant) est ajusté au total. La régression multiple sur plusieurs strates reste dans le moteur, mais n'est plus prévue dans l'onglet.
-- **Export Excel** du calage : classeur .xlsx mis en forme, avec **graphiques Excel natifs** (distribution des surfaces, courbe d'habitants par toit, cumul), écrit sans nouvelle dépendance. Plan de contenu à soumettre.
+- Fait (0.6.0) : **export Excel** du calage, avec graphiques Excel natifs (bouton de l'onglet Calage et `calage.xlsx` à chaque calcul).
 - **Rapport client Word** : plus tard, selon le modèle fourni par la SHER.
 
 ## 1 bis. Indicateurs

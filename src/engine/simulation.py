@@ -218,6 +218,13 @@ def run(
         with open(os.path.join(out_dir, "calibration.json"), "w", encoding="utf-8") as handle:
             json.dump(model.calibration_report, handle, ensure_ascii=False, indent=1)
         outputs.append(os.path.join(out_dir, "calibration.json"))
+        try:  # the workbook is a convenience too: a failure is a warning, never a failed run
+            from .calibration_excel import write_calibration_workbook
+
+            outputs.append(write_calibration_workbook(model.calibration_report, os.path.join(out_dir, "calage.xlsx"),
+                                                      language, scenario.calibration, scenario.name))
+        except Exception as error:  # pragma: no cover
+            result.warnings.append(message("calibration_excel_failed", detail=str(error)))
     try:  # the HTML report is a convenience: it never makes a run fail
         outputs.append(write_html_report(out_dir, language))
     except Exception:  # pragma: no cover

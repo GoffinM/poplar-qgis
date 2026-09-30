@@ -15,6 +15,7 @@ Les noms de fichiers sont **fixes et en anglais**, quelle que soit la langue. `A
 | `report.txt` / `report.json` | Rapport d'exécution, pour une personne ou pour un programme |
 | `scenario_used.json` | Copie du scénario utilisé |
 | `calibration.json` | Détail du calage, si la population de départ vient des toits |
+| `calage.xlsx` | Classeur Excel du calage : synthèse, classes, distribution, hypothèses et sources, avec des graphiques Excel (voir l'aide « Calage ») |
 | `report.html` | **Rapport complet autonome** : chiffres clés, évolution de la population, avertissements, calage avec ses graphiques. Il s'ouvre dans un navigateur et s'imprime en PDF ; bouton « Ouvrir le rapport complet » de l'onglet Rapport, ou `python -m engine report <dossier>` |
 
 Les résultats de l'année de départ sont toujours écrits.

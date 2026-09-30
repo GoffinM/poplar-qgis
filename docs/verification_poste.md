@@ -1,6 +1,6 @@
 # Recette du plugin sur votre poste
 
-Version 0.5.1. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
+Version 0.6.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
 
 - Durée : environ 45 minutes. Les sections marquées « facultatif » ajoutent 15 minutes.
 - Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
@@ -8,18 +8,18 @@ Version 0.5.1. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 
 ## 0. Préparer
 
-1. **Plugin** : téléchargez `poplar-0.5.1.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.5.1.zip
+1. **Plugin** : téléchargez `poplar-0.6.0.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.6.0.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis décompressez l'archive. Le dossier `data/test/muramvya/` contient les scénarios et les données.
 3. Si une version précédente de Poplar est installée : **Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**.
 
-⚠️ Installez seulement `poplar-0.5.1.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
+⚠️ Installez seulement `poplar-0.6.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.5.1.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
+| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.6.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
 | I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
-| I.3 | Bouton **À propos** | Version 0.5.1 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
+| I.3 | Bouton **À propos** | Version 0.6.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
 
 ## 1. Scénario
 
@@ -74,6 +74,8 @@ Version 0.5.1. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | C.5 | Faites glisser une limite de classe ; modifiez un « habitant retenu » | Découpage « manuel » ; la case modifiée est colorée |
 | C.6 | Vue **Cumul** | Parts cumulées des toits et de la population |
 | C.7 | **Exporter le calage…**, puis **Importer un calage…** | Les réglages reviennent à l'identique |
+| C.8 | **Exporter en Excel…** (après C.5, avec une case modifiée) | Le classeur s'ouvre : Synthèse, Classes et Distribution par groupe, Hypothèses, Sources ; la case modifiée est colorée, les graphiques sont des graphiques Excel |
+| C.9 | Dans la feuille Classes, changez un nombre d'habitants retenus | La population de la classe et le total se recalculent |
 
 ### Téléchargement des toits (connexion Internet)
 
@@ -120,6 +122,7 @@ Version 0.5.1. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | R.6 | **Nettoyer…** | Les exécutions non conservées sont proposées, avec leur taille ; **Supprimer la sélection** retire leurs couches et efface leurs dossiers |
 | R.7 | Fermez la fenêtre Poplar | La même liste est proposée (fin de session) |
 | R.8 | Scénario « toits » (`scenario_muramvya_toits.json`) : lancez | Le calcul part des toits ; le rapport HTML montre le calage |
+| R.9 | Dossier des résultats de ce calcul | Un `calage.xlsx` s'y trouve, à côté de `report.html` |
 
 ## 7. Manque de place
 

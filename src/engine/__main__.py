@@ -21,6 +21,9 @@ def main(argv=None) -> int:
     report_parser = commands.add_parser("report", help="write report.html for a run folder")
     report_parser.add_argument("folder")
     report_parser.add_argument("--language", choices=available_languages())
+    excel_parser = commands.add_parser("excel", help="write calage.xlsx from the calibration.json of a run folder")
+    excel_parser.add_argument("folder")
+    excel_parser.add_argument("--language", choices=available_languages(), default="fr")
     download_parser = commands.add_parser("download-roofs", help="download Google Open Buildings roofs of a zone")
     download_parser.add_argument("zone", help="polygons of the zone (the strata layer, for example)")
     download_parser.add_argument("output", help="GeoPackage to write")
@@ -31,6 +34,8 @@ def main(argv=None) -> int:
     download_parser.add_argument("--min-confidence", type=float)
     download_parser.add_argument("--cache", default=os.path.join(os.path.expanduser("~"), ".poplar", "cache"))
     args = parser.parse_args(argv)
+    if args.command == "excel":
+        return _excel(args)
     if args.command == "download-roofs":
         return _download_roofs(args)
     if args.command == "report":
@@ -63,6 +68,28 @@ def main(argv=None) -> int:
     with open(f"{result.directory}/report.txt", encoding="utf-8") as handle:
         print(handle.read())
     return 2 if result.status == "failed" else 0
+
+
+def _excel(args) -> int:
+    import json
+
+    from .calibration_excel import write_calibration_workbook
+
+    report_path = os.path.join(args.folder, "calibration.json")
+    if not os.path.isfile(report_path):
+        print(f"no calibration.json in {args.folder}", file=sys.stderr)
+        return 1
+    with open(report_path, encoding="utf-8") as handle:
+        report = json.load(handle)
+    calibration, name = {}, ""
+    used = os.path.join(args.folder, "scenario_used.json")
+    if os.path.isfile(used):
+        with open(used, encoding="utf-8") as handle:
+            scenario = json.load(handle)
+        calibration, name = scenario.get("calibration") or {}, scenario.get("name") or ""
+    print(write_calibration_workbook(report, os.path.join(args.folder, "calage.xlsx"), args.language, calibration,
+                                     name))
+    return 0
 
 
 def _download_roofs(args) -> int:

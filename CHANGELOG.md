@@ -3,6 +3,14 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.6.0 – 30/09/2026
+
+- **Export Excel du calage** : bouton **Exporter en Excel…** de l'onglet Calage, qui enregistre le calage tel qu'il est affiché, réglages en cours compris. Chaque calcul qui part des toits écrit aussi un `calage.xlsx`.
+  - Feuilles : Synthèse, Classes et Distribution de chaque groupe, Hypothèses, Sources.
+  - Graphiques Excel natifs ; la population de chaque classe est une formule Excel.
+  - Aucune dépendance ajoutée : le fichier est écrit directement.
+- Ligne de commande : `python -m engine excel <dossier>`.
+
 ## 0.5.1 – 30/09/2026
 
 - **Overture beaucoup plus rapide** : un index des fichiers de chaque version d'Overture, fourni avec le plugin et publié sur GitHub, évite d'interroger les 512 fichiers. On passe de 360 Mo et plus d'une demi-heure à environ 50 Mo pour Muramvya.
