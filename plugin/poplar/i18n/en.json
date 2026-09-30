@@ -425,9 +425,6 @@
  "calibration.roof_layer": "Roof layer",
  "calibration.roof_layer.tip.title": "Roof layer",
  "calibration.roof_layer.tip": "Polygons (area computed) or points with an area field, from a file or a database.",
- "calibration.roof_file": "or Open Buildings file",
- "calibration.roof_file.tip.title": "Google Open Buildings",
- "calibration.roof_file.tip": "CSV tile (possibly compressed) of Google Open Buildings: read directly, not through QGIS. Takes precedence over the layer.",
  "calibration.area_field": "Area (m²)",
  "calibration.area_field.tip.title": "Roof area",
  "calibration.area_field.tip": "Area field in m²; empty: area computed from the polygon, in the calculation CRS.",
@@ -605,5 +602,6 @@
  "download.replace": "The roofs were already downloaded on {date} ({kept} roofs in {file}).\n\nDownload them again and replace this file?",
  "calibration.roof_origin": "✔ Roofs downloaded on {date}: {kept} roofs ({dataset}).",
  "calibration.downloaded": "Roofs downloaded: {kept} roofs in {file}, chosen as the roof layer.",
- "water.with_default": "{name} (empty = {value})"
+ "water.with_default": "{name} (empty = {value})",
+ "calibration.csv_source": "Google Open Buildings CSV tile of the older scenario: {file}, read directly. Choosing a layer replaces it."
 }

@@ -8,11 +8,12 @@ Every setting is written into the ``calibration`` section of the scenario.
 """
 
 import json
+import os
 
 import numpy as np
 from qgis.core import QgsTask
 from qgis.core import QgsFieldProxyModel
-from qgis.gui import QgsFieldComboBox, QgsFileWidget
+from qgis.gui import QgsFieldComboBox
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFileDialog, QFormLayout,
@@ -150,6 +151,7 @@ class CalibrationPage(QWidget):
         self.census_memory = {}
         self.task = None
         self._building = False
+        self.csv_source = None       # Google Open Buildings CSV tile of an older scenario, read directly
         layout = QVBoxLayout(self)
 
         self.use_roofs = QCheckBox(tr("calibration.use_roofs"))
@@ -170,9 +172,6 @@ class CalibrationPage(QWidget):
         self.roof_origin.setWordWrap(True)
         self.roof_origin.setVisible(False)
         form.addRow("", self.roof_origin)
-        self.roof_file = QgsFileWidget()
-        self.roof_file.setFilter("Google Open Buildings (*.csv *.csv.gz *.gz)")
-        add_row(form, "calibration.roof_file", self.roof_file)
         self.area_field = QgsFieldComboBox()
         self.area_field.setAllowEmptyFieldName(True)
         add_row(form, "calibration.area_field", self.area_field)
@@ -427,7 +426,6 @@ class CalibrationPage(QWidget):
     def _roofs_downloaded(self, layer):
         if layer is None:
             return
-        self.roof_file.setFilePath("")
         self.roof_layer.setLayer(layer)            # area and confidence fields are found by their names
         origin = self._show_roof_origin(layer)
         if origin and origin.get("imagery_year"):
@@ -441,8 +439,14 @@ class CalibrationPage(QWidget):
         """Roofs downloaded by Poplar: date, number and source shown under the layer."""
         from ..engine.roofs import download_origin
 
+        if layer is not None and not self._building:
+            self.csv_source = None                  # a layer chosen replaces the CSV tile of an older scenario
         spec = source_of(layer) if layer is not None else None
         origin = download_origin(spec["source"]) if spec and not spec.get("unsupported") else None
+        if origin is None and layer is None and self.csv_source:
+            self.roof_origin.setText(tr("calibration.csv_source", file=os.path.basename(self.csv_source)))
+            self.roof_origin.setVisible(True)
+            return None
         if origin and origin.get("imagery_year") and self.roof_year.value() <= 1899 and not self._building:
             self.roof_year.setValue(int(origin["imagery_year"]))      # year of the images, when not set yet
         if origin:
@@ -520,10 +524,10 @@ class CalibrationPage(QWidget):
         self.use_roofs.setChecked((data.get("base_population") or {}).get("source") == "buildings")
         buildings = calibration.get("buildings") or {}
         source = buildings.get("source") or ""
-        self.roof_file.setFilePath("")
+        self.csv_source = None
         self.roof_layer.setLayer(None)
         if source.lower().endswith((".csv", ".gz")):
-            self.roof_file.setFilePath(self.dialog.absolute(source))
+            self.csv_source = self.dialog.absolute(source)            # kept as it is (no field of its own)
         elif source:
             layer = find_or_add_layer(self.dialog.absolute(source), buildings.get("layer"), where=buildings.get("where"))
             if layer is not None:
@@ -572,12 +576,12 @@ class CalibrationPage(QWidget):
         self.editor.setEnabled(False)
         self.status.setText(tr("calibration.not_computed") if source else "")
         self._building = False
+        self._show_roof_origin(self.roof_layer.currentLayer())
 
     def store(self, data):
         buildings = {}
-        path = self.roof_file.filePath()
-        if path:
-            buildings = {"source": path}
+        if self.roof_layer.currentLayer() is None and self.csv_source:
+            buildings = {"source": self.csv_source}
         elif self.roof_layer.currentLayer() is not None:
             buildings = source_of(self.roof_layer.currentLayer())
         if not buildings:

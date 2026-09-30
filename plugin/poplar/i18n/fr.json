@@ -425,9 +425,6 @@
  "calibration.roof_layer": "Couche des toits",
  "calibration.roof_layer.tip.title": "Couche des toits",
  "calibration.roof_layer.tip": "Polygones (surface calculée) ou points avec un champ de surface, depuis un fichier ou une base de données.",
- "calibration.roof_file": "ou fichier Open Buildings",
- "calibration.roof_file.tip.title": "Google Open Buildings",
- "calibration.roof_file.tip": "Tuile CSV (éventuellement compressée) de Google Open Buildings : lue directement, sans passer par QGIS. Prioritaire sur la couche.",
  "calibration.area_field": "Surface (m²)",
  "calibration.area_field.tip.title": "Surface du toit",
  "calibration.area_field.tip": "Champ de surface en m² ; vide : surface calculée à partir du polygone, dans le système de calcul.",
@@ -605,5 +602,6 @@
  "download.replace": "Les toits ont déjà été téléchargés le {date} ({kept} toits dans {file}).\n\nLes télécharger à nouveau et remplacer ce fichier ?",
  "calibration.roof_origin": "✔ Toits téléchargés le {date} : {kept} toits ({dataset}).",
  "calibration.downloaded": "Toits téléchargés : {kept} toits dans {file}, choisis comme couche des toits.",
- "water.with_default": "{name} (vide = {value})"
+ "water.with_default": "{name} (vide = {value})",
+ "calibration.csv_source": "Tuile CSV Google Open Buildings de l'ancien scénario : {file}, lue directement. Choisir une couche la remplace."
 }

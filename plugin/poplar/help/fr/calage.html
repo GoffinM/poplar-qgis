@@ -12,12 +12,12 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <table>
 <tr><th>Réglage</th><th>Rôle</th></tr>
 <tr><td>Couche des toits</td><td>Polygones, dont la surface est calculée, ou points avec un champ de surface, depuis un fichier ou une base de données (bouton <b>…</b>)</td></tr>
-<tr><td>Fichier Open Buildings</td><td>Tuile CSV de Google Open Buildings, lue directement. Ce fichier est prioritaire sur la couche</td></tr>
 <tr><td>Surface</td><td>Champ en m² ; vide : surface calculée dans le système de calcul</td></tr>
 <tr><td>Usage</td><td>Champ de catégories, avec un <b>coefficient</b> par catégorie (habitation = 1, mixte = 0,5, commerce = 0…). Les catégories absentes du tableau comptent 1 et sont listées dans le rapport</td></tr>
 <tr><td>Confiance</td><td>Seuil <b>désactivé par défaut</b> ; activé, il écarte les toits douteux</td></tr>
 </table>
 <p>Chaque toit est rattaché à une maille et à une strate par son <b>centroïde</b>.</p>
+<p>Les anciens scénarios qui lisaient directement une tuile CSV de Google Open Buildings restent utilisables : la tuile est indiquée sous la couche des toits, et choisir une couche la remplace. Pour de nouveaux toits, utilisez <b>Télécharger les toits…</b>.</p>
 <h3>Télécharger les toits</h3>
 <p>Le bouton <b>Télécharger les toits…</b> va chercher les toits de <b>Google Open Buildings v3</b>, des données publiques accessibles sans compte, sur la zone d'étude.</p>
 <table>

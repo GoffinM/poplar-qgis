@@ -7,12 +7,13 @@ L'onglet **Calage** calcule la population de départ à partir des **toits**, au
 | Réglage | Rôle |
 |---|---|
 | Couche des toits | Polygones, dont la surface est calculée, ou points avec un champ de surface, depuis un fichier ou une base de données (bouton **…**) |
-| Fichier Open Buildings | Tuile CSV de Google Open Buildings, lue directement. Ce fichier est prioritaire sur la couche |
 | Surface | Champ en m² ; vide : surface calculée dans le système de calcul |
 | Usage | Champ de catégories, avec un **coefficient** par catégorie (habitation = 1, mixte = 0,5, commerce = 0…). Les catégories absentes du tableau comptent 1 et sont listées dans le rapport |
 | Confiance | Seuil **désactivé par défaut** ; activé, il écarte les toits douteux |
 
 Chaque toit est rattaché à une maille et à une strate par son **centroïde**.
+
+Les anciens scénarios qui lisaient directement une tuile CSV de Google Open Buildings restent utilisables : la tuile est indiquée sous la couche des toits, et choisir une couche la remplace. Pour de nouveaux toits, utilisez **Télécharger les toits…**.
 
 ### Télécharger les toits
 

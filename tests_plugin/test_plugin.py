@@ -694,6 +694,41 @@ def test_crossing_on_and_off_keeps_the_values(iface, scenario_copy):
     QgsProject.instance().clear()
 
 
+def test_csv_tile_of_an_older_scenario_is_kept_until_a_layer_is_chosen(iface, scenario_copy, tmp_path):
+    import gzip
+
+    from poplar.ui.main_dialog import MainDialog
+
+    tile = tmp_path / "tile.csv.gz"
+    with gzip.open(tile, "wt", encoding="utf-8") as handle:
+        handle.write("latitude,longitude,area_in_meters,confidence,geometry,full_plus_code\n")
+    with open(_with_calibration(scenario_copy), encoding="utf-8") as handle:
+        data = json.load(handle)
+    data["calibration"]["buildings"] = {"source": str(tile)}
+    with open(scenario_copy, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("calibration")
+    assert page.roof_layer.currentLayer() is None and "tile.csv.gz" in page.roof_origin.text()
+    assert dialog.collect()["calibration"]["buildings"]["source"] == str(tile)
+    roofs = find_layer_named("buildings_muramvya") or _add_roofs()
+    page.roof_layer.setLayer(roofs)
+    assert page.csv_source is None and "buildings_muramvya" in dialog.collect()["calibration"]["buildings"]["source"]
+    QgsProject.instance().clear()
+
+
+def find_layer_named(prefix):
+    return next((layer for layer in QgsProject.instance().mapLayers().values() if layer.name().startswith(prefix)),
+                None)
+
+
+def _add_roofs():
+    from poplar.ui.widgets import find_or_add_layer
+
+    return find_or_add_layer(os.path.join(MURAMVYA, "buildings_muramvya.gpkg"))
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
