@@ -4,4 +4,4 @@ The engine only depends on numpy, scipy and GDAL/osgeo, which ship with QGIS.
 It must never import ``qgis``.
 """
 
-__version__ = "0.3.5"
+__version__ = "0.3.6"

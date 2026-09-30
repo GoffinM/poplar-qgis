@@ -1,6 +1,6 @@
 # Vérification du plugin sur votre poste
 
-Version 0.3.5. Si une version précédente est installée, désinstallez-la d'abord (**Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**), puis installez la nouvelle.
+Version 0.3.6. Si une version précédente est installée, désinstallez-la d'abord (**Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**), puis installez la nouvelle.
 
 Durée : 20 à 25 minutes. Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
 
@@ -8,11 +8,11 @@ Durée : 20 à 25 minutes. Environnement : QGIS 3.40 LTR sous Windows, puis QGIS
 
 Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exemple**.
 
-1. **Plugin** : téléchargez directement `poplar-0.3.5.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.3.5.zip
+1. **Plugin** : téléchargez directement `poplar-0.3.6.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.3.6.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis **décompressez** l'archive. Le dossier `data/test/muramvya/` contient le scénario et les données.
 
-⚠️ **N'installez pas dans QGIS l'archive complète du dépôt** (`poplar-qgis-claude-legacy-code-assessment-frf66q.zip`). Ce n'est pas un plugin : QGIS refuse alors de le charger, avec l'erreur « No module named 'poplar-qgis-…/plugin/poplar' ». Le seul fichier à installer est `poplar-0.3.5.zip`, que l'on trouve aussi, une fois l'archive du dépôt décompressée, dans son dossier `dist/`.
+⚠️ **N'installez pas dans QGIS l'archive complète du dépôt** (`poplar-qgis-claude-legacy-code-assessment-frf66q.zip`). Ce n'est pas un plugin : QGIS refuse alors de le charger, avec l'erreur « No module named 'poplar-qgis-…/plugin/poplar' ». Le seul fichier à installer est `poplar-0.3.6.zip`, que l'on trouve aussi, une fois l'archive du dépôt décompressée, dans son dossier `dist/`.
 
 **Si cette erreur est déjà apparue**, supprimez d'abord l'installation ratée :
 1. Fermez QGIS.
@@ -22,7 +22,7 @@ Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exe
 ## 1. Installer
 
 1. Dans QGIS : **Extensions › Installer/Gérer les extensions › Installer depuis un ZIP**.
-2. Choisissez `dist/poplar-0.3.5.zip`, puis cliquez sur **Installer l'extension**.
+2. Choisissez `dist/poplar-0.3.6.zip`, puis cliquez sur **Installer l'extension**.
 3. ✅ Vérifiez qu'une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent.
 
 ## 2. Parcourir l'interface
@@ -91,7 +91,7 @@ Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exe
 | D.4 | Fermer QGIS, le rouvrir, **Ouvrir…** le scénario | La table est retrouvée (noter si QGIS demande le mot de passe) |
 | D.5 | Noter la durée de « Calculer le calage » | Quelques secondes pour Muramvya ; à mesurer sur une grande table |
 
-## 4 quater. Téléchargement des toits (version 0.3.5)
+## 4 quater. Téléchargement des toits (version 0.3.5, retouchée en 0.3.6)
 
 Connexion Internet nécessaire.
 
@@ -99,7 +99,8 @@ Connexion Internet nécessaire.
 |---|---|---|
 | E.1 | Onglet **Calage**, strates `commune_muramvya` choisies : **Télécharger les toits…** | La fenêtre s'ouvre avec la zone `commune_muramvya`, une marge de 1 km et une destination `toits\google_open_buildings_commune_muramvya.gpkg` |
 | E.2 | **Estimer** | « Zone de … km² : 2 tuile(s), dont 0 déjà en cache ; 129 Mo à télécharger » |
-| E.3 | Marge à 0, **Télécharger** | Progression ; « 39 126 toits enregistrés » ; la couche est ajoutée et choisie, avec la surface `area_m2` |
+| E.3 | Marge à 0, **Télécharger** | Progression ; message « ✔ Terminé : 39 126 toits… » sur toute la largeur ; « Fermer » mis en avant ; dans l’onglet Calage, sous la couche : « ✔ Toits téléchargés le … : 39 126 toits » |
+| E.3 bis | Rouvrir la fenêtre, puis **Télécharger à nouveau** | Message « Déjà téléchargé le … » ; une confirmation est demandée avant de remplacer le fichier |
 | E.4 | **Calculer le calage** | Rural : 16,9 m² par habitant (comme avec les toits des classeurs) ; urbain : 12,40 m², écart d'environ +1,0 % |
 | E.5 | Rouvrir la fenêtre, marge 2 km, **Estimer** | « dont 2 déjà en cache ; 0 Mo » ; le téléchargement prend quelques secondes ; environ 65 700 toits |
 | E.6 | **Annuler** pendant un téléchargement | « Téléchargement annulé », aucun fichier partiel dans le cache |

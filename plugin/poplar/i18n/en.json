@@ -599,5 +599,10 @@
  "download.error": "Failed: {error}",
  "download.running": "Downloading…",
  "download.cancelled": "Download cancelled.",
- "download.done": "{kept} roofs saved (out of {read} read in the tiles). The layer is chosen in the Calibration tab."
+ "download.done": "✔ Done: {kept} roofs saved in {file} ({read} read in the tiles). The layer is added to the project and chosen in the Calibration tab: you can close this window.",
+ "download.existing": "✔ Already downloaded on {date}: {kept} roofs in {file}. « Download again » would replace this file.",
+ "download.again": "Download again",
+ "download.replace": "The roofs were already downloaded on {date} ({kept} roofs in {file}).\n\nDownload them again and replace this file?",
+ "calibration.roof_origin": "✔ Roofs downloaded on {date}: {kept} roofs ({dataset}).",
+ "calibration.downloaded": "Roofs downloaded: {kept} roofs in {file}, chosen as the roof layer."
 }

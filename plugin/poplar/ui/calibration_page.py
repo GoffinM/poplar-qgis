@@ -165,6 +165,11 @@ class CalibrationPage(QWidget):
         download.setToolTip(tip("calibration.download"))
         download.clicked.connect(lambda: self.download_roofs())
         form.addRow("", download)
+        self.roof_origin = QLabel()
+        self.roof_origin.setObjectName("chip")
+        self.roof_origin.setWordWrap(True)
+        self.roof_origin.setVisible(False)
+        form.addRow("", self.roof_origin)
         self.roof_file = QgsFileWidget()
         self.roof_file.setFilter("Google Open Buildings (*.csv *.csv.gz *.gz)")
         add_row(form, "calibration.roof_file", self.roof_file)
@@ -399,6 +404,7 @@ class CalibrationPage(QWidget):
         for combo in (self.area_field, self.usage_field, self.confidence_field):
             combo.setLayer(layer)
             combo.setField("")
+        self._show_roof_origin(layer)
         if layer is not None and not self._building:
             names = {f.name().lower(): f.name() for f in layer.fields()}
             for candidate in self.AREA_NAMES:
@@ -423,6 +429,25 @@ class CalibrationPage(QWidget):
             return
         self.roof_file.setFilePath("")
         self.roof_layer.setLayer(layer)            # area and confidence fields are found by their names
+        origin = self._show_roof_origin(layer)
+        if origin:
+            from .download_dialog import _summary
+
+            self.dialog.iface.messageBar().pushSuccess("Poplar", tr("calibration.downloaded", **_summary(origin)))
+
+    def _show_roof_origin(self, layer):
+        """Roofs downloaded by Poplar: date, number and source shown under the layer."""
+        from ..engine.roofs import download_origin
+
+        spec = source_of(layer) if layer is not None else None
+        origin = download_origin(spec["source"]) if spec and not spec.get("unsupported") else None
+        if origin:
+            from .download_dialog import _summary
+
+            self.roof_origin.setText(tr("calibration.roof_origin", dataset=origin.get("dataset", ""),
+                                        **_summary(origin)))
+        self.roof_origin.setVisible(bool(origin))
+        return origin
 
     def _strata_layer_changed(self, layer):
         """New strata layer: no group nor census field until chosen (never the first field by default)."""

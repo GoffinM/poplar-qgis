@@ -14,7 +14,7 @@ from qgis.core import (
 from qgis.gui import QgsFileWidget
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtWidgets import (
-    QApplication, QCheckBox, QDialog, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel,
+    QApplication, QCheckBox, QDialog, QMessageBox, QDialogButtonBox, QDoubleSpinBox, QFormLayout, QHBoxLayout, QLabel,
     QProgressBar, QPushButton, QVBoxLayout, QWidget,
 )
 
@@ -23,6 +23,7 @@ from ..engine.downloads.fetch import DownloadCancelled, FileCache, UrllibFetcher
 from ..engine.downloads.open_buildings import download_open_buildings, estimate
 from ..engine.downloads.zone import DownloadZone, EmptyZone, ZoneLayer
 from ..engine.library import slug
+from ..engine.roofs import download_origin
 from ..i18n import tr
 from .widgets import add_row, choice_combo, find_or_add_layer, layer_combo, source_of
 
@@ -66,6 +67,20 @@ def _engine_layer(layer):
     return ZoneLayer(with_password(spec["source"]), spec.get("layer"), spec.get("where"))
 
 
+def _number(value):
+    return f"{value:,}".replace(",", " ")
+
+
+def _summary(report):
+    """Values shown about a download: date, roofs kept and read, file name."""
+    counts = report.get("counts") or {}
+    date = str(report.get("date", ""))[:10]
+    if len(date) == 10:
+        date = f"{date[8:10]}/{date[5:7]}/{date[0:4]}"
+    return {"date": date, "kept": _number(counts.get("kept", 0)), "read": _number(counts.get("read", 0)),
+            "file": os.path.basename(report.get("output", ""))}
+
+
 class DownloadTask(QgsTask):
     done = pyqtSignal(object, object)  # report, error (None and None when cancelled)
 
@@ -106,6 +121,7 @@ class DownloadRoofsDialog(QDialog):
         self.report = None
         self.layer = None
         layout = QVBoxLayout(self)
+        layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetMinimumSize)   # grows with the messages
         intro = QLabel(tr("download.intro"))
         intro.setWordWrap(True)
         layout.addWidget(intro)
@@ -155,8 +171,9 @@ class DownloadRoofsDialog(QDialog):
         self.info.setWordWrap(True)
         self.info.setObjectName("chip")
         row.addWidget(self.estimate_button)
-        row.addWidget(self.info, 1)
+        row.addStretch(1)
         layout.addLayout(row)
+        layout.addWidget(self.info)                                # full width: the result must be read at once
         self.progress = QProgressBar()
         self.progress.setRange(0, 100)
         self.progress.setVisible(False)
@@ -178,15 +195,41 @@ class DownloadRoofsDialog(QDialog):
         layout.addWidget(self.buttons)
 
         self.zone_layer.layerChanged.connect(self._zone_changed)
+        self.output.fileChanged.connect(lambda *args: self._show_existing())
         if zone_layer is not None:
             self.zone_layer.setLayer(zone_layer)
         self._zone_changed(self.zone_layer.currentLayer())
 
     def _zone_changed(self, layer):
-        self.info.setText("")
         if layer is not None:
             name = slug(layer.name()) or "zone"
             self.output.setFilePath(os.path.join(self.base_dir, "toits", f"google_open_buildings_{name}.gpkg"))
+        self._show_existing()
+
+    def _say(self, text, state="ok"):
+        self.info.setText(text)
+        self.info.setProperty("state", state)
+        self.info.style().unpolish(self.info)
+        self.info.style().polish(self.info)
+
+    def _show_existing(self):
+        """A download already made to this file is announced, and the button says it will be replaced."""
+        origin = download_origin(self.output.filePath())
+        if origin:
+            self._say(tr("download.existing", **_summary(origin)))
+        else:
+            self._say("")
+        self._downloaded(bool(origin))
+        return origin
+
+    def _downloaded(self, done):
+        """Once the roofs are there, « Close » is the highlighted button and « Download again » a plain one."""
+        self.start_button.setText(tr("download.again" if done else "download.start"))
+        self.start_button.setObjectName("" if done else "primary")
+        self.close_button.setObjectName("primary" if done else "")
+        for button in (self.start_button, self.close_button):
+            button.style().unpolish(button)
+            button.style().polish(button)
 
     def _cache(self):
         return FileCache(self.cache_dir.filePath() or default_cache(), self.fetcher or UrllibFetcher(proxy=qgis_proxy()))
@@ -224,13 +267,18 @@ class DownloadRoofsDialog(QDialog):
                              mb=f"{result['bytes_to_download'] / 1e6:,.0f}".replace(",", " ")))
         return result
 
-    def start(self, background=True):
+    def start(self, background=True, ask=True):
         inputs = self._inputs()
         output = self.output.filePath()
         if inputs is None or not output:
             return False
         if not output.lower().endswith(".gpkg"):
             output += ".gpkg"
+        origin = download_origin(output)
+        if origin and ask:
+            answer = QMessageBox.question(self, tr("download.title"), tr("download.replace", **_summary(origin)))
+            if answer != QMessageBox.StandardButton.Yes:
+                return False
         zone, limit, crs_wkt, margin = inputs
         QgsSettings().setValue(CACHE_SETTING, self.cache_dir.filePath())
         min_confidence = self.confidence.value() if self.confidence_on.isChecked() else None
@@ -255,23 +303,24 @@ class DownloadRoofsDialog(QDialog):
         self.start_button.setEnabled(not running)
         self.estimate_button.setEnabled(not running)
         self.cancel_button.setEnabled(running)
-        self.info.setText(tr("download.running") if running else self.info.text())
+        if running:
+            self._say(tr("download.running"))
 
     def _finished(self, report, error):
         self.task = None
         self._running(False)
         if error is not None:
             key = "download.empty_zone" if isinstance(error, EmptyZone) else "download.error"
-            self.info.setText(tr(key, error=error))
+            self._say(tr(key, error=error), "warn")
             return
         if report is None:
-            self.info.setText(tr("download.cancelled"))
+            self._say(tr("download.cancelled"), "warn")
             return
         self.report = report
         self.layer = find_or_add_layer(report["output"], report["layer"])
         if self.layer is not None:
             self.layer.setName(os.path.splitext(os.path.basename(report["output"]))[0])
-        counts = report["counts"]
-        self.info.setText(tr("download.done", kept=f"{counts['kept']:,}".replace(",", " "),
-                             read=f"{counts['read']:,}".replace(",", " ")))
+        self._say(tr("download.done", **_summary(report)))
+        self._downloaded(True)                                   # « Close » becomes the obvious next step
+        self.close_button.setFocus()
         self.downloaded.emit(self.layer)

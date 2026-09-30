@@ -599,5 +599,10 @@
  "download.error": "Échec : {error}",
  "download.running": "Téléchargement en cours…",
  "download.cancelled": "Téléchargement annulé.",
- "download.done": "{kept} toits enregistrés (sur {read} lus dans les tuiles). La couche est choisie dans l'onglet Calage."
+ "download.done": "✔ Terminé : {kept} toits enregistrés dans {file} ({read} lus dans les tuiles). La couche est ajoutée au projet et choisie dans l'onglet Calage : vous pouvez fermer cette fenêtre.",
+ "download.existing": "✔ Déjà téléchargé le {date} : {kept} toits dans {file}. « Télécharger à nouveau » remplacerait ce fichier.",
+ "download.again": "Télécharger à nouveau",
+ "download.replace": "Les toits ont déjà été téléchargés le {date} ({kept} toits dans {file}).\n\nLes télécharger à nouveau et remplacer ce fichier ?",
+ "calibration.roof_origin": "✔ Toits téléchargés le {date} : {kept} toits ({dataset}).",
+ "calibration.downloaded": "Toits téléchargés : {kept} toits dans {file}, choisis comme couche des toits."
 }

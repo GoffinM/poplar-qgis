@@ -592,7 +592,7 @@ class _FakeTiles:
             handle.write("\n".join(self.rows) + "\n")
 
 
-def test_roofs_downloaded_from_the_calibration_tab(iface, scenario_copy, tmp_path):
+def test_roofs_downloaded_from_the_calibration_tab(iface, scenario_copy, tmp_path, monkeypatch):
     from poplar.ui.main_dialog import MainDialog
 
     dialog = MainDialog(iface, lambda page: None)
@@ -614,6 +614,22 @@ def test_roofs_downloaded_from_the_calibration_tab(iface, scenario_copy, tmp_pat
     assert page.roof_layer.currentLayer() is window.layer and page.area_field.currentField() == "area_m2"
     assert page.confidence_field.currentField() == "confidence"
     assert os.path.exists(window.report["output"].replace(".gpkg", ".download.json"))
+
+    kept = f"{counts['kept']:,}".replace(",", " ")
+    assert window.info.text().startswith("✔") and kept in window.info.text()          # done, said plainly
+    from poplar.i18n import tr
+
+    assert window.start_button.text() == tr("download.again") and window.close_button.objectName() == "primary"
+    assert page.roof_origin.isVisible() or not page.isVisible()
+    assert kept in page.roof_origin.text() and any(kept in str(m) for m in iface.bar.messages)
+
+    from qgis.PyQt.QtWidgets import QMessageBox
+
+    again = page.download_roofs(show=False)                          # opened again: the download is announced
+    assert again.info.text().startswith("✔") and again.start_button.text() == tr("download.again")
+    assert again.close_button.objectName() == "primary" and again.start_button.objectName() == ""
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.No)
+    assert not again.start(background=False)                         # a second click is confirmed first
 
     assert page.compute(background=False)
     assert page.report["roofs"]["download"]["dataset"] == "Google Open Buildings v3"
@@ -672,7 +688,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.3.5"
+    assert version() == "0.3.6"
     AboutDialog()
 
 
