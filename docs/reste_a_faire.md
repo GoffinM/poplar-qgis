@@ -1,9 +1,12 @@
-# Reste à faire (état au 30/09/2026, version 0.3.7)
+# Reste à faire (état au 30/09/2026, version 0.4.0)
 
-## 0. Retour de test du 30/09 (corrigé en 0.3.4)
+## 0. Version de référence 0.4.0 (30/09)
 
-- Calage validé sur le poste (mêmes résultats), exécution rapide.
-- Corrigé : erreur Python au passage du découpage en « manuel » ; courbe toujours dessinée en paliers (segments et polynôme s'affichent maintenant) ; après un calcul, **toutes les années de sortie** sont chargées (la dernière cochée).
+- Consolidation faite : banc de non-régression (`tools/banc.py`), recette unique par onglet (`verification_poste.md`), `CHANGELOG.md`, relecture du code et corrections.
+- **À faire de votre côté** : passer la recette entière une fois. Elle devient la référence.
+- Points relevés à la relecture, non bloquants, laissés pour plus tard :
+  - « Estimer » attend la réponse du serveur sans rendre la main à QGIS : quelques secondes au plus ;
+  - un proxy authentifié par le gestionnaire d'authentification de QGIS n'est pas encore pris en charge (pas de proxy à la SHER).
 
 ## 1. Calage : compléments
 

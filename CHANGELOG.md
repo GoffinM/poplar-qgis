@@ -11,7 +11,16 @@ Consolidation avant les chantiers suivants (Overture, export Excel, rapport clie
 - Onglet Calage : le champ « ou fichier Open Buildings » est retiré, puisque le téléchargement le remplace. La tuile CSV d'un ancien scénario est gardée et affichée sous la couche des toits.
 - Tableaux de paramètres (TCAM, densités, indicateurs) : cocher ou décocher « Croiser » ne perd plus les valeurs et ne laisse plus d'avertissement « Absent de la couche ».
 - Toits téléchargés : l'année des images est remplie d'office (2023, version v3 de Google Open Buildings).
-- Relecture du code et corrections ; liste de vérification sur le poste réécrite en une seule liste par onglet.
+- **Relecture du code**, avec correction de sept défauts :
+  - un téléchargement raté ou annulé n'abîme plus les toits déjà téléchargés ;
+  - une tuile reçue incomplète n'est plus gardée en cache ;
+  - télécharger à nouveau libère la couche avant de remplacer le fichier, ce qui évite l'erreur « permission denied » sous Windows ;
+  - une couche de zones introuvable ne fait plus perdre les valeurs à l'enregistrement ;
+  - les valeurs croisées reviennent quand on recoche « Croiser » ;
+  - seules des valeurs numériques sont saisissables dans les tableaux ;
+  - fichiers toujours refermés.
+- Réglages de compatibilité avec QGIS 4 (énumérations qualifiées).
+- Liste de vérification sur le poste réécrite en une seule recette, par onglet.
 
 ## 0.3.7 – 30/09/2026
 
