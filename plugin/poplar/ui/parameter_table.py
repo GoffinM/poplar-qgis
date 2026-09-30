@@ -17,7 +17,7 @@ from qgis.PyQt.QtWidgets import (
 )
 
 from ..compat import POLYGON_FILTER
-from ..engine.parameters import DEFAULT_KEY, KEY_SEPARATOR
+from ..engine.parameters import DEFAULT_KEY, KEY_SEPARATOR, crossed_key
 from ..engine.tables import TableError, parameter_sheet, parameter_values, read_table, sheets, write_table
 from ..i18n import tip, tr
 from .widgets import find_or_add_layer, layer_with_field, source_of
@@ -111,16 +111,30 @@ class ParameterTableWidget(QGroupBox):
     def _zone_columns(self):
         return 2 if self.crossed else 1
 
+    def _shown_zone_columns(self):
+        """Zone columns of the table as it is drawn (it lags behind the checkbox while it is being toggled)."""
+        return 2 if getattr(self, "_drawn_crossed", False) else 1
+
     def _headers(self):
         zones = [tr("parameters.zone")] + ([tr("parameters.zone_2")] if self.crossed else [])
         return zones + [tr("parameters.constant")] + [f"{y:g}" for y in self.years]
 
     def _cross_toggled(self, checked):
+        """Values follow the layout: « Rural » becomes « Rural | all » when crossed, and back when not."""
         values = self.values()
         self.second_row.setVisible(checked)
-        if not checked:
-            values = {k: v for k, v in values.items() if KEY_SEPARATOR not in k}
-        self.set_values(values)
+        converted = {}
+        for key, value in values.items():
+            if key == DEFAULT_KEY:
+                converted[key] = value
+            elif checked:
+                converted[key if KEY_SEPARATOR in key else crossed_key(key, None)] = value
+            else:
+                first, _, second = key.partition(KEY_SEPARATOR)
+                if second in ("", DEFAULT_KEY) and first != DEFAULT_KEY:   # « a | all »: back to « a »
+                    converted[first] = value
+                # « a | b » and « all | b » depend on the second layer: they go with it
+        self.set_values(converted)
         self.sync_rows()
 
     def zone_values(self):
@@ -134,6 +148,8 @@ class ParameterTableWidget(QGroupBox):
         first, second = self.zone_values()
         if second is None:
             return list(first)
+        if not second:                          # second layer not chosen yet: « a | all » rows
+            return [crossed_key(a, None) for a in first]
         return [f"{a}{KEY_SEPARATOR}{b}" for a, b in itertools.product(first, second)]
 
     # --- values -------------------------------------------------------------------
@@ -141,7 +157,7 @@ class ParameterTableWidget(QGroupBox):
     def values(self):
         """{key: None | number | {year: value}} for every row shown."""
         result = {}
-        start = self._zone_columns()
+        start = self._shown_zone_columns()
         for row in range(self.table.rowCount()):
             key = self.table.item(row, 0).data(VALUE)
             constant = _number(self.table.item(row, start).text() if self.table.item(row, start) else "")
@@ -161,6 +177,7 @@ class ParameterTableWidget(QGroupBox):
         years = {float(y) for v in values.values() if isinstance(v, dict) for y in v}
         self.years = sorted(set(self.years) | years)
         self.table.blockSignals(True)
+        self._drawn_crossed = self.crossed
         self.table.setRowCount(0)
         self.table.setColumnCount(len(self._headers()))
         self.table.setHorizontalHeaderLabels(self._headers())

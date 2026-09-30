@@ -35,6 +35,9 @@ DATASET = "Google Open Buildings v3"
 BASE_URL = "https://storage.googleapis.com/open-buildings-data/v3"
 FOLDERS = {"points": "points_s2_level_6_gzip_no_header", "polygons": "polygons_s2_level_6_gzip_no_header"}
 LEVEL = 6
+IMAGERY_YEAR = 2023
+"""Year given to the roofs by default: v3 was published in May 2023 from the imagery available then.
+The files carry no date per building, so it is an upper bound, to be corrected when known."""
 LICENCE = "CC BY 4.0 ou ODbL v1.0 (au choix) – https://sites.research.google/open-buildings/"
 ATTRIBUTION = "Google Open Buildings (Sirko et al., 2021), v3"
 LAYER = "roofs"
@@ -120,6 +123,7 @@ def download_open_buildings(zone: DownloadZone, output: str, cache: FileCache, k
         "filters": {"min_confidence": min_confidence},
         "tiles": tile_report,
         "counts": counts,
+        "imagery_year": IMAGERY_YEAR,
         "licence": LICENCE,
         "attribution": ATTRIBUTION,
     }

@@ -14,7 +14,11 @@
 ## 1 bis. Indicateurs
 
 - Fait (0.3.7) : chaque paramètre de l'eau est lié à sa propre couche (liste déroulante des valeurs, croisement de deux couches), comme le TCAM.
-- **À préciser** : des besoins non domestiques tirés de l'**affectation des bâtiments** (toits industriels, commerces…). C'est une nouvelle règle de calcul, à valider : par exemple un volume par m² de toit, ou par bâtiment, pour chaque catégorie d'usage, sommé par maille. Aujourd'hui, les toits d'usage à coefficient 0 sont écartés à la lecture ; il faudrait les garder pour ce calcul.
+- **Besoins non domestiques tirés de l'affectation des bâtiments** (réponses du 30/09, besoins réels encore à connaître) :
+  - un volume **par m² de toit** et par jour, pour chaque catégorie d'usage, sommé par maille ;
+  - un volume **qui peut évoluer dans le temps** : valeurs par année, comme les autres paramètres ;
+  - les toits dont le coefficient d'habitat vaut 0 sont **gardés pour ce calcul**, mais ne comptent pas d'habitants.
+  - À coder quand les besoins seront connus ; plan à soumettre.
 
 ## 2. Téléchargement automatique des toits (`plan_telechargement_toits.md`, validé le 30/09)
 

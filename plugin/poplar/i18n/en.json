@@ -444,7 +444,7 @@
  "calibration.confidence_on": "threshold",
  "calibration.roof_year": "Imagery year",
  "calibration.roof_year.tip.title": "Imagery year",
- "calibration.roof_year.tip": "Year of the imagery the roofs were drawn from: used by the suggested growth rate and the report.",
+ "calibration.roof_year.tip": "Year of the imagery the roofs were drawn from: used by the suggested growth rate and the report. For roofs downloaded from Google Open Buildings v3, 2023 is filled in: the version dates from May 2023, but the files do not give the date of each image. Correct it if known.",
  "calibration.strata": "Strata and census",
  "calibration.strata_layer": "Strata",
  "calibration.strata_layer.tip.title": "Calibration strata",

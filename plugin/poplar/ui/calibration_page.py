@@ -430,6 +430,8 @@ class CalibrationPage(QWidget):
         self.roof_file.setFilePath("")
         self.roof_layer.setLayer(layer)            # area and confidence fields are found by their names
         origin = self._show_roof_origin(layer)
+        if origin and origin.get("imagery_year"):
+            self.roof_year.setValue(int(origin["imagery_year"]))      # from the dataset, fresh download
         if origin:
             from .download_dialog import _summary
 
@@ -441,6 +443,8 @@ class CalibrationPage(QWidget):
 
         spec = source_of(layer) if layer is not None else None
         origin = download_origin(spec["source"]) if spec and not spec.get("unsupported") else None
+        if origin and origin.get("imagery_year") and self.roof_year.value() <= 1899 and not self._building:
+            self.roof_year.setValue(int(origin["imagery_year"]))      # year of the images, when not set yet
         if origin:
             from .download_dialog import _summary
 

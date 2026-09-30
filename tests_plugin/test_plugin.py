@@ -238,7 +238,8 @@ def test_parameters_linked_to_layers(iface, scenario_copy, tmp_path):
     growth.layer2.setLayer(communes)
     growth.field2.setField("Type")
     keys = list(growth.values())
-    assert f"{urban}|Urbain1" in keys and keys[-1] == "*" and len(keys) == 5
+    assert f"{urban}|Urbain1" in keys and keys[-1] == "*" and len(keys) == 6
+    assert growth.values()[f"{urban}|*"] == 3.5                           # the value typed before crossing is kept
     _set_cell(growth, f"{urban}|Urbain1", 2, "4")
     spec = dialog.collect()["parameters"]["growth_rate"]
     assert len(spec["zones"]) == 2 and spec["values"][f"{urban}|Urbain1"] == 4
@@ -613,6 +614,7 @@ def test_roofs_downloaded_from_the_calibration_tab(iface, scenario_copy, tmp_pat
     assert not [t for t in texts if raw_key.match(t)]                  # every text of the window is translated
     assert page.roof_layer.currentLayer() is window.layer and page.area_field.currentField() == "area_m2"
     assert page.confidence_field.currentField() == "confidence"
+    assert page.roof_year.value() == 2023                             # year of the dataset, filled in
     assert os.path.exists(window.report["output"].replace(".gpkg", ".download.json"))
 
     kept = f"{counts['kept']:,}".replace(",", " ")
@@ -667,6 +669,28 @@ def test_water_parameters_linked_to_their_own_layers(iface, scenario_copy, tmp_p
     assert water["network_efficiency"]["zones"][0]["field"] == "COMMUNES"
     directory = _run_in_dialog(dialog)
     assert os.path.exists(os.path.join(directory, "water_domestic_2030.tif"))
+    QgsProject.instance().clear()
+
+
+def test_crossing_on_and_off_keeps_the_values(iface, scenario_copy):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    table = dialog.page("indicators").tables["water_per_capita"]
+    communes = next(layer for layer in QgsProject.instance().mapLayers().values()
+                    if layer.name().startswith("commune"))
+    table.layer.setLayer(communes)
+    table.field.setField("Type")
+    table.table.item(0, 1).setText("20")
+    table.table.item(1, 1).setText("40")
+    before = table.values()
+    table.cross.setChecked(True)                                       # « Rural » → « Rural | all »
+    assert table.values() == {"Rural|*": 20, "Urbain1|*": 40, "*": 20}
+    assert "Rural" not in table.status.text()
+    table.cross.setChecked(False)                                      # and back, with no warning left
+    assert table.values() == before and table.unused_keys() == []
+    assert table.status.property("state") == "ok" and not table.second_row.isVisible()
     QgsProject.instance().clear()
 
 

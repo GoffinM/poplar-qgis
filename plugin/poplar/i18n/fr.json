@@ -444,7 +444,7 @@
  "calibration.confidence_on": "seuil",
  "calibration.roof_year": "Année des images",
  "calibration.roof_year.tip.title": "Année des images",
- "calibration.roof_year.tip": "Année des images d'où les toits ont été tirés : sert au TCAM suggéré et au rapport.",
+ "calibration.roof_year.tip": "Année des images d'où les toits ont été tirés : sert au TCAM suggéré et au rapport. Pour des toits téléchargés depuis Google Open Buildings v3, 2023 est proposé d'office : la version date de mai 2023, mais les fichiers ne donnent pas la date de chaque image. À corriger si elle est connue.",
  "calibration.strata": "Strates et recensement",
  "calibration.strata_layer": "Strates",
  "calibration.strata_layer.tip.title": "Strates de calage",

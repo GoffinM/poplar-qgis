@@ -84,7 +84,7 @@ def download_origin(source: str) -> Optional[Dict[str, object]]:
             data = json.load(handle)
     except (OSError, ValueError):
         return None
-    keys = ("dataset", "kind", "date", "output", "licence", "attribution", "zone", "filters", "counts")
+    keys = ("dataset", "kind", "date", "output", "imagery_year", "licence", "attribution", "zone", "filters", "counts")
     return {k: data[k] for k in keys if k in data}
 
 
