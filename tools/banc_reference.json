@@ -1,0 +1,120 @@
+{
+  "muramvya_raster": {
+    "title": "Muramvya 2024 → 2060 à partir du raster de population (chaîne de l'ancien outil)",
+    "figures": {
+      "status": {
+        "value": "success",
+        "label": "Statut du calcul"
+      },
+      "population_2024": {
+        "value": 170565.18,
+        "tolerance": 0.5,
+        "label": "Population 2024"
+      },
+      "population_2060": {
+        "value": 320361.01,
+        "tolerance": 1,
+        "label": "Population 2060"
+      },
+      "growth_vs_legacy": {
+        "value": 1.0,
+        "tolerance": 0.001,
+        "label": "Croissance 2024–2060 / celle de l'ancien outil (309 642 / 164 805)"
+      },
+      "pattern_correlation": {
+        "value": 0.9698,
+        "tolerance": 0.02,
+        "label": "Corrélation par maille avec la sortie finale de l'ancien outil (2060)"
+      },
+      "water_domestic_2060": {
+        "value": 6407.22,
+        "tolerance": 0.5,
+        "label": "Consommation domestique d'eau 2060 (m³/j)"
+      },
+      "balance_error_max": {
+        "value": 0.0,
+        "tolerance": 1e-06,
+        "label": "Écart de bilan maximal sur un pas (hab.)"
+      }
+    }
+  },
+  "muramvya_toits_classeurs": {
+    "title": "Toits → habitants avec les courbes des classeurs de Lionel (mode « classeurs »)",
+    "figures": {
+      "rural": {
+        "value": 139099.65,
+        "tolerance": 0.05,
+        "label": "Muramvya rural (classeur : 139 099,65)"
+      },
+      "urban": {
+        "value": 33253.08,
+        "tolerance": 0.05,
+        "label": "Muramvya urbain (classeur : 33 253,08)"
+      },
+      "total": {
+        "value": 172352.74,
+        "tolerance": 0.1,
+        "label": "Total"
+      }
+    }
+  },
+  "muramvya_toits": {
+    "title": "Scénario « toits » : modèle de calage actuel, puis calcul jusqu'en 2060",
+    "figures": {
+      "status": {
+        "value": "success",
+        "label": "Statut du calcul"
+      },
+      "roofs_read": {
+        "value": 38942,
+        "tolerance": 0,
+        "label": "Toits lus"
+      },
+      "rural_m2_per_inhabitant": {
+        "value": 16.9,
+        "tolerance": 0.001,
+        "label": "Rural : m² de toit par habitant"
+      },
+      "urban_m2_per_inhabitant": {
+        "value": 12.34,
+        "tolerance": 0.001,
+        "label": "Urbain : m² de toit par habitant"
+      },
+      "rural_gap_percent": {
+        "value": 0.0475,
+        "tolerance": 0.01,
+        "label": "Rural : écart au recensement (%)"
+      },
+      "urban_gap_percent": {
+        "value": 0.6073,
+        "tolerance": 0.01,
+        "label": "Urbain : écart au recensement (%)"
+      },
+      "population_start": {
+        "value": 171283,
+        "tolerance": 1,
+        "label": "Population de départ"
+      },
+      "population_2060": {
+        "value": 321709.24,
+        "tolerance": 1,
+        "label": "Population 2060"
+      }
+    }
+  },
+  "telechargement_google": {
+    "title": "Téléchargement Google Open Buildings v3 (réseau)",
+    "figures": {
+      "roofs_kept": {
+        "value": 39126,
+        "tolerance": 0,
+        "label": "Toits dans les deux communes"
+      },
+      "workbook_roofs_found": {
+        "value": 38936,
+        "tolerance": 0,
+        "label": "Toits des classeurs retrouvés à l'identique (sur 38 942)"
+      }
+    }
+  }
+}
