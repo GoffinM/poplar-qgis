@@ -3,6 +3,12 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.7.1 – 30/09/2026
+
+- **Couche des mailles à la demande** : bouton **Générer** dans l'onglet Scénario. Il écrit la couche de l'exécution choisie dans le format voulu, sans relancer le calcul : moins d'une seconde pour Muramvya, contre 6 s pour un calcul. On peut donc lancer les calculs avec « Aucune » et ne générer la couche qu'au besoin.
+- Chaque calcul garde un petit fichier `mailles_base.npz` (12 Ko pour Muramvya) qui rend cette génération immédiate. Pour un calcul plus ancien, la grille est redécoupée une fois.
+- Ligne de commande : `python -m engine grid <dossier>`.
+
 ## 0.7.0 – 30/09/2026 : version du beta testing
 
 - **Couche des mailles** (`mailles.gpkg`) : toutes les mailles de la zone d'étude, vides comprises, avec tous les résultats de chaque année de sortie (population, densité, capacité, non relocalisés, indicateurs), la classe et l'unité administrative. Elle est chargée dans le groupe des résultats. Le format se choisit dans l'onglet Scénario : GeoPackage par défaut, Shapefile en option (avec une table des noms de champs), les deux, ou aucune.

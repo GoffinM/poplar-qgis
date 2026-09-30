@@ -61,7 +61,48 @@ def test_shapefile_names_and_their_table(tmp_path):
 
 def test_no_layer_on_request_and_invalid_choice(tmp_path):
     result = _run(tmp_path / "a", "none")
-    assert not [p for p in result.outputs if "mailles" in p]
+    assert not [p for p in result.outputs if os.path.basename(p).startswith("mailles.")]
+    assert os.path.join(result.directory, "mailles_base.npz") in result.outputs   # kept for « Generate »
     with pytest.raises(ScenarioError) as error:
         _run(tmp_path / "b", "kml")
     assert "output.grid_layer" in str(error.value)
+
+
+def test_layer_rebuilt_on_demand_without_running_again(tmp_path):
+    import json
+
+    from engine.__main__ import main
+    from engine.grid_layer import GridMismatch, rebuild
+
+    zones = [(box(0, 0, 5, 10), "Rural"), (box(5, 0, 10, 10), "Urbain")]
+    reference = _run(tmp_path / "ref", "gpkg", zones=zones)
+    result = _run(tmp_path / "light", "none", zones=zones)
+    assert not os.path.exists(os.path.join(result.directory, "mailles.gpkg"))
+    assert rebuild(result.directory, "gpkg") == [os.path.join(result.directory, "mailles.gpkg")]
+    _, expected = _features(os.path.join(reference.directory, "mailles.gpkg"))
+    _, rebuilt = _features(os.path.join(result.directory, "mailles.gpkg"))
+    assert rebuilt == expected                                               # the same as written by the run
+    assert main(["grid", result.directory, "--format", "both"]) == 0
+
+    used = os.path.join(result.directory, "scenario_used.json")
+    with open(used, encoding="utf-8") as handle:
+        data = json.load(handle)
+    base = data.pop("base_dir")                                              # a run written before 0.7.1:
+    os.remove(os.path.join(result.directory, "mailles_base.npz"))           # no base_dir, no kept cells
+    with open(used, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    written = rebuild(result.directory, "shp", base_dir=base)
+    assert os.path.join(result.directory, "mailles.shp") in written
+    assert os.path.exists(os.path.join(result.directory, "mailles.gpkg"))   # the other format is left alone
+    assert os.path.exists(os.path.join(result.directory, "mailles_base.npz"))  # cut again once, then kept
+    assert main(["grid", result.directory, "--format", "gpkg", "--scenario-folder", base]) == 0
+    _, again = _features(os.path.join(result.directory, "mailles.gpkg"))
+    assert again == expected
+
+    os.remove(os.path.join(result.directory, "mailles_base.npz"))
+    data["cell_size"] = 50                                                   # the data changed since the run
+    data["base_dir"] = base
+    with open(used, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    with pytest.raises(GridMismatch):
+        rebuild(result.directory)

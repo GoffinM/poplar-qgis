@@ -876,6 +876,37 @@ def test_overture_chosen_in_the_download_window(iface, scenario_copy, tmp_path, 
     QgsProject.instance().clear()
 
 
+def test_cell_layer_generated_on_demand(iface, scenario_copy):
+    from poplar.i18n import tr
+    from poplar.ui.main_dialog import MainDialog
+    from poplar.ui.widgets import set_combo_value
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("scenario")
+    set_combo_value(page.grid_layer, "none")
+    assert not page.grid_button.isEnabled()
+    dialog.generate_grid_layer("gpkg", background=False)                # no run yet: said, nothing done
+    assert any(tr("grid.no_run") in str(m) for m in iface.bar.messages)
+    directory = _run_in_dialog(dialog)                                  # a light run: no cell layer
+    assert not os.path.exists(os.path.join(directory, "mailles.gpkg"))
+
+    set_combo_value(page.grid_layer, "gpkg")
+    assert page.grid_button.isEnabled()
+    dialog.generate_grid_layer("gpkg", background=False)
+    assert os.path.exists(os.path.join(directory, "mailles.gpkg"))
+    grid_name = tr("results.grid_layer_name")
+    layers = [l for l in QgsProject.instance().mapLayers().values() if l.name() == grid_name]
+    assert len(layers) == 1 and layers[0].featureCount() > 1000
+
+    dialog.generate_grid_layer("shp", background=False)                 # the open layer is let go first
+    assert os.path.exists(os.path.join(directory, "mailles.shp"))
+    layers = [l for l in QgsProject.instance().mapLayers().values() if l.name() == grid_name]
+    assert len(layers) == 1 and layers[0].source().split("|")[0].endswith("mailles.shp")
+    assert any("mailles" in str(m) or "cells" in str(m) for m in iface.bar.messages[-1:])
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent
@@ -926,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.7.0"
+    assert version() == "0.7.1"
     AboutDialog()
 
 

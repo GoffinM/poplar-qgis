@@ -16,7 +16,7 @@ from ..compat import with_password
 from ..engine import runs
 from ..engine.scenario import ScenarioError, is_connection, scenario_from_dict
 from ..i18n import current_language, tip, tr
-from ..results import load_grid_layer, load_rasters
+from ..results import load_grid_layer, load_rasters, release_grid_layer
 from ..task import RunTask
 from .cleanup_dialog import CleanupDialog, run_title
 from .nonconvergence_dialog import NonConvergenceDialog
@@ -375,12 +375,48 @@ class MainDialog(QDialog):
         self.page("parameters").load(self.data)
         self.run()
 
-    def load_results(self, quantities, years, visible=None):
-        directory = self.results_directory()
+    def _results_group(self, directory):
         group = f"Poplar – {self.data.get('name') or tr('main.untitled')}"
         run = runs.read_run(directory)
         if run is not None:
             group += f" – {run_title(run)}"
+        return group
+
+    def generate_grid_layer(self, fmt, background=True):
+        """Cell layer of the run shown (Results tab, else the latest), written again without running the model."""
+        from ..task import GridLayerTask
+
+        directory = self.results_directory()
+        if not directory or not os.path.isfile(os.path.join(directory, "scenario_used.json")):
+            self.iface.messageBar().pushWarning("Poplar", tr("grid.no_run"))
+            return None
+        release_grid_layer(directory)                   # QGIS lets go of the former file first
+        task = GridLayerTask(directory, fmt, self.base_dir(), _with_passwords, tr("grid.task"))
+        task.done.connect(lambda paths, error: self._grid_layer_done(directory, paths, error))
+        self.grid_task = task
+        if background:
+            QgsApplication.taskManager().addTask(task)
+        else:
+            task.finished(task.run())
+        return task
+
+    def _grid_layer_done(self, directory, paths, error):
+        self.grid_task = None
+        if error is not None:
+            from ..engine.grid_layer import GridMismatch
+
+            key = "grid.mismatch" if isinstance(error, GridMismatch) else "grid.failed"
+            self.iface.messageBar().pushWarning("Poplar", tr(key, error=error))
+            return
+        prefer = "shp" if paths and not any(p.endswith(".gpkg") for p in paths) else "gpkg"
+        layer = load_grid_layer(directory, self._results_group(directory), prefer)
+        run = runs.read_run(directory)
+        self.iface.messageBar().pushSuccess("Poplar", tr("grid.done", run=run_title(run) if run else directory,
+                                                         count=layer.featureCount() if layer else 0))
+
+    def load_results(self, quantities, years, visible=None):
+        directory = self.results_directory()
+        group = self._results_group(directory)
         layers = load_rasters(directory, quantities, years, group, visible)
         grid = load_grid_layer(directory, group)
         if grid is not None and grid not in layers:

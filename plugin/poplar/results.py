@@ -62,14 +62,17 @@ def load_rasters(directory, quantities, years, group_name, visible=None):
     return loaded
 
 
-def load_grid_layer(directory, group_name):
+def load_grid_layer(directory, group_name, prefer=None):
     """Add the cell layer of a run (mailles.gpkg, else mailles.shp) to its group, unticked and unfilled.
 
     It holds every result of every output year: open its attribute table, or style it on any field.
     """
     from qgis.core import QgsFillSymbol, QgsVectorLayer
 
-    for name, uri in (("mailles.gpkg", "mailles.gpkg|layername=mailles"), ("mailles.shp", "mailles.shp")):
+    choices = [("mailles.gpkg", "mailles.gpkg|layername=mailles"), ("mailles.shp", "mailles.shp")]
+    if prefer == "shp":
+        choices.reverse()
+    for name, uri in choices:
         path = os.path.join(directory, name)
         if os.path.exists(path):
             break
@@ -91,6 +94,19 @@ def load_grid_layer(directory, group_name):
     node = group.addLayer(layer)                                  # at the bottom: rasters stay on top
     node.setItemVisibilityChecked(False)
     return layer
+
+
+def release_grid_layer(directory):
+    """Remove from the project the cell layer of a run, so that its file can be written again (Windows)."""
+    project = QgsProject.instance()
+    ids = []
+    for layer_id, layer in project.mapLayers().items():
+        path = layer.source().split("|")[0]
+        if os.path.basename(path).startswith("mailles.") and _inside(path, directory):
+            ids.append(layer_id)
+    if ids:
+        project.removeMapLayers(ids)
+    return len(ids)
 
 
 def _inside(path, directory):

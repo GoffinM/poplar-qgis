@@ -33,3 +33,27 @@ class RunTask(QgsTask):
 
     def finished(self, ok):
         self.done.emit(self.result, self.error)
+
+
+class GridLayerTask(QgsTask):
+    """Writes the cell layer of a finished run again (mailles.gpkg / .shp), without running the model."""
+
+    done = pyqtSignal(object, object)  # (paths or None, error or None)
+
+    def __init__(self, directory, fmt, base_dir, prepare, description):
+        super().__init__(description, QgsTask.Flag.CanCancel)
+        self.directory, self.fmt, self.base_dir, self.prepare = directory, fmt, base_dir, prepare
+        self.paths = None
+        self.error = None
+
+    def run(self):
+        from .engine.grid_layer import rebuild
+
+        try:
+            self.paths = rebuild(self.directory, self.fmt, self.base_dir, self.prepare)
+        except Exception as error:  # reported to the user; no traceback kept (it would hold files open)
+            self.error = error.with_traceback(None)
+        return self.error is None
+
+    def finished(self, ok):
+        self.done.emit(self.paths, self.error)

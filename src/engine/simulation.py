@@ -26,7 +26,7 @@ from .indicators import Indicator, create_indicator
 from .nonconvergence import (
     FAILED, SINK, SUCCESS, DmaxProposal, MigrationSettings, NonConvergenceError, Sink, migrate_with_policy,
 )
-from .grid_layer import write_grid_layer
+from .grid_layer import cells_of, save_cells, write_grid_layer
 from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
@@ -212,14 +212,19 @@ def run(
     write_summary(summary_path, rows, language, model.column_units(scenario))
     outputs.append(summary_path)
     try:  # one layer of the cells with every result (mailles.gpkg): never a failed run
-        outputs.extend(write_grid_layer(out_dir, units, scenario.output_grid_layer, scenario.density_unit,
+        cells = cells_of(units)
+        outputs.append(save_cells(out_dir, cells))     # small: the layer can be written again at once, on demand
+        outputs.extend(write_grid_layer(out_dir, cells, scenario.output_grid_layer, scenario.density_unit,
                                         model.column_units(scenario)))
     except Exception as error:  # pragma: no cover
         warnings.append(message("grid_layer_failed", detail=str(error)))
     result = RunResult(status, steps, warnings, outputs, out_dir, float(population.sum()), float(base_start), events,
                        failure, failure_year)
     _write_run_report(scenario, result, model, clock.time() - started)
-    scenario.save(os.path.join(out_dir, "scenario_used.json"))
+    used = scenario.to_dict()
+    used["base_dir"] = scenario.base_dir                  # its relative paths, for grid_layer.rebuild
+    with open(os.path.join(out_dir, "scenario_used.json"), "w", encoding="utf-8") as handle:
+        json.dump(used, handle, ensure_ascii=False, indent=2)
     if model.calibration_report is not None:
         with open(os.path.join(out_dir, "calibration.json"), "w", encoding="utf-8") as handle:
             json.dump(model.calibration_report, handle, ensure_ascii=False, indent=1)
@@ -244,7 +249,8 @@ class _Model:
     """Data prepared once for a run: units, base population, parameters, indicators."""
 
     @classmethod
-    def load(cls, scenario: Scenario) -> "_Model":
+    def load(cls, scenario: Scenario, units_only: bool = False) -> "_Model":
+        """Everything a run needs; with ``units_only``, only the grid and its cells cut by the layers."""
         self = cls()
         self.warnings: List[Message] = []
         from_roofs = scenario.population_source == "buildings"
@@ -359,6 +365,8 @@ class _Model:
         shared.derive(self.units)
         if self.units.report.unclassified_area_km2 > 0.01:
             self.warnings.append(message("typology_gaps", area=round(self.units.report.unclassified_area_km2, 2)))
+        if units_only:                       # enough to rebuild the cell layer of a run (grid_layer.rebuild)
+            return self
         self.calibration_report = None
         self.calibration_groups = {}
         if not from_roofs:

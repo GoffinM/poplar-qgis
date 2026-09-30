@@ -16,6 +16,7 @@ Les noms de fichiers sont **fixes et en anglais**, quelle que soit la langue. `A
 | `scenario_used.json` | Copie du scénario utilisé |
 | `calibration.json` | Détail du calage, si la population de départ vient des toits |
 | `mailles.gpkg` | **Une couche de toutes les mailles** de la zone d'étude (vides comprises), avec tous les résultats de chaque année de sortie (voir plus bas). Elle est chargée dans le groupe des résultats, décochée |
+| `mailles_base.npz` | Les mailles de la zone d'étude et leurs attributs fixes, pour générer la couche des mailles à la demande |
 | `mailles.shp` et `mailles_champs.csv` | La même couche en Shapefile, si elle est demandée. Les noms de champs sont coupés à 10 caractères (`pop2030`, `den2030`…) ; le tableau `mailles_champs.csv` donne le nom complet et l'unité de chacun |
 | `calage.xlsx` | Classeur Excel du calage : synthèse, classes, distribution, hypothèses et sources, avec des graphiques Excel (voir l'aide « Calage ») |
 | `report.html` | **Rapport complet autonome** : chiffres clés, évolution de la population, avertissements, calage avec ses graphiques. Il s'ouvre dans un navigateur et s'imprime en PDF ; bouton « Ouvrir le rapport complet » de l'onglet Rapport, ou `python -m engine report <dossier>` |
@@ -58,6 +59,10 @@ La couche `mailles.gpkg` contient **une ligne par maille** de la zone d'étude, 
 - Elle se colore sur n'importe quel champ (**Propriétés › Symbologie › Gradué**), se joint à d'autres couches et s'exporte vers d'autres logiciels.
 - La population de la couche est celle des rasters, maille par maille : les totaux sont identiques.
 - Le format se choisit dans l'onglet **Scénario** : GeoPackage (par défaut), Shapefile, les deux, ou aucune.
+- **Générer à la demande** : le bouton **Générer**, à côté du choix du format dans l'onglet Scénario, écrit la couche de l'exécution affichée dans l'onglet Résultats (sinon la dernière), **sans relancer le calcul**. Il suffit de lancer le calcul avec « Aucune », puis de générer la couche au besoin, dans le format voulu.
+  - Chaque calcul garde pour cela un petit fichier `mailles_base.npz` (quelques dizaines de Ko) : position, surface utile, classe et unité administrative des mailles. La génération ne relit alors que ce fichier et les rasters, en moins d'une seconde pour Muramvya, contre 6 s pour le calcul.
+  - Pour un calcul fait avant la version 0.7.1, qui n'a pas ce fichier, la grille est redécoupée à partir des couches du scénario, ce qui prend à peu près le temps d'un calcul. C'est fait une fois : le fichier est ensuite gardé. Si une couche a changé ou a été déplacée depuis ce calcul, un message le dit, et il faut relancer le calcul.
+  - En ligne de commande : `python -m engine grid <dossier> --format gpkg|shp|both`.
 - Durée d'écriture : moins d'une seconde pour Muramvya ; de l'ordre d'une à deux minutes pour tout un pays en mailles de 250 m.
 
 ## Demande en eau potable

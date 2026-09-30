@@ -79,7 +79,17 @@ class ScenarioPage(Page):
         self.output.setStorageMode(QgsFileWidget.StorageMode.GetDirectory)
         add_row(form, "scenario.output", self.output)
         self.grid_layer = choice_combo([(v, tr(f"scenario.grid_layer.{v}")) for v in ("gpkg", "shp", "both", "none")])
-        add_row(form, "scenario.grid_layer", self.grid_layer)
+        grid_row = QWidget()
+        row = QHBoxLayout(grid_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        row.addWidget(self.grid_layer, 1)
+        self.grid_button = QPushButton(tr("scenario.grid_generate"))
+        self.grid_button.setToolTip(tip("scenario.grid_generate"))
+        self.grid_button.clicked.connect(lambda: self.dialog.generate_grid_layer(self.grid_layer.currentData()))
+        self.grid_layer.currentIndexChanged.connect(
+            lambda *args: self.grid_button.setEnabled(self.grid_layer.currentData() != "none"))
+        row.addWidget(self.grid_button)
+        add_row(form, "scenario.grid_layer", grid_row)
         layout.addWidget(box)
 
         box, form = _box("grid.box")

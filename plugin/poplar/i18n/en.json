@@ -632,5 +632,13 @@
  "scenario.grid_layer.shp": "Shapefile (mailles.shp)",
  "scenario.grid_layer.both": "GeoPackage and Shapefile",
  "scenario.grid_layer.none": "None",
- "results.grid_layer_name": "cells (all results)"
+ "results.grid_layer_name": "cells (all results)",
+ "scenario.grid_generate": "Generate",
+ "scenario.grid_generate.tip.title": "Generate the cell layer",
+ "scenario.grid_generate.tip": "Writes the cell layer of the run shown in the Results tab (else the latest), in the chosen format, without running the model again: the grid is cut again from the layers of the scenario and the results are read back from the rasters. Seconds, where a run takes minutes.",
+ "grid.task": "Poplar – cell layer",
+ "grid.no_run": "No run to work from: run a scenario first, or choose a run in the Results tab.",
+ "grid.done": "Cell layer written for run « {run} »: {count} cells. It is loaded in the results group.",
+ "grid.failed": "The cell layer could not be written: {error}",
+ "grid.mismatch": "The layers of the scenario no longer give the grid of this run (a layer changed or moved since). Run the scenario again to get the cell layer."
 }

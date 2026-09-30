@@ -21,6 +21,10 @@ def main(argv=None) -> int:
     report_parser = commands.add_parser("report", help="write report.html for a run folder")
     report_parser.add_argument("folder")
     report_parser.add_argument("--language", choices=available_languages())
+    grid_parser = commands.add_parser("grid", help="write the cell layer (mailles) of a run folder again")
+    grid_parser.add_argument("folder")
+    grid_parser.add_argument("--format", choices=("gpkg", "shp", "both"), default="gpkg")
+    grid_parser.add_argument("--scenario-folder", help="folder of the scenario (runs written before 0.7.1)")
     excel_parser = commands.add_parser("excel", help="write calage.xlsx from the calibration.json of a run folder")
     excel_parser.add_argument("folder")
     excel_parser.add_argument("--language", choices=available_languages(), default="fr")
@@ -34,6 +38,12 @@ def main(argv=None) -> int:
     download_parser.add_argument("--min-confidence", type=float)
     download_parser.add_argument("--cache", default=os.path.join(os.path.expanduser("~"), ".poplar", "cache"))
     args = parser.parse_args(argv)
+    if args.command == "grid":
+        from .grid_layer import rebuild
+
+        for path in rebuild(args.folder, args.format, args.scenario_folder):
+            print(path)
+        return 0
     if args.command == "excel":
         return _excel(args)
     if args.command == "download-roofs":

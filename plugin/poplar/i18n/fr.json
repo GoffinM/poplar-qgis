@@ -632,5 +632,13 @@
  "scenario.grid_layer.shp": "Shapefile (mailles.shp)",
  "scenario.grid_layer.both": "GeoPackage et Shapefile",
  "scenario.grid_layer.none": "Aucune",
- "results.grid_layer_name": "mailles (tous les résultats)"
+ "results.grid_layer_name": "mailles (tous les résultats)",
+ "scenario.grid_generate": "Générer",
+ "scenario.grid_generate.tip.title": "Générer la couche des mailles",
+ "scenario.grid_generate.tip": "Écrit la couche des mailles de l'exécution affichée dans l'onglet Résultats (sinon la dernière), dans le format choisi, sans relancer le calcul : la grille est redécoupée à partir des couches du scénario et les résultats sont relus dans les rasters. Quelques secondes, là où un calcul prend des minutes.",
+ "grid.task": "Poplar – couche des mailles",
+ "grid.no_run": "Aucun calcul à reprendre : lancez d'abord un calcul, ou choisissez une exécution dans l'onglet Résultats.",
+ "grid.done": "Couche des mailles écrite pour l'exécution « {run} » : {count} mailles. Elle est chargée dans le groupe des résultats.",
+ "grid.failed": "La couche des mailles n'a pas pu être écrite : {error}",
+ "grid.mismatch": "Les couches du scénario ne donnent plus la grille de ce calcul (une couche a changé ou a été déplacée depuis). Relancez le calcul pour obtenir la couche des mailles."
 }
