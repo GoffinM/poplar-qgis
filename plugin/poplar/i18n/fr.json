@@ -613,5 +613,10 @@
  "download.source.no_parquet": "Le GDAL de ce QGIS ne lit pas le GeoParquet (pilote Parquet absent).",
  "download.intro_overture": "Les bâtiments sont lus à distance dans la dernière version d'Overture Maps, qui fusionne Google Open Buildings, Microsoft et OpenStreetMap en retirant les doublons. Seuls ceux de la zone sont lus ; chaque toit garde sa source, son année et, pour OpenStreetMap, son type quand il est connu.",
  "download.licence_overture": "Source : Overture Maps (Google Open Buildings, Microsoft, OpenStreetMap) – licence ODbL v1.0. À citer dans les rapports.",
- "download.estimate_overture": "Overture est lu à distance, zone seule : pas de tuiles à estimer. Compter environ une minute pour une province (20 s pour trouver les fichiers, puis la lecture)."
+ "download.estimate_overture": "Overture est lu à distance, zone seule : pas de tuiles à estimer. Compter environ une minute pour une province (20 s pour trouver les fichiers, puis la lecture).",
+ "download.stage.index": "Recherche des fichiers Overture de la zone…",
+ "download.stage.build_index": "Aucun index publié pour cette version d'Overture : construction de l'index (lecture de l'en-tête des 512 fichiers, une seule fois, puis gardé en cache). Cela peut être long sur une connexion lente.",
+ "download.stage.read": "Lecture de {files} fichier(s) Overture pour la zone…",
+ "download.stage.read_count": "Lecture en cours : {count} bâtiments lus…",
+ "download.cancelling": "Annulation en cours…"
 }

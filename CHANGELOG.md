@@ -3,6 +3,13 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.5.1 – 30/09/2026
+
+- **Overture beaucoup plus rapide** : un index des fichiers de chaque version d'Overture, fourni avec le plugin et publié sur GitHub, évite d'interroger les 512 fichiers. On passe de 360 Mo et plus d'une demi-heure à environ 50 Mo pour Muramvya.
+- **Annuler** arrête vraiment le téléchargement, et on peut relancer ensuite.
+- La fenêtre dit ce qui se passe : recherche des fichiers, puis nombre de bâtiments lus.
+- Lecture Overture fiable avec le GDAL 3.10 de QGIS 3.40 (champ `sources` complet).
+
 ## 0.5.0 – 30/09/2026
 
 - **Overture Maps** comme seconde source de toits, dans la même fenêtre de téléchargement (liste **Source**).

@@ -812,8 +812,10 @@ def test_overture_chosen_in_the_download_window(iface, scenario_copy, tmp_path, 
 
     calls = []
 
-    def fake_overture(zone, output, cache_folder, fetcher, kind, min_confidence, progress=None, cancelled=None):
+    def fake_overture(zone, output, cache_folder, fetcher, kind, min_confidence, progress=None, cancelled=None,
+                      stage=None):
         calls.append((kind, min_confidence))                          # same roofs as the Google fake, other file
+        stage("download.stage.read", files=1)
         return download_open_buildings(zone, output, FileCacheFake(cache_folder), kind, min_confidence)
 
     class FileCacheFake:
@@ -837,6 +839,23 @@ def test_overture_chosen_in_the_download_window(iface, scenario_copy, tmp_path, 
     assert window.estimate()["bytes_to_download"] is None and window.info.text() == tr("download.estimate_overture")
     assert window.start(background=False)
     assert calls == [("points", None)] and page.roof_layer.currentLayer().name().startswith("overture_buildings")
+
+    from poplar.engine.downloads.fetch import DownloadCancelled
+
+    def cancelled_overture(zone, output, cache_folder, fetcher, kind, min_confidence, progress=None,
+                           cancelled=None, stage=None):
+        stage("download.stage.read_count", count="12 000")
+        window.cancel()                                               # the user clicks « Cancel » meanwhile
+        assert window.info.text() == tr("download.cancelling")
+        if cancelled():
+            raise DownloadCancelled(output)
+
+    monkeypatch.setattr(overture, "download_overture", cancelled_overture)
+    assert window.start(background=False, ask=False)
+    assert window.info.text() == tr("download.cancelled") and window.task is None
+    assert window.start_button.isEnabled()
+    again = page.download_roofs(show=False)                           # not stuck on the cancelled one
+    assert again is not window and again.task is None
     QgsProject.instance().clear()
 
 
@@ -890,7 +909,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.5.0"
+    assert version() == "0.5.1"
     AboutDialog()
 
 

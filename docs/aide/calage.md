@@ -40,7 +40,10 @@ Le bouton **Télécharger les toits…** va chercher les toits de **Google Open 
 
 La liste **Source** propose aussi **Overture Maps**, qui fusionne Google Open Buildings, Microsoft et OpenStreetMap en retirant les doublons. Une nouvelle version sort chaque mois.
 
-- Rien n'est téléchargé en entier : les fichiers mondiaux sont lus à distance, pour la zone seulement. Comptez environ une minute pour une province : 20 s pour trouver les fichiers, puis la lecture.
+- Rien n'est téléchargé en entier : seuls les fichiers qui couvrent la zone sont lus, et seulement pour la zone. Pour Muramvya, cela fait un fichier et environ 50 Mo, soit moins d'une minute.
+- Un **index** (le rectangle couvert par chacun des 512 fichiers d'une version d'Overture) indique quels fichiers lire. Il est fourni avec le plugin et publié sur GitHub à chaque nouvelle version d'Overture.
+- Si Overture vient de publier une version pas encore indexée, le plugin prend la version indexée la plus récente encore en ligne. Si aucune ne l'est, il construit l'index lui-même : il lit alors l'en-tête des 512 fichiers, soit environ 360 Mo, une seule fois, et le garde en cache. La fenêtre le signale.
+- **Annuler** arrête le téléchargement en quelques secondes.
 - Chaque toit garde sa **source** (`google`, `microsoft`, `osm`) et son **année**. Il garde aussi sa **confiance** si c'est un toit Google, et son **type** et sa **hauteur** quand OpenStreetMap les donne.
 - La surface est mesurée sur le contour, dans le système de calcul.
 - **Attention au seuil de confiance de l'onglet Calage** : les toits Microsoft et OpenStreetMap n'ont pas de confiance, donc un seuil activé les écarterait. Le seuil de la fenêtre de téléchargement, lui, ne s'applique qu'aux toits qui ont une confiance.

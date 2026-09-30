@@ -131,3 +131,17 @@ from osgeo import gdal, ogr; print(gdal.__version__, ogr.GetDriverByName("Parque
   - Overture remplace une partie des toits Google par leur version Microsoft ou OSM ;
   - les toits Microsoft et OSM n'ont pas de confiance ;
   - les types de bâtiments (OSM) sont presque absents au Burundi : 36 sur 94 722 dans le rectangle de Muramvya.
+
+## 9. Correction après le test du 30/09 (version 0.5.1)
+
+- **Constat sur le poste** : la recherche des fichiers progressait d'environ 1 % par minute, et « Annuler » n'arrêtait rien.
+- **Cause** : la recherche lisait l'en-tête des 512 fichiers, soit environ **360 Mo** et 2 000 requêtes vers des serveurs aux États-Unis. Cela prenait 18 s depuis un centre de données, mais plus d'une demi-heure sur la ligne de la SHER. L'annulation n'était vérifiée qu'à la fin de cette recherche.
+- **Correction** :
+  - **index** des rectangles des 512 fichiers de chaque version, environ 100 Ko, fourni avec le plugin et publié sur GitHub ;
+  - un seul fichier lu pour Muramvya, soit **51 Mo en tout** et environ 20 s depuis le centre de données ;
+  - annulation vérifiée en continu.
+- **Deux défauts de GDAL rencontrés au passage** :
+  - avec GDAL 3.10 (celui de QGIS 3.40), ignorer des colonnes tronque le champ `sources`. Toutes les colonnes sont donc lues : 51 Mo au lieu de 32 Mo ;
+  - avec GDAL 3.13, des fils de calcul qui se relaient font planter le lecteur Parquet. Cela n'arrive pas avec la 3.10 ; des fils permanents sont gardés par prudence.
+  - Tests refaits avec **GDAL 3.10.3**, la même version que sur le poste.
+- **Mise à jour mensuelle** : `python tools/overture_index.py` indexe les versions en ligne pas encore indexées (moins de 30 s depuis un centre de données) et retire les index des versions retirées. Il reste ensuite à faire le commit et le push des fichiers `src/engine/downloads/overture_index/*.json`.

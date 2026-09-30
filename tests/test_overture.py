@@ -81,11 +81,16 @@ def _read(path):
 
 def test_overture_buildings_of_the_zone(tmp_path, monkeypatch):
     local = _parquet(tmp_path / "part-00000.parquet")
-    monkeypatch.setattr(overture, "release_files", lambda *args: [(local, 1)])
+    elsewhere = str(tmp_path / "part-00001.parquet")                  # never opened: its box is far away
+    index = {"release": "test", "files": [[local, 29.0, -4.0, 30.0, -3.0], [elsewhere, -80.0, 40.0, -70.0, 45.0]]}
+    monkeypatch.setattr(overture, "load_index", lambda *args: (index, "plugin"))
     zone = DownloadZone.from_layers(ZoneLayer(_square_layer(tmp_path / "zone.gpkg", 1000)), UTM35S)
     output = str(tmp_path / "overture.gpkg")
-    steps = []
-    report = overture.download_overture(zone, output, release="test", progress=steps.append)
+    steps, stages = [], []
+    report = overture.download_overture(zone, output, release="test", progress=steps.append,
+                                        stage=lambda key, **values: stages.append(key))
+    assert report["index"] == "plugin" and report["files"] == [f"{overture.BUCKET}/{local}"]
+    assert stages[0] == "download.stage.index" and "download.stage.read" in stages
     assert _read(output) == [("google", 64, 2023, None), ("google", 100, 2023, None),
                              ("microsoft", 144, 2021, None), ("osm", 400, 2015, "hospital")]
     assert report["counts"]["kept"] == 4 and report["counts"]["read"] == 4     # the far one is not even read
@@ -101,6 +106,40 @@ def test_overture_buildings_of_the_zone(tmp_path, monkeypatch):
     assert report["counts"]["low_confidence"] == 1 and report["counts"]["other_source"] == 1
     datasource = ogr.Open(output)
     assert datasource.GetLayer(0).GetGeomType() == ogr.wkbMultiPolygon
+
+
+def test_index_is_built_once_then_found_in_the_cache(tmp_path, monkeypatch):
+    local = _parquet(tmp_path / "part-00000.parquet")
+    monkeypatch.setattr(overture, "release_files", lambda *args: [(local, 1)])
+    monkeypatch.setattr(overture, "online_releases", lambda fetcher: ["2026-08-19.0", "2099-01-01.0"])
+    monkeypatch.setattr(overture, "INDEX_DIR", str(tmp_path / "none"))
+
+    class Offline:
+        proxy = None
+
+        def text(self, url):
+            raise IOError("offline")
+
+    assert overture.choose_release(Offline(), str(tmp_path)) == ("2099-01-01.0", None, "")
+    zone = DownloadZone.from_layers(ZoneLayer(_square_layer(tmp_path / "zone.gpkg", 1000)), UTM35S)
+    report = overture.download_overture(zone, str(tmp_path / "o.gpkg"), str(tmp_path), Offline())
+    assert report["index"] == "built" and report["release"] == "2099-01-01.0" and report["counts"]["kept"] == 4
+    index, place = overture.load_index(Offline(), "2099-01-01.0", str(tmp_path))
+    assert place == "cache" and index["files"][0][0] == local
+    west, south, east, north = index["files"][0][1:]
+    assert 29.5 < west < east < 29.9 and -3.4 < south < north < -3.2   # the box of the buildings written
+    with pytest.raises(overture.DownloadCancelled):
+        overture.build_index(Offline(), "2099-01-01.0", cancelled=lambda: True)
+
+
+def test_published_indexes_cover_the_releases_with_boxes():
+    names = sorted(os.listdir(overture.INDEX_DIR))
+    assert names and all(n.endswith(".json") for n in names)
+    with open(os.path.join(overture.INDEX_DIR, names[-1]), encoding="utf-8") as handle:
+        index = json.load(handle)
+    assert len(index["files"]) > 100
+    burundi = overture.files_in_zone(index, (29.0, -4.5, 30.9, -2.3))
+    assert 1 <= len(burundi) <= 6                                     # 5 files for the whole country
 
 
 def test_release_listing_is_read_and_kept(tmp_path):

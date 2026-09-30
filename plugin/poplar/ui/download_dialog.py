@@ -102,6 +102,7 @@ FILE_PREFIX = {GOOGLE: "google_open_buildings", OVERTURE: "overture_buildings"}
 
 class DownloadTask(QgsTask):
     done = pyqtSignal(object, object)  # report, error (None and None when cancelled)
+    stage_changed = pyqtSignal(str)    # what is being done, for the dialog (sent from the worker thread)
 
     def __init__(self, zone, limit, crs_wkt, margin_m, output, cache, kind, min_confidence, source=GOOGLE):
         super().__init__(tr("download.task"), QgsTask.Flag.CanCancel)
@@ -115,9 +116,10 @@ class DownloadTask(QgsTask):
             zone = DownloadZone.from_layers(self.zone, self.crs_wkt, self.margin_m, self.limit)
             step = lambda fraction: self.setProgress(100 * fraction)  # noqa: E731
             if self.source == OVERTURE:
-                self.report = overture.download_overture(zone, self.output, self.cache.folder, self.cache.fetcher,
-                                                         self.kind, self.min_confidence, progress=step,
-                                                         cancelled=self.isCanceled)
+                self.report = overture.download_overture(
+                    zone, self.output, self.cache.folder, self.cache.fetcher, self.kind, self.min_confidence,
+                    progress=step, cancelled=self.isCanceled,
+                    stage=lambda key, **values: self.stage_changed.emit(tr(key, **values)))
             else:
                 self.report = download_open_buildings(zone, self.output, self.cache, self.kind,
                                                       self.min_confidence, step, self.isCanceled)
@@ -333,6 +335,7 @@ class DownloadRoofsDialog(QDialog):
         self.task = DownloadTask(zone, limit, crs_wkt, margin, output, self._cache(), self.kind.currentData(),
                                  min_confidence, self.source.currentData())
         self.task.progressChanged.connect(lambda value: self.progress.setValue(int(value)))
+        self.task.stage_changed.connect(lambda text: self._say(text))
         self.task.done.connect(self._finished)
         self._running(True)
         if background:
@@ -344,6 +347,7 @@ class DownloadRoofsDialog(QDialog):
     def cancel(self):
         if self.task is not None:
             self.task.cancel()
+            self._say(tr("download.cancelling"), "warn")       # stops at the next check, within seconds
 
     def _running(self, running):
         self.progress.setVisible(running)

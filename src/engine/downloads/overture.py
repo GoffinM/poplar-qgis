@@ -45,7 +45,6 @@ LICENCE = "ODbL v1.0 – https://docs.overturemaps.org/attribution/ (sources : G
           "Microsoft ML Buildings, OpenStreetMap)"
 ATTRIBUTION = "© Overture Maps Foundation, © OpenStreetMap contributors, Google Open Buildings, Microsoft"
 SOURCES = {"Google Open Buildings": "google", "Microsoft ML Buildings": "microsoft", "OpenStreetMap": "osm"}
-KEPT_FIELDS = {"sources", "class", "subtype", "height", "num_floors"}
 PARALLEL = 16
 
 Progress = Callable[[float], None]
@@ -81,11 +80,10 @@ def _listing(fetcher, prefix: str, delimiter: bool) -> Tuple[List[str], List[Tup
 
 def latest_release(fetcher) -> str:
     """Name of the latest release (for example ``2026-09-23.1``)."""
-    prefixes, _ = _listing(fetcher, "release/", delimiter=True)
-    names = sorted(p.split("/")[1] for p in prefixes if re.match(r"release/\d{4}-\d{2}-\d{2}", p))
-    if not names:
+    releases = online_releases(fetcher)
+    if not releases:
         raise IOError("no Overture release found")
-    return names[-1]
+    return releases[-1]
 
 
 def release_files(fetcher, release: str, cache_folder: Optional[str] = None) -> List[Tuple[str, int]]:
@@ -138,30 +136,115 @@ def _open(key: str):
     return datasource, datasource.GetLayer(0)
 
 
-def files_in_zone(keys: Sequence[str], lonlat_bounds, options, cancelled: Optional[Cancelled] = None,
-                  progress: Optional[Progress] = None) -> Dict[str, int]:
-    """{file: buildings in the box} for the files that have some (asked in parallel)."""
-    def count(key):
-        if cancelled is not None and cancelled():
-            return key, 0
-        with _Options(options), gdal_exceptions():
-            datasource, layer = _open(key)
-            layer.SetSpatialFilterRect(*lonlat_bounds)
-            number = layer.GetFeatureCount()
-            layer = datasource = None
-            return key, number
+INDEX_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "overture_index")
+INDEX_URLS = [  # the index of each release, published with the plugin (tools/overture_index.py)
+    "https://raw.githubusercontent.com/GoffinM/poplar-qgis/main/src/engine/downloads/overture_index/{release}.json",
+    "https://raw.githubusercontent.com/GoffinM/poplar-qgis/claude/legacy-code-assessment-frf66q/src/engine/"
+    "downloads/overture_index/{release}.json",
+]
 
-    found, done = {}, 0
-    with concurrent.futures.ThreadPoolExecutor(PARALLEL) as pool:
-        for key, number in pool.map(count, keys):
+
+def online_releases(fetcher) -> List[str]:
+    """Releases still published, oldest first (Overture keeps the last two or three)."""
+    prefixes, _ = _listing(fetcher, "release/", delimiter=True)
+    return sorted(p.split("/")[1] for p in prefixes if re.match(r"release/\d{4}-\d{2}-\d{2}", p))
+
+
+def _file_box(key: str, options) -> Tuple[float, float, float, float]:
+    """Longitude/latitude box of one file, from its GeoParquet metadata (its footer only, about 0.7 MB)."""
+    # No gdal_exceptions() here: it switches a setting shared by every thread, and this runs in many at once.
+    with _Options(options):
+        datasource = ogr.Open(key if os.path.isabs(key) or key.startswith("/vsi") else f"/vsicurl/{BUCKET}/{key}")
+        if datasource is None:
+            raise IOError(f"{key}: {gdal.GetLastErrorMsg() or 'cannot be opened'}")
+        layer = datasource.GetLayer(0)
+        geo = json.loads(layer.GetMetadataItem("geo", "_PARQUET_METADATA_") or "{}")
+        box = (geo.get("columns", {}).get("geometry", {}) or {}).get("bbox")
+        if not box:
+            west, east, south, north = layer.GetExtent()
+            box = [west, south, east, north]
+        layer = datasource = None
+        return tuple(float(v) for v in box[:4])
+
+
+_POOL = None
+
+
+def _pool():
+    """Worker threads kept for the whole session: the Parquet reader of recent GDAL versions (3.13) crashes
+    when threads that opened files end and new ones take over (not seen with the GDAL 3.10 of QGIS 3.40)."""
+    global _POOL
+    if _POOL is None:
+        _POOL = concurrent.futures.ThreadPoolExecutor(PARALLEL, thread_name_prefix="poplar-overture")
+    return _POOL
+
+
+def build_index(fetcher, release: str, options=None, cancelled: Optional[Cancelled] = None,
+                progress: Optional[Progress] = None) -> Dict[str, object]:
+    """Box of every file of a release: reads the footer of each file (about 360 MB for the world).
+
+    Done once per release by ``tools/overture_index.py`` and published with the plugin; on a computer
+    only when no published index exists, then kept in the cache.
+    """
+    options = options if options is not None else _gdal_options(getattr(fetcher, "proxy", None))
+    keys = [k for k, _ in release_files(fetcher, release)]
+    files, done = [], 0
+    futures = {_pool().submit(_file_box, key, options): key for key in keys}
+    try:
+        for future in concurrent.futures.as_completed(futures):
+            if cancelled is not None and cancelled():
+                raise DownloadCancelled("overture index")
+            files.append([futures[future], *future.result()])
             done += 1
-            if number:
-                found[key] = number
             if progress is not None:
                 progress(done / max(1, len(keys)))
-    if cancelled is not None and cancelled():
-        raise DownloadCancelled("overture")
-    return found
+    finally:
+        for future in futures:                  # « Cancel »: the files not asked yet are dropped at once
+            future.cancel()
+    return {"release": release, "created": datetime.date.today().isoformat(), "files": sorted(files)}
+
+
+def load_index(fetcher, release: str, cache_folder: Optional[str] = None) -> Tuple[Optional[dict], str]:
+    """(index, where it came from): the cache, the plugin itself, then the project page on GitHub."""
+    cached = os.path.join(cache_folder, "overture", f"index_{release}.json") if cache_folder else None
+    for place, path in (("cache", cached), ("plugin", os.path.join(INDEX_DIR, f"{release}.json"))):
+        if path and os.path.isfile(path):
+            with open(path, encoding="utf-8") as handle:
+                return json.load(handle), place
+    for url in INDEX_URLS:
+        try:
+            index = json.loads(fetcher.text(url.format(release=release)))
+        except Exception:  # not published (yet), or no access: try the next place
+            continue
+        save_index(index, cache_folder)
+        return index, "github"
+    return None, ""
+
+
+def save_index(index: dict, cache_folder: Optional[str]) -> None:
+    if cache_folder:
+        path = os.path.join(cache_folder, "overture", f"index_{index['release']}.json")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as handle:
+            json.dump(index, handle)
+
+
+def choose_release(fetcher, cache_folder: Optional[str] = None):
+    """(release, index, where): the latest release that has an index, else the latest one (index to build)."""
+    online = online_releases(fetcher)
+    if not online:
+        raise IOError("no Overture release found")
+    for release in reversed(online):
+        index, place = load_index(fetcher, release, cache_folder)
+        if index is not None:
+            return release, index, place
+    return online[-1], None, ""
+
+
+def files_in_zone(index: dict, lonlat_bounds) -> List[str]:
+    """Files whose box meets the zone (usually one or two for a province)."""
+    west, south, east, north = lonlat_bounds
+    return [key for key, x0, y0, x1, y1 in index["files"] if x0 <= east and x1 >= west and y0 <= north and y1 >= south]
 
 
 def _sources(value) -> List[dict]:
@@ -176,8 +259,12 @@ def _sources(value) -> List[dict]:
 def download_overture(zone: DownloadZone, output: str, cache_folder: Optional[str] = None, fetcher=None,
                       kind: str = "points", min_confidence: Optional[float] = None,
                       datasets: Optional[Sequence[str]] = None, release: Optional[str] = None,
-                      progress: Optional[Progress] = None, cancelled: Optional[Cancelled] = None) -> Dict[str, object]:
-    """Read the buildings of the zone from Overture and write them like the Google download (same fields)."""
+                      progress: Optional[Progress] = None, cancelled: Optional[Cancelled] = None,
+                      stage=None) -> Dict[str, object]:
+    """Read the buildings of the zone from Overture and write them like the Google download (same fields).
+
+    ``stage(key, **values)`` is told what is being done (finding the files, reading them), for the user.
+    """
     if not available():
         raise ParquetMissing("the GDAL of this QGIS has no Parquet driver")
     if kind not in ("points", "polygons"):
@@ -185,16 +272,28 @@ def download_overture(zone: DownloadZone, output: str, cache_folder: Optional[st
     fetcher = fetcher or UrllibFetcher()
     progress = progress or (lambda fraction: None)
     options = _gdal_options(getattr(fetcher, "proxy", None))
-    release = release or latest_release(fetcher)
-    keys = [k for k, _ in release_files(fetcher, release, cache_folder)]
+    stage = stage or (lambda key, **values: None)
+    stage("download.stage.index")
+    if release:
+        index, place = load_index(fetcher, release, cache_folder)
+    else:
+        release, index, place = choose_release(fetcher, cache_folder)
+    if index is None:                                   # no published index: built here, once, then kept
+        stage("download.stage.build_index")
+        index = build_index(fetcher, release, options, cancelled, lambda f: progress(0.5 * f))
+        save_index(index, cache_folder)
+        place = "built"
     bounds = zone.lonlat_bounds()
-    found = files_in_zone(keys, bounds, options, cancelled, lambda f: progress(0.3 * f))
+    found = files_in_zone(index, bounds)
     wanted = {SOURCES.get(d, d) for d in datasets} if datasets else None
+    start = 0.5 if place == "built" else 0.05
+    stage("download.stage.read", files=len(found))
 
     partial = os.path.splitext(output)[0] + ".part.gpkg"
     try:
         counts, by_source, years = _write(found, zone, partial, kind, min_confidence, wanted, options,
-                                          lambda f: progress(0.3 + 0.7 * f), cancelled)
+                                          lambda f: progress(start + (1 - start) * f), cancelled,
+                                          lambda n: stage("download.stage.read_count", count=f"{n:,}".replace(",", " ")))
     except BaseException:
         _remove_gpkg(partial)
         raise
@@ -205,6 +304,7 @@ def download_overture(zone: DownloadZone, output: str, cache_folder: Optional[st
     report = {
         "dataset": DATASET,
         "release": release,
+        "index": place,
         "kind": kind,
         "date": datetime.datetime.now().isoformat(timespec="seconds"),
         "output": os.path.abspath(output),
@@ -214,7 +314,7 @@ def download_overture(zone: DownloadZone, output: str, cache_folder: Optional[st
         "zone": {"area_km2": round(zone.area_km2(), 1), "margin_m": zone.margin_m, "limited": zone.limited,
                  "lonlat_bounds": [round(v, 5) for v in bounds]},
         "filters": {"min_confidence": min_confidence, "sources": sorted(wanted) if wanted else None},
-        "files": [{"file": f"{BUCKET}/{k}", "buildings_in_box": n} for k, n in sorted(found.items())],
+        "files": [f"{BUCKET}/{k}" for k in found],
         "counts": counts,
         "by_source": dict(by_source),
         "imagery_year": years.most_common(1)[0][0] if years else None,
@@ -228,14 +328,13 @@ def download_overture(zone: DownloadZone, output: str, cache_folder: Optional[st
     return report
 
 
-def _write(found, zone, output, kind, min_confidence, wanted, options, progress, cancelled):
+def _write(found, zone, output, kind, min_confidence, wanted, options, progress, cancelled, told=None):
     counts = {"read": 0, "outside_zone": 0, "other_source": 0, "low_confidence": 0, "kept": 0}
     by_source: Dict[str, int] = collections.Counter()
     years: Dict[int, int] = collections.Counter()
     bounds = zone.lonlat_bounds()
     mask = zone.mask()
     polygons = kind == "polygons"
-    total = max(1, sum(found.values()))
     with gdal_exceptions(), _Options(options):
         target = srs_from_wkt(zone.crs_wkt)
         transform = osr.CoordinateTransformation(srs_from_epsg(4326), target)
@@ -253,19 +352,25 @@ def _write(found, zone, output, kind, min_confidence, wanted, options, progress,
                 out.CreateField(ogr.FieldDefn(name, field_type))
             out.SetMetadataItem("DESCRIPTION", f"{DATASET} ({kind}) – {LICENCE}")
             definition = out.GetLayerDefn()
-            for key in sorted(found):
+            for number, key in enumerate(found):
                 source, source_layer = _open(key)
-                names = [source_layer.GetLayerDefn().GetFieldDefn(i).GetName()
-                         for i in range(source_layer.GetLayerDefn().GetFieldCount())]
-                source_layer.SetIgnoredFields([n for n in names if n not in KEPT_FIELDS])
+                # No SetIgnoredFields(): with the GDAL 3.10 of QGIS 3.40, skipping columns cuts the
+                # « sources » field down to its first sub-field. Reading them all costs about a third more.
                 source_layer.SetSpatialFilterRect(*bounds)
                 out.StartTransaction()
+                in_file = 0
+                if cancelled is not None and cancelled():
+                    raise DownloadCancelled(key)
                 for feature in source_layer:
                     counts["read"] += 1
-                    if counts["read"] % 5000 == 0:
+                    in_file += 1
+                    if counts["read"] % 2000 == 0:
                         if cancelled is not None and cancelled():
                             raise DownloadCancelled(key)
-                        progress(min(1.0, counts["read"] / total))
+                        # a province is a few hundred thousand buildings: the bar creeps, never stops
+                        progress((number + in_file / (in_file + 100_000)) / max(1, len(found)))
+                        if told is not None:
+                            told(counts["read"])
                     _one(feature, out, definition, transform, mask, polygons, min_confidence, wanted,
                          counts, by_source, years)
                 out.CommitTransaction()
