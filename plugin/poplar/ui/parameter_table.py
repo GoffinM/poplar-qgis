@@ -9,11 +9,11 @@ pairs of values. Each row holds a constant or values at pivot years.
 import itertools
 import os
 
-from qgis.PyQt.QtCore import Qt
-from qgis.PyQt.QtGui import QBrush, QColor, QFont
+from qgis.PyQt.QtCore import QRegularExpression, Qt
+from qgis.PyQt.QtGui import QBrush, QColor, QFont, QRegularExpressionValidator
 from qgis.PyQt.QtWidgets import (
-    QCheckBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QMessageBox, QPushButton,
-    QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
+    QCheckBox, QFileDialog, QGroupBox, QHBoxLayout, QHeaderView, QInputDialog, QLabel, QLineEdit, QMessageBox,
+    QPushButton, QStyledItemDelegate, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
 from ..compat import POLYGON_FILTER
@@ -42,8 +42,24 @@ def field_values(layer, field):
 
 
 def _number(text):
-    text = (text or "").strip().replace(" ", "").replace(" ", "").replace(" ", "").replace(",", ".")
-    return float(text) if text else None
+    """A number typed in French or English (« 2 500,5 », « 2500.5 »); None if empty or unreadable."""
+    text = (text or "").strip().replace(" ", "").replace("\u00a0", "").replace("\u202f", "").replace(",", ".")
+    try:
+        return float(text) if text else None
+    except ValueError:
+        return None
+
+
+NUMBER = QRegularExpression("^\\s*-?[0-9 \u00a0\u202f]*([.,][0-9]*)?\\s*$")
+
+
+class NumberDelegate(QStyledItemDelegate):
+    """Value cells accept numbers only, so that no text can reach the scenario."""
+
+    def createEditor(self, parent, option, index):  # noqa: N802
+        editor = QLineEdit(parent)
+        editor.setValidator(QRegularExpressionValidator(NUMBER, editor))
+        return editor
 
 
 class ParameterTableWidget(QGroupBox):
@@ -74,6 +90,7 @@ class ParameterTableWidget(QGroupBox):
         layout.addWidget(self.second_row)
 
         self.table = QTableWidget(0, 2)
+        self.table.setItemDelegate(NumberDelegate(self.table))     # zone cells are not editable anyway
         self.table.verticalHeader().setVisible(False)
         self.table.setMinimumHeight(150)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -95,9 +112,11 @@ class ParameterTableWidget(QGroupBox):
         row.addStretch(1)
         layout.addLayout(row)
 
+        self.pending = [None, None]      # zone layers of the scenario that could not be opened: kept as they are
+        self.hidden_crossed = {}         # « a | b » values put aside while the crossing is off
         self.cross.toggled.connect(self._cross_toggled)
-        for combo in (self.layer, self.layer2):
-            combo.layerChanged.connect(lambda *args: self.sync_rows())
+        for index, combo in enumerate((self.layer, self.layer2)):
+            combo.layerChanged.connect(lambda *args, i=index: self._layer_chosen(i))
         for combo in (self.field, self.field2):
             combo.fieldChanged.connect(lambda *args: self.sync_rows())
         self.set_values({DEFAULT_KEY: None})
@@ -119,8 +138,16 @@ class ParameterTableWidget(QGroupBox):
         zones = [tr("parameters.zone")] + ([tr("parameters.zone_2")] if self.crossed else [])
         return zones + [tr("parameters.constant")] + [f"{y:g}" for y in self.years]
 
+    def _layer_chosen(self, index):
+        self.pending[index] = None       # a layer chosen by hand replaces the one that could not be opened
+        self.sync_rows()
+
     def _cross_toggled(self, checked):
-        """Values follow the layout: « Rural » becomes « Rural | all » when crossed, and back when not."""
+        """Values follow the layout: « Rural » becomes « Rural | all » when crossed, and back when not.
+
+        Values of pairs (« a | b », « all | b ») need the second layer: they are put aside while the
+        crossing is off, and come back when it is on again.
+        """
         values = self.values()
         self.second_row.setVisible(checked)
         converted = {}
@@ -133,7 +160,12 @@ class ParameterTableWidget(QGroupBox):
                 first, _, second = key.partition(KEY_SEPARATOR)
                 if second in ("", DEFAULT_KEY) and first != DEFAULT_KEY:   # « a | all »: back to « a »
                     converted[first] = value
-                # « a | b » and « all | b » depend on the second layer: they go with it
+                elif value is not None:
+                    self.hidden_crossed[key] = value
+        if checked:
+            for key, value in self.hidden_crossed.items():
+                converted.setdefault(key, value)
+            self.hidden_crossed = {}
         self.set_values(converted)
         self.sync_rows()
 
@@ -223,7 +255,9 @@ class ParameterTableWidget(QGroupBox):
         """One row per zone of the layer(s); rows with a value but no zone stay, marked."""
         values = self.values()
         expected = self.expected_keys()
-        if not self.layer.currentLayer():
+        if not self.layer.currentLayer() and self.pending[0]:
+            merged = dict(values)                  # layer not found: the values wait for it, untouched
+        elif not self.layer.currentLayer():
             merged = {DEFAULT_KEY: values.get(DEFAULT_KEY)}
         else:
             merged = {key: values.get(key) for key in expected}
@@ -258,10 +292,14 @@ class ParameterTableWidget(QGroupBox):
                 if key in unused:
                     item.setForeground(QBrush(MISSING))
                     item.setToolTip(tr("parameters.absent"))
-        self.status.setProperty("state", "warn" if unused else "ok")
+        missing = [z for z in getattr(self, "pending", [None, None]) if z]
+        self.status.setProperty("state", "warn" if unused or missing else "ok")
         self.status.style().unpolish(self.status)
         self.status.style().polish(self.status)
-        if unused:
+        if missing:
+            names = ", ".join(os.path.basename(str(z.get("source", ""))) for z in missing)
+            self.status.setText(tr("parameters.status_missing_layer", layer=names))
+        elif unused:
             keys = sorted(unused)
             self.status.setText(tr("parameters.status_absent",
                                    keys=", ".join(keys[:4]) + (f" (+{len(keys) - 4})" if len(keys) > 4 else "")))
@@ -297,6 +335,8 @@ class ParameterTableWidget(QGroupBox):
     def load(self, spec, typology=None, parameter_zones=None):
         """Show a parameter of the scenario; older formats (typology classes, parameter zones) are converted."""
         self.years = []
+        self.pending = [None, None]
+        self.hidden_crossed = {}
         for combo in (self.layer, self.layer2):
             combo.blockSignals(True)
         self.layer.setLayer(None)
@@ -331,6 +371,8 @@ class ParameterTableWidget(QGroupBox):
                     combo.setLayer(layer)
                     field.setLayer(layer)
                     field.setField(zones[i].get("field", ""))
+                else:
+                    self.pending[i] = dict(zones[i])     # moved folder, other computer: kept, and said
         if len(zones) > 1:
             self.cross.blockSignals(True)
             self.cross.setChecked(True)
@@ -351,11 +393,18 @@ class ParameterTableWidget(QGroupBox):
         if not values:
             return None
         zones = []
-        for combo, field in ((self.layer, self.field),) + (((self.layer2, self.field2),) if self.crossed else ()):
+        slots = ((self.layer, self.field),) + (((self.layer2, self.field2),) if self.crossed else ())
+        for index, (combo, field) in enumerate(slots):
             spec = source_of(combo.currentLayer())
             if spec:
                 spec["field"] = field.currentField()
                 zones.append(spec)
+            elif self.pending[index]:
+                zones.append(dict(self.pending[index]))
+        if self.crossed and len(zones) == 1:     # crossing ticked without a second layer: « a | all » → « a »
+            values = {(k.partition(KEY_SEPARATOR)[0] if k.endswith(KEY_SEPARATOR + DEFAULT_KEY) else k): v
+                      for k, v in values.items()
+                      if k == DEFAULT_KEY or k.endswith(KEY_SEPARATOR + DEFAULT_KEY)}
         if not zones:
             return {"values": {DEFAULT_KEY: values[DEFAULT_KEY]}} if DEFAULT_KEY in values else {"values": values}
         return {"zones": zones, "values": values}

@@ -169,3 +169,61 @@ def test_muramvya_roofs_are_those_of_the_workbooks(tmp_path):
 
     distance, _ = cKDTree(points(output)).query(points(os.path.join(MURAMVYA, "buildings_muramvya.gpkg")))
     assert (distance < 1).sum() >= 38_930                               # 38 936 of the 38 942 roofs of Lionel
+
+
+def test_a_failed_download_keeps_the_roofs_already_there(tmp_path, monkeypatch):
+    import engine.downloads.open_buildings as open_buildings
+    from engine.downloads.open_buildings import DamagedTile
+    from engine.roofs import download_origin
+
+    zone_path, content = _world(tmp_path)
+    zone = DownloadZone.from_layers(ZoneLayer(zone_path), UTM35S)
+    tiles = tiles_for(zone)
+    cache = FileCache(str(tmp_path / "cache"), FakeFetcher(content, tiles[:1]))
+    output = str(tmp_path / "google.gpkg")
+    download_open_buildings(zone, output, cache)
+    assert len(_read(output)) == 3
+
+    monkeypatch.setattr(open_buildings, "BATCH", 1)                  # cancelled while writing
+    with pytest.raises(DownloadCancelled):
+        download_open_buildings(zone, output, cache, cancelled=lambda: True)
+    assert len(_read(output)) == 3 and download_origin(output)["counts"]["kept"] == 3
+    assert not os.path.exists(str(tmp_path / "google.part.gpkg"))
+
+    tile = cache.path(f"google_open_buildings_v3/points/{tiles[0]}_buildings.csv.gz")
+    with open(tile, "r+b") as handle:                                 # a tile cut short in the cache
+        handle.truncate(20)
+    with pytest.raises(DamagedTile):
+        download_open_buildings(zone, output, cache)
+    assert not os.path.exists(tile)                                   # downloaded again next time
+    assert len(_read(output)) == 3 and download_origin(output)["counts"]["kept"] == 3
+    download_open_buildings(zone, output, cache)                      # and it works again
+    assert len(_read(output)) == 3
+
+
+def test_a_connection_closed_early_is_never_cached(tmp_path):
+    import http.server
+    import threading
+    import urllib.request
+
+    from engine.downloads.fetch import IncompleteDownload, UrllibFetcher
+
+    class Short(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):  # noqa: N802
+            self.send_response(200)
+            self.send_header("Content-Length", "100000")
+            self.end_headers()
+            self.wfile.write(b"0123456789")
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", 0), Short)
+    threading.Thread(target=server.handle_request, daemon=True).start()
+    fetcher = UrllibFetcher(timeout=10)
+    fetcher._opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))   # local server: no proxy
+    cache = FileCache(str(tmp_path / "cache"), fetcher)
+    with pytest.raises(IncompleteDownload):
+        cache.get("tile.csv.gz", f"http://127.0.0.1:{server.server_port}/tile.csv.gz")
+    assert not cache.has("tile.csv.gz") and os.listdir(tmp_path / "cache") == []
+    server.server_close()

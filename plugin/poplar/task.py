@@ -13,7 +13,7 @@ class RunTask(QgsTask):
     done = pyqtSignal(object, object)  # (RunResult or None, error or None)
 
     def __init__(self, scenario, description):
-        super().__init__(description, QgsTask.CanCancel)
+        super().__init__(description, QgsTask.Flag.CanCancel)
         self.scenario = scenario
         self.result = None
         self.error = None

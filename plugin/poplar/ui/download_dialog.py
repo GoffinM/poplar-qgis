@@ -7,6 +7,7 @@ is added to the project and chosen as the roof layer of the Calibration tab.
 """
 
 import os
+from urllib.parse import quote
 
 from qgis.core import (
     Qgis, QgsApplication, QgsCoordinateReferenceSystem, QgsCoordinateTransform, QgsProject, QgsSettings, QgsTask,
@@ -42,9 +43,11 @@ def qgis_proxy():
     host = settings.value("proxy/proxyHost", "")
     if not enabled or not host or settings.value("proxy/proxyType", "") == "DefaultProxy":
         return None
+    if "socks" in str(settings.value("proxy/proxyType", "")).lower():
+        return None                      # not an HTTP proxy: the system settings are used
     user, password = settings.value("proxy/proxyUser", ""), settings.value("proxy/proxyPassword", "")
     port = settings.value("proxy/proxyPort", "")
-    credentials = f"{user}:{password}@" if user else ""
+    credentials = f"{quote(str(user), safe='')}:{quote(str(password), safe='')}@" if user else ""
     return f"http://{credentials}{host}{':' + str(port) if port else ''}"
 
 
@@ -81,11 +84,22 @@ def _summary(report):
             "file": os.path.basename(report.get("output", ""))}
 
 
+def _release(path):
+    """Remove from the project the layers reading ``path``; returns how many."""
+    target = os.path.normcase(os.path.abspath(path))
+    project = QgsProject.instance()
+    ids = [layer_id for layer_id, layer in project.mapLayers().items()
+           if os.path.normcase(os.path.abspath(layer.source().split("|")[0] or " ")) == target]
+    if ids:
+        project.removeMapLayers(ids)
+    return len(ids)
+
+
 class DownloadTask(QgsTask):
     done = pyqtSignal(object, object)  # report, error (None and None when cancelled)
 
     def __init__(self, zone, limit, crs_wkt, margin_m, output, cache, kind, min_confidence):
-        super().__init__(tr("download.task"), QgsTask.CanCancel)
+        super().__init__(tr("download.task"), QgsTask.Flag.CanCancel)
         self.zone, self.limit, self.crs_wkt, self.margin_m = zone, limit, crs_wkt, margin_m
         self.output, self.cache, self.kind, self.min_confidence = output, cache, kind, min_confidence
         self.report = self.error = None
@@ -98,8 +112,8 @@ class DownloadTask(QgsTask):
                                                   self.isCanceled)
         except DownloadCancelled:
             return False
-        except Exception as error:  # shown to the user
-            self.error = error
+        except Exception as error:  # shown to the user; no traceback kept, it would hold the file open
+            self.error = error.with_traceback(None)
         return self.error is None
 
     def finished(self, ok):
@@ -110,6 +124,7 @@ class DownloadRoofsDialog(QDialog):
     """Zone, source and destination; « Download » starts the task, the dialog shows its progress."""
 
     downloaded = pyqtSignal(object)  # the roof layer added to the project
+    restored = pyqtSignal(object)    # after a failure: the former roofs, added back to the project
 
     def __init__(self, zone_layer=None, base_dir="", parent=None):
         super().__init__(parent)
@@ -118,6 +133,8 @@ class DownloadRoofsDialog(QDialog):
         self.base_dir = base_dir or os.getcwd()
         self.fetcher = None          # tests put a fake here; else urllib with the QGIS proxy
         self.task = None
+        self.task_output = None
+        self.released = 0
         self.report = None
         self.layer = None
         layout = QVBoxLayout(self)
@@ -280,8 +297,10 @@ class DownloadRoofsDialog(QDialog):
             if answer != QMessageBox.StandardButton.Yes:
                 return False
         zone, limit, crs_wkt, margin = inputs
+        self.released = _release(output)       # QGIS must let go of the file before it is replaced
         QgsSettings().setValue(CACHE_SETTING, self.cache_dir.filePath())
         min_confidence = self.confidence.value() if self.confidence_on.isChecked() else None
+        self.task_output = output
         self.task = DownloadTask(zone, limit, crs_wkt, margin, output, self._cache(), self.kind.currentData(),
                                  min_confidence)
         self.task.progressChanged.connect(lambda value: self.progress.setValue(int(value)))
@@ -309,12 +328,14 @@ class DownloadRoofsDialog(QDialog):
     def _finished(self, report, error):
         self.task = None
         self._running(False)
-        if error is not None:
-            key = "download.empty_zone" if isinstance(error, EmptyZone) else "download.error"
-            self._say(tr(key, error=error), "warn")
-            return
-        if report is None:
-            self._say(tr("download.cancelled"), "warn")
+        if error is not None or report is None:
+            if error is not None:
+                key = "download.empty_zone" if isinstance(error, EmptyZone) else "download.error"
+                self._say(tr(key, error=error), "warn")
+            else:
+                self._say(tr("download.cancelled"), "warn")
+            if self.released and self.task_output and os.path.exists(self.task_output):
+                self.restored.emit(find_or_add_layer(self.task_output, "roofs"))   # the former roofs, untouched
             return
         self.report = report
         self.layer = find_or_add_layer(report["output"], report["layer"])

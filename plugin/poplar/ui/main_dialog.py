@@ -347,7 +347,8 @@ class MainDialog(QDialog):
         if result.failure is not None:
             self._offer_solutions(result)
             return
-        level = Qgis.Success if result.status in ("success", "success_with_adjustments") else Qgis.Warning
+        level = (Qgis.MessageLevel.Success if result.status in ("success", "success_with_adjustments")
+                 else Qgis.MessageLevel.Warning)
         self.iface.messageBar().pushMessage("Poplar", tr(f"run.status.{result.status}"), level)
         notable = [w for w in result.warnings if w.code not in INFORMATION]
         if notable:

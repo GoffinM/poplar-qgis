@@ -603,5 +603,6 @@
  "calibration.roof_origin": "✔ Roofs downloaded on {date}: {kept} roofs ({dataset}).",
  "calibration.downloaded": "Roofs downloaded: {kept} roofs in {file}, chosen as the roof layer.",
  "water.with_default": "{name} (empty = {value})",
- "calibration.csv_source": "Google Open Buildings CSV tile of the older scenario: {file}, read directly. Choosing a layer replaces it."
+ "calibration.csv_source": "Google Open Buildings CSV tile of the older scenario: {file}, read directly. Choosing a layer replaces it.",
+ "parameters.status_missing_layer": "Layer not found: {layer}. The values are kept as they are; choose the layer again."
 }

@@ -23,6 +23,7 @@ from qgis.PyQt.QtWidgets import (
 
 from ..compat import POLYGON_FILTER, VECTOR_FILTER
 from ..engine.calibration import BREAKS, EQUAL, MANUAL_CUT, QUANTILE, SEGMENTS, STEPS, POLYNOMIAL
+from ..engine.roofs import is_open_buildings
 from ..engine.roof_population import ALERT_PERCENT, AREA_PER_PERSON, GroupSettings, WHOLE_AREA
 from ..i18n import current_language, tip, tr
 from .calibration_chart import CUMULATIVE, DISTRIBUTION, CalibrationChart
@@ -45,7 +46,7 @@ class CalibrationTask(QgsTask):
     done = pyqtSignal(object, object, object)  # report, groups, error
 
     def __init__(self, scenario):
-        super().__init__(tr("calibration.task"), QgsTask.CanCancel)
+        super().__init__(tr("calibration.task"), QgsTask.Flag.CanCancel)
         self.scenario = scenario
         self.report = self.groups = self.error = None
 
@@ -152,6 +153,7 @@ class CalibrationPage(QWidget):
         self.task = None
         self._building = False
         self.csv_source = None       # Google Open Buildings CSV tile of an older scenario, read directly
+        self.download_dialog = None
         layout = QVBoxLayout(self)
 
         self.use_roofs = QCheckBox(tr("calibration.use_roofs"))
@@ -415,10 +417,24 @@ class CalibrationPage(QWidget):
 
     def download_roofs(self, show=True):
         """Open the download window on the strata zone; the roofs downloaded become the roof layer."""
+        from qgis.core import QgsProject
+
         from .download_dialog import DownloadRoofsDialog
 
-        dialog = DownloadRoofsDialog(self.strata_layer.currentLayer(), self.dialog.base_dir(), self)
+        running = getattr(self, "download_dialog", None)
+        if running is not None and running.task is not None:     # one download at a time: show the one running
+            if show:
+                running.exec()
+            return running
+        # next to the scenario; a scenario not saved yet: next to the QGIS project, else in the home folder
+        base = (self.dialog.base_dir() if getattr(self.dialog, "path", None)
+                else QgsProject.instance().homePath() or os.path.expanduser("~"))
+        dialog = DownloadRoofsDialog(self.strata_layer.currentLayer(), base, self)
         dialog.downloaded.connect(self._roofs_downloaded)
+        dialog.restored.connect(lambda layer: layer is not None and self.roof_layer.setLayer(layer))
+        if self.download_dialog is not None:
+            self.download_dialog.deleteLater()
+        self.download_dialog = dialog
         if show:
             dialog.exec()
         return dialog
@@ -526,7 +542,8 @@ class CalibrationPage(QWidget):
         source = buildings.get("source") or ""
         self.csv_source = None
         self.roof_layer.setLayer(None)
-        if source.lower().endswith((".csv", ".gz")):
+        if source.lower().endswith((".csv", ".gz")) and (source.lower().endswith(".gz") or
+                                                          is_open_buildings(self.dialog.absolute(source))):
             self.csv_source = self.dialog.absolute(source)            # kept as it is (no field of its own)
         elif source:
             layer = find_or_add_layer(self.dialog.absolute(source), buildings.get("layer"), where=buildings.get("where"))

@@ -603,5 +603,6 @@
  "calibration.roof_origin": "✔ Toits téléchargés le {date} : {kept} toits ({dataset}).",
  "calibration.downloaded": "Toits téléchargés : {kept} toits dans {file}, choisis comme couche des toits.",
  "water.with_default": "{name} (vide = {value})",
- "calibration.csv_source": "Tuile CSV Google Open Buildings de l'ancien scénario : {file}, lue directement. Choisir une couche la remplace."
+ "calibration.csv_source": "Tuile CSV Google Open Buildings de l'ancien scénario : {file}, lue directement. Choisir une couche la remplace.",
+ "parameters.status_missing_layer": "Couche introuvable : {layer}. Les valeurs sont gardées telles quelles ; rechoisissez la couche."
 }

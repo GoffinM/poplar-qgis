@@ -729,6 +729,81 @@ def _add_roofs():
     return find_or_add_layer(os.path.join(MURAMVYA, "buildings_muramvya.gpkg"))
 
 
+def test_zone_values_survive_a_missing_layer_and_crossing_round_trips(iface, scenario_copy):
+    from poplar.ui.main_dialog import MainDialog
+
+    with open(scenario_copy, encoding="utf-8") as handle:
+        data = json.load(handle)
+    zones = dict(data["parameters"]["dmax"]["zones"][0], source="dossier_deplace/communes.shp")
+    data["parameters"]["dmax"]["zones"] = [zones]
+    with open(scenario_copy, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    dmax = dialog.page("parameters").tables["dmax"]
+    assert "communes.shp" in dmax.status.text() and dmax.status.property("state") == "warn"
+    spec = dialog.collect()["parameters"]["dmax"]                     # moved folder: nothing lost when saving
+    assert spec["zones"][0]["source"].endswith("communes.shp") and spec["values"]["Urbain1"] == 10000
+
+    growth = dialog.page("indicators").tables["water_per_capita"]
+    communes = next(layer for layer in QgsProject.instance().mapLayers().values()
+                    if layer.name().startswith("commune"))
+    growth.layer.setLayer(communes)
+    growth.field.setField("Type")
+    growth.cross.setChecked(True)
+    growth.layer2.setLayer(communes)
+    growth.field2.setField("COMMUNES")
+    pair = next(k for k in growth.values() if k.startswith("Rural|MURAMVYA"))
+    _set_cell(growth, pair, 2, "77")
+    growth.cross.setChecked(False)
+    growth.cross.setChecked(True)                                     # pairs come back with the crossing
+    assert growth.values()[pair] == 77
+
+    growth.layer2.setLayer(None)                                      # crossing ticked, second layer removed
+    _set_cell(growth, "Urbain1|*", 2, "60")
+    spec = dialog.collect()["indicators"][0]["parameters"]["water_per_capita"]
+    assert len(spec["zones"]) == 1 and spec["values"]["Urbain1"] == 60 and "Urbain1|*" not in spec["values"]
+
+    item = growth.table.item(0, 2)
+    item.setText("20 l")                                              # pasted text: ignored, never a crash
+    dialog.collect()
+    QgsProject.instance().clear()
+
+
+def test_downloading_again_replaces_the_layer_and_a_failure_keeps_the_former_roofs(iface, scenario_copy, tmp_path):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(_with_calibration(scenario_copy))
+    page = dialog.page("calibration")
+    window = page.download_roofs(show=False)
+    window.fetcher = _FakeTiles()
+    window.cache_dir.setFilePath(str(tmp_path / "cache"))
+    assert window.start(background=False)
+    first = page.roof_layer.currentLayer()
+    kept, first_id = window.report["counts"]["kept"], first.id()
+    assert first.featureCount() == kept
+
+    window.confidence_on.setChecked(True)
+    window.confidence.setValue(0.9)                                   # every fake roof has 0.8: none kept
+    assert window.start(background=False, ask=False)
+    layer = page.roof_layer.currentLayer()
+    assert layer.id() != first_id and layer.isValid() and layer.featureCount() == 0
+    assert first_id not in QgsProject.instance().mapLayers()          # the former layer was let go
+
+    window.confidence_on.setChecked(False)
+    assert window.start(background=False, ask=False)
+    window.fetcher.rows = ["not,a,number"]                            # a damaged tile, read again from zero
+    for name in os.listdir(tmp_path / "cache" / "google_open_buildings_v3" / "points"):
+        with open(tmp_path / "cache" / "google_open_buildings_v3" / "points" / name, "r+b") as handle:
+            handle.truncate(10)
+    assert window.start(background=False, ask=False)
+    assert window.info.property("state") == "warn"
+    restored = page.roof_layer.currentLayer()
+    assert restored is not None and restored.featureCount() == kept   # the roofs of the last good download
+    QgsProject.instance().clear()
+
+
 def test_clean_up_is_offered_when_qgis_closes(iface):
     import poplar
     from qgis.PyQt.QtCore import QCoreApplication, QEvent

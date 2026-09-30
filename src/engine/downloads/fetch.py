@@ -23,6 +23,10 @@ class RemoteMissing(Exception):
     """The server has no such file (HTTP 404): for tiled datasets, a tile without buildings."""
 
 
+class IncompleteDownload(IOError):
+    """The server closed the connection before the end of the file."""
+
+
 class UrllibFetcher:
     """Plain Python download, streamed to disk.
 
@@ -68,6 +72,8 @@ class UrllibFetcher:
                 received += len(chunk)
                 if progress is not None:
                     progress(received, total)
+        if total is not None and received != total:        # connection closed early: never cached
+            raise IncompleteDownload(f"{url}: {received} bytes received out of {total}")
 
 
 class FileCache:

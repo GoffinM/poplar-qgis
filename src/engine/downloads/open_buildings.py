@@ -21,6 +21,7 @@ import gzip
 import io
 import json
 import os
+import zlib
 from typing import Callable, Dict, List, Optional
 
 import numpy as np
@@ -108,8 +109,18 @@ def download_open_buildings(zone: DownloadZone, output: str, cache: FileCache, k
                             "bytes": os.path.getsize(path)})
         progress(0.6 * share * (index + 1))
 
-    counts = _write_roofs(files, zone, output, kind, min_confidence,
-                          lambda fraction: progress(0.6 + 0.4 * fraction), cancelled)
+    # Written beside, then swapped: a failed or cancelled download never spoils the roofs already there.
+    partial = os.path.splitext(output)[0] + ".part.gpkg"
+    try:
+        counts = _write_roofs(files, zone, partial, kind, min_confidence,
+                              lambda fraction: progress(0.6 + 0.4 * fraction), cancelled)
+    except BaseException:
+        _remove_gpkg(partial)
+        raise
+    if os.path.exists(report_path(output)):
+        os.remove(report_path(output))
+    _remove_gpkg(output)
+    os.replace(partial, output)
     report = {
         "dataset": DATASET,
         "kind": kind,
@@ -133,18 +144,40 @@ def download_open_buildings(zone: DownloadZone, output: str, cache: FileCache, k
     return report
 
 
+def _remove_gpkg(path: str) -> None:
+    for name in (path, path + "-wal", path + "-shm", path + "-journal"):
+        if os.path.exists(name):
+            os.remove(name)
+
+
+class DamagedTile(IOError):
+    """A tile in the cache cannot be read to the end (interrupted download): it was removed from the cache."""
+
+
 def _write_roofs(files, zone, output, kind, min_confidence, progress, cancelled) -> Dict[str, int]:
     west, south, east, north = zone.lonlat_bounds()
     mask = zone.mask()
-    polygons = kind == "polygons"
     counts = {"read": 0, "outside_zone": 0, "low_confidence": 0, "kept": 0}
     with gdal_exceptions():
         target = srs_from_wkt(zone.crs_wkt)
         transform = osr.CoordinateTransformation(srs_from_epsg(4326), target)
-        if os.path.exists(output):
-            ogr.GetDriverByName("GPKG").DeleteDataSource(output)
+        _remove_gpkg(output)
         os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
         datasource = ogr.GetDriverByName("GPKG").CreateDataSource(output)
+        try:
+            _fill(datasource, files, target, transform, west, south, east, north, mask, kind, min_confidence,
+                  counts, progress, cancelled)
+        finally:
+            datasource = None                     # always closed: Windows cannot delete an open file
+    counts["outside_zone"] = counts["read"] - counts["kept"] - counts["low_confidence"]
+    return counts
+
+
+def _fill(datasource, files, target, transform, west, south, east, north, mask, kind, min_confidence,
+          counts, progress, cancelled) -> None:
+    polygons = kind == "polygons"
+    layer = definition = None
+    try:
         layer = datasource.CreateLayer(LAYER, target, ogr.wkbMultiPolygon if polygons else ogr.wkbPoint,
                                        ["SPATIAL_INDEX=YES"])
         for name, kind_ in (("area_m2", ogr.OFTReal), ("confidence", ogr.OFTReal), ("plus_code", ogr.OFTString)):
@@ -156,27 +189,30 @@ def _write_roofs(files, zone, output, kind, min_confidence, progress, cancelled)
         done = 0
         for path, size in zip(files, sizes):
             rows: List[list] = []
-            with gzip.open(path, "rb") as raw:
-                reader = csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""))
-                for row in reader:
-                    counts["read"] += 1
-                    lat, lon = float(row[0]), float(row[1])
-                    if not (west <= lon <= east and south <= lat <= north):
-                        continue
-                    rows.append(row)
-                    if len(rows) >= BATCH:
-                        _flush(rows, layer, definition, transform, mask, polygons, min_confidence, counts)
-                        rows = []
-                        if cancelled is not None and cancelled():
-                            raise DownloadCancelled(path)
-                        progress((done + raw.fileobj.tell() / max(1, size)) / max(1, len(files)))
+            try:
+                with gzip.open(path, "rb") as raw:
+                    reader = csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""))
+                    for row in reader:
+                        counts["read"] += 1
+                        lat, lon = float(row[0]), float(row[1])
+                        if not (west <= lon <= east and south <= lat <= north):
+                            continue
+                        rows.append(row)
+                        if len(rows) >= BATCH:
+                            _flush(rows, layer, definition, transform, mask, polygons, min_confidence, counts)
+                            rows = []
+                            if cancelled is not None and cancelled():
+                                raise DownloadCancelled(path)
+                            progress((done + raw.fileobj.tell() / max(1, size)) / max(1, len(files)))
+            except (EOFError, OSError, zlib.error, UnicodeDecodeError, IndexError, ValueError) as error:
+                os.remove(path)                   # a damaged tile is downloaded again next time
+                raise DamagedTile(f"{os.path.basename(path)}: {error}") from None
             if rows:
                 _flush(rows, layer, definition, transform, mask, polygons, min_confidence, counts)
             done += 1
             progress(done / max(1, len(files)))
-        datasource = None
-    counts["outside_zone"] = counts["read"] - counts["kept"] - counts["low_confidence"]
-    return counts
+    finally:
+        layer = definition = datasource = None     # nothing keeps the file open, even from a traceback
 
 
 def _flush(rows, layer, definition, transform, mask, polygons, min_confidence, counts) -> None:
