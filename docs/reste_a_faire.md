@@ -61,9 +61,11 @@ Retours des collègues et décisions du 30/09/2026. Les notes de suivi §3.4 et 
 - **Sorties prévues** : la catégorie de chaque maille par année, l'année de changement, et les polygones des taches par date de sortie (lissés ; la grille reste la référence du calcul).
 - **En attendant**, dans la version du beta : un changement planifié peut être imité avec des paramètres liés à la zone et variables dans le temps (TCAM, densité maximale), avec deux années proches pour un changement net.
 - **Point d'architecture** : aujourd'hui, la catégorie est lue une fois par unité de calcul (`units.codes["class"]`), et le TCAM, la densité maximale et la capacité en dépendent. Il faudra la recalculer à chaque pas. C'est le cœur du chantier ; le banc de non-régression garantira qu'un calcul sans changement de catégorie reste identique.
-- **Plan détaillé** : `plan_categories_dynamiques.md` (règles, table des changements planifiés, hiérarchie, sorties, étapes, questions Q1 à Q10). À valider après le beta, avant tout code.
+- **Plan détaillé** : `plan_categories_dynamiques.md` (règles, table des changements planifiés, hiérarchie, sorties, étapes). Questions Q1 à Q10 tranchées le 30/09 ; à lancer après les retours du beta.
 
 ## 6. Plus tard
+
+- **Zones à population planifiée** : par exemple un camp dont la population est connue ou prévue chaque année, imposée au modèle au lieu d'être calculée. Cas récurrent, laissé ouvert le 30/09 (plan des catégories dynamiques, Q10).
 
 - **Langues** supplémentaires : es, pt, ar, sw, rw, rn, ru, uk.
 - **Assistant IA** (phase 7, BYOK) : attend la politique d'envoi des données (Q7).
