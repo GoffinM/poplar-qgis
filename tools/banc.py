@@ -87,7 +87,18 @@ def case_raster(folder):
         "pattern_correlation": _pattern(result.directory),
         "water_domestic_2060": _raster_sum(result.directory, "water_domestic_2060.tif"),
         "balance_error_max": max(abs(s.balance_error) for s in result.steps),
+        **_grid_layer(result.directory),
     }, seconds
+
+
+def _grid_layer(directory):
+    """Cells of mailles.gpkg and their 2060 population (the same total as the rasters)."""
+    from osgeo import ogr
+
+    datasource = ogr.Open(os.path.join(directory, "mailles.gpkg"))
+    layer = datasource.GetLayer(0)
+    total = sum(f.GetField("population_2060") or 0 for f in layer)
+    return {"grid_cells": layer.GetFeatureCount(), "grid_population_2060": float(total)}
 
 
 def case_legacy_roofs(folder):

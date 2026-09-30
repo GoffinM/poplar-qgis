@@ -1,6 +1,6 @@
 # Recette du plugin sur votre poste
 
-Version 0.6.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
+Version 0.7.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
 
 - Durée : environ 45 minutes. Les sections marquées « facultatif » ajoutent 15 minutes.
 - Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
@@ -8,18 +8,18 @@ Version 0.6.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 
 ## 0. Préparer
 
-1. **Plugin** : téléchargez `poplar-0.6.0.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.6.0.zip
+1. **Plugin** : téléchargez `poplar-0.7.0.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.7.0.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis décompressez l'archive. Le dossier `data/test/muramvya/` contient les scénarios et les données.
 3. Si une version précédente de Poplar est installée : **Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**.
 
-⚠️ Installez seulement `poplar-0.6.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
+⚠️ Installez seulement `poplar-0.7.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.6.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
+| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.7.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
 | I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
-| I.3 | Bouton **À propos** | Version 0.6.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
+| I.3 | Bouton **À propos** | Version 0.7.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
 
 ## 1. Scénario
 
@@ -28,6 +28,7 @@ Version 0.6.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | S.1 | **Scénario › Ouvrir…** › `data/test/muramvya/scenario_muramvya.json` | La commune, la forêt et le raster sont ajoutés au projet ; les onglets sont remplis |
 | S.2 | Pastilles à gauche des onglets | Pétrole : complet ; ocre : à vérifier (Paramètres, à cause d'`Urbain2`) ; cercle vide : pas utilisé |
 | S.3 | Choisissez un dossier des résultats vide | — |
+| S.3 bis | « Couche des mailles » | GeoPackage par défaut ; choix Shapefile, les deux, aucune |
 | S.4 | **Bibliothèque… › Ajouter le scénario actuel…**, puis **Partir de ce scénario** | Le scénario est rechargé ; « Enregistrer… » demande un nouveau fichier |
 | S.5 | Bouton **?** en haut à droite | La page d'aide de l'onglet s'ouvre ; la recherche fonctionne |
 
@@ -113,6 +114,8 @@ Version 0.6.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | L.1 | Rouvrez `scenario_muramvya.json` ; **Lancer › Vérifier le scénario** | « Scénario complet et cohérent » |
 | L.2 | **Lancer le calcul** | Progression ; QGIS reste utilisable ; quelques secondes |
 | L.3 | Fin du calcul | « Calcul réussi » ; groupe « Poplar – Muramvya – exemple – *date heure* » avec population et densité de **toutes les années de sortie** (2025 à 2060), seule 2060 cochée |
+| L.3 bis | Dans le groupe des résultats : « mailles (tous les résultats) », décochée, sous les rasters | Table attributaire : une ligne par maille, champs `population_2024` … `population_2060`, `density_…`, `water_…` ; la somme de `population_2060` vaut 320 361 |
+| L.3 ter | Onglet Scénario : « Couche des mailles » = Shapefile, relancez | Dans le dossier : `mailles.shp` (champs `pop2030`, `den2030`…) et `mailles_champs.csv` |
 | L.4 | Relancez **sans rien retirer du projet** | Un second sous-dossier daté est créé, sans erreur « permission denied » |
 | R.1 | Onglet **Rapport** | Statut « réussi », population de 170 565 à 320 361 habitants |
 | R.2 | **Ouvrir le rapport complet (HTML)** | Page lisible dans le navigateur, avec les graphiques |

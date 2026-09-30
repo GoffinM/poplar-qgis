@@ -286,5 +286,6 @@
   "xlsx_census_field": "Field of the layer",
   "xlsx_software_title": "Software",
   "xlsx_made_on": "Workbook made on",
-  "calibration_excel_failed": "The Excel workbook of the calibration (calage.xlsx) could not be written: {detail}"
+  "calibration_excel_failed": "The Excel workbook of the calibration (calage.xlsx) could not be written: {detail}",
+  "grid_layer_failed": "The cell layer (mailles.gpkg) could not be written: {detail}"
 }

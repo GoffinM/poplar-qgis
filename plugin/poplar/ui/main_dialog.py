@@ -16,7 +16,7 @@ from ..compat import with_password
 from ..engine import runs
 from ..engine.scenario import ScenarioError, is_connection, scenario_from_dict
 from ..i18n import current_language, tip, tr
-from ..results import load_rasters
+from ..results import load_grid_layer, load_rasters
 from ..task import RunTask
 from .cleanup_dialog import CleanupDialog, run_title
 from .nonconvergence_dialog import NonConvergenceDialog
@@ -382,6 +382,9 @@ class MainDialog(QDialog):
         if run is not None:
             group += f" – {run_title(run)}"
         layers = load_rasters(directory, quantities, years, group, visible)
+        grid = load_grid_layer(directory, group)
+        if grid is not None and grid not in layers:
+            layers.append(grid)
         if layers:
             self.iface.messageBar().pushInfo("Poplar", tr("results.loaded", count=len(layers)))
 

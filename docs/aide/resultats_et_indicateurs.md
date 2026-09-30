@@ -15,6 +15,8 @@ Les noms de fichiers sont **fixes et en anglais**, quelle que soit la langue. `A
 | `report.txt` / `report.json` | Rapport d'exécution, pour une personne ou pour un programme |
 | `scenario_used.json` | Copie du scénario utilisé |
 | `calibration.json` | Détail du calage, si la population de départ vient des toits |
+| `mailles.gpkg` | **Une couche de toutes les mailles** de la zone d'étude (vides comprises), avec tous les résultats de chaque année de sortie (voir plus bas). Elle est chargée dans le groupe des résultats, décochée |
+| `mailles.shp` et `mailles_champs.csv` | La même couche en Shapefile, si elle est demandée. Les noms de champs sont coupés à 10 caractères (`pop2030`, `den2030`…) ; le tableau `mailles_champs.csv` donne le nom complet et l'unité de chacun |
 | `calage.xlsx` | Classeur Excel du calage : synthèse, classes, distribution, hypothèses et sources, avec des graphiques Excel (voir l'aide « Calage ») |
 | `report.html` | **Rapport complet autonome** : chiffres clés, évolution de la population, avertissements, calage avec ses graphiques. Il s'ouvre dans un navigateur et s'imprime en PDF ; bouton « Ouvrir le rapport complet » de l'onglet Rapport, ou `python -m engine report <dossier>` |
 
@@ -41,6 +43,22 @@ Le rapport indique :
 - les **avertissements**, par exemple une résolution grossière ou des zones sans classe ;
 - les **événements**, par exemple une zone relocalisée ou fermée à une date ;
 - pour **chaque pas** : la population avant et après la croissance, après la migration, le nombre d'habitants déplacés et un **écart de bilan**, qui doit être nul.
+
+## Couche des mailles
+
+La couche `mailles.gpkg` contient **une ligne par maille** de la zone d'étude, même vide, avec :
+
+| Champ | Contenu |
+|---|---|
+| `cell_id`, `row`, `col` | Position de la maille dans la grille du calcul, la même que celle des rasters |
+| `area_km2` | Surface utile de la maille : dans la zone d'étude et hors des zones retirées |
+| `class`, `admin` | Classe de typologie et unité administrative de la plus grande partie de la maille |
+| `population_AAAA`, `density_AAAA`, `capacity_AAAA`, `unallocated_AAAA`, `water_…_AAAA` | Tous les résultats de chaque année de sortie |
+
+- Elle se colore sur n'importe quel champ (**Propriétés › Symbologie › Gradué**), se joint à d'autres couches et s'exporte vers d'autres logiciels.
+- La population de la couche est celle des rasters, maille par maille : les totaux sont identiques.
+- Le format se choisit dans l'onglet **Scénario** : GeoPackage (par défaut), Shapefile, les deux, ou aucune.
+- Durée d'écriture : moins d'une seconde pour Muramvya ; de l'ordre d'une à deux minutes pour tout un pays en mailles de 250 m.
 
 ## Demande en eau potable
 

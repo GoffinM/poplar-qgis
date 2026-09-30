@@ -26,6 +26,7 @@ from .indicators import Indicator, create_indicator
 from .nonconvergence import (
     FAILED, SINK, SUCCESS, DmaxProposal, MigrationSettings, NonConvergenceError, Sink, migrate_with_policy,
 )
+from .grid_layer import write_grid_layer
 from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
@@ -210,6 +211,11 @@ def run(
     summary_path = os.path.join(out_dir, "summary.csv")
     write_summary(summary_path, rows, language, model.column_units(scenario))
     outputs.append(summary_path)
+    try:  # one layer of the cells with every result (mailles.gpkg): never a failed run
+        outputs.extend(write_grid_layer(out_dir, units, scenario.output_grid_layer, scenario.density_unit,
+                                        model.column_units(scenario)))
+    except Exception as error:  # pragma: no cover
+        warnings.append(message("grid_layer_failed", detail=str(error)))
     result = RunResult(status, steps, warnings, outputs, out_dir, float(population.sum()), float(base_start), events,
                        failure, failure_year)
     _write_run_report(scenario, result, model, clock.time() - started)

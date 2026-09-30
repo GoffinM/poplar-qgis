@@ -96,8 +96,16 @@ def test_dialog_run_loads_the_results(iface, scenario_copy):
     groups = [g for g in QgsProject.instance().layerTreeRoot().findGroups()
               if g.name().startswith("Poplar – Muramvya – exemple – ")]
     nodes = groups[0].findLayers() if len(groups) == 1 else []
-    assert sorted(n.name() for n in nodes) == ["density 2025", "density 2030", "population 2025", "population 2030"]
+    from poplar.i18n import tr
+
+    grid_name = tr("results.grid_layer_name")
+    assert sorted(n.name() for n in nodes) == sorted(["density 2025", "density 2030", "population 2025",
+                                                      "population 2030", grid_name])
     assert sorted(n.name() for n in nodes if n.itemVisibilityChecked()) == ["density 2030", "population 2030"]
+    grid = next(n.layer() for n in nodes if n.name() == grid_name)          # every cell, every result
+    assert grid.featureCount() > 1000 and grid.fields().indexOf("population_2030") >= 0
+    assert nodes[-1].name() == grid_name                                    # under the rasters
+    assert dialog.collect()["output"]["grid_layer"] == "gpkg"
     assert os.path.dirname(dialog.results_directory()) == dialog.output_directory()  # one folder per run
     dialog.page("report").refresh()
     assert "2030" in dialog.page("report").text.toPlainText()
@@ -918,7 +926,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 6
-    assert version() == "0.6.0"
+    assert version() == "0.7.0"
     AboutDialog()
 
 

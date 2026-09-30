@@ -9,6 +9,8 @@ from qgis.core import (
 )
 from qgis.PyQt.QtGui import QColor
 
+from .i18n import tr
+
 QUANTITIES = ["population", "density", "capacity", "unallocated", "water_domestic", "water_consumption_mean",
               "water_production_mean", "water_production_peak_day", "water_peak_hour"]
 RAMPS = {
@@ -58,6 +60,37 @@ def load_rasters(directory, quantities, years, group_name, visible=None):
                 node.setItemVisibilityChecked(year in visible)
             loaded.append(layer)
     return loaded
+
+
+def load_grid_layer(directory, group_name):
+    """Add the cell layer of a run (mailles.gpkg, else mailles.shp) to its group, unticked and unfilled.
+
+    It holds every result of every output year: open its attribute table, or style it on any field.
+    """
+    from qgis.core import QgsFillSymbol, QgsVectorLayer
+
+    for name, uri in (("mailles.gpkg", "mailles.gpkg|layername=mailles"), ("mailles.shp", "mailles.shp")):
+        path = os.path.join(directory, name)
+        if os.path.exists(path):
+            break
+    else:
+        return None
+    project = QgsProject.instance()
+    source = os.path.normcase(os.path.abspath(path))
+    for layer in project.mapLayers().values():                    # already loaded (Results tab, second time)
+        if os.path.normcase(os.path.abspath(layer.source().split("|")[0])) == source:
+            return layer
+    layer = QgsVectorLayer(os.path.join(directory, uri), tr("results.grid_layer_name"), "ogr")
+    if not layer.isValid():
+        return None
+    layer.renderer().setSymbol(QgsFillSymbol.createSimple(
+        {"style": "no", "outline_color": "120,120,120,120", "outline_width": "0.1"}))
+    project.addMapLayer(layer, False)
+    root = project.layerTreeRoot()
+    group = root.findGroup(group_name) or root.insertGroup(0, group_name)
+    node = group.addLayer(layer)                                  # at the bottom: rasters stay on top
+    node.setItemVisibilityChecked(False)
+    return layer
 
 
 def _inside(path, directory):

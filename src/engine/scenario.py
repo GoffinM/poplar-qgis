@@ -130,6 +130,8 @@ class Scenario:
     output_directory: str = "outputs"
     output_per_run: bool = False
     """Write each run in its own time-stamped sub-folder of ``output_directory`` (see engine.runs)."""
+    output_grid_layer: str = "gpkg"
+    """Layer of the grid cells with every result: ``gpkg`` (default), ``shp``, ``both`` or ``none``."""
     extrapolation: str = CONSTANT
     base_dir: str = ""
 
@@ -169,7 +171,8 @@ class Scenario:
         data["base_population"] = {"raster": data.pop("base_population_raster"), "boundary_mode": data.pop("boundary_mode"),
                                    "value_type": data.pop("population_value_type"),
                                    "source": data.pop("population_source")}
-        data["output"] = {"directory": data.pop("output_directory"), "per_run": data.pop("output_per_run")}
+        data["output"] = {"directory": data.pop("output_directory"), "per_run": data.pop("output_per_run"),
+                          "grid_layer": data.pop("output_grid_layer")}
         return _without_passwords(_drop_none(data))
 
     def save(self, path: str) -> None:
@@ -300,6 +303,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
         exclusions=exclusions, projections=projections, migration=migration, indicators=indicators,
         output_directory=(data.get("output") or {}).get("directory", "outputs"),
         output_per_run=bool((data.get("output") or {}).get("per_run", False)),
+        output_grid_layer=str((data.get("output") or {}).get("grid_layer", "gpkg")),
         extrapolation=data.get("extrapolation", CONSTANT), base_dir=base_dir,
     )
     errors.extend(validate(scenario))
@@ -375,6 +379,10 @@ def validate(scenario: Scenario) -> List[Message]:
         for i, zone in enumerate(parameter_zone_inputs(spec)):
             if not zone.source or not zone.field:
                 errors.append(message("scenario_missing_key", key=f"parameters.{name}.zones[{i}].source/field"))
+    from .grid_layer import FORMATS
+
+    if scenario.output_grid_layer not in FORMATS:
+        invalid("output.grid_layer", scenario.output_grid_layer, " | ".join(FORMATS))
     for spec in scenario.indicators:
         from .indicators import REGISTRY
 

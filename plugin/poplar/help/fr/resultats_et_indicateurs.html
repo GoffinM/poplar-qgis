@@ -20,6 +20,8 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>report.txt</code> / <code>report.json</code></td><td>Rapport d'exécution, pour une personne ou pour un programme</td></tr>
 <tr><td><code>scenario_used.json</code></td><td>Copie du scénario utilisé</td></tr>
 <tr><td><code>calibration.json</code></td><td>Détail du calage, si la population de départ vient des toits</td></tr>
+<tr><td><code>mailles.gpkg</code></td><td><b>Une couche de toutes les mailles</b> de la zone d'étude (vides comprises), avec tous les résultats de chaque année de sortie (voir plus bas). Elle est chargée dans le groupe des résultats, décochée</td></tr>
+<tr><td><code>mailles.shp</code> et <code>mailles_champs.csv</code></td><td>La même couche en Shapefile, si elle est demandée. Les noms de champs sont coupés à 10 caractères (<code>pop2030</code>, <code>den2030</code>…) ; le tableau <code>mailles_champs.csv</code> donne le nom complet et l'unité de chacun</td></tr>
 <tr><td><code>calage.xlsx</code></td><td>Classeur Excel du calage : synthèse, classes, distribution, hypothèses et sources, avec des graphiques Excel (voir l'aide « Calage »)</td></tr>
 <tr><td><code>report.html</code></td><td><b>Rapport complet autonome</b> : chiffres clés, évolution de la population, avertissements, calage avec ses graphiques. Il s'ouvre dans un navigateur et s'imprime en PDF ; bouton « Ouvrir le rapport complet » de l'onglet Rapport, ou <code>python -m engine report &lt;dossier&gt;</code></td></tr>
 </table>
@@ -32,6 +34,16 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <h2>Le rapport d'exécution</h2>
 <p>Le rapport indique :</p>
 <ul><li>le <b>statut</b> : réussi, réussi avec ajustements, partiel (population non relocalisée) ou échec ;</li><li>la population au départ et à l'horizon final ;</li><li>le nombre de mailles et la durée du calcul ;</li><li>les <b>avertissements</b>, par exemple une résolution grossière ou des zones sans classe ;</li><li>les <b>événements</b>, par exemple une zone relocalisée ou fermée à une date ;</li><li>pour <b>chaque pas</b> : la population avant et après la croissance, après la migration, le nombre d'habitants déplacés et un <b>écart de bilan</b>, qui doit être nul.</li></ul>
+<h2>Couche des mailles</h2>
+<p>La couche <code>mailles.gpkg</code> contient <b>une ligne par maille</b> de la zone d'étude, même vide, avec :</p>
+<table>
+<tr><th>Champ</th><th>Contenu</th></tr>
+<tr><td><code>cell_id</code>, <code>row</code>, <code>col</code></td><td>Position de la maille dans la grille du calcul, la même que celle des rasters</td></tr>
+<tr><td><code>area_km2</code></td><td>Surface utile de la maille : dans la zone d'étude et hors des zones retirées</td></tr>
+<tr><td><code>class</code>, <code>admin</code></td><td>Classe de typologie et unité administrative de la plus grande partie de la maille</td></tr>
+<tr><td><code>population_AAAA</code>, <code>density_AAAA</code>, <code>capacity_AAAA</code>, <code>unallocated_AAAA</code>, <code>water_…_AAAA</code></td><td>Tous les résultats de chaque année de sortie</td></tr>
+</table>
+<ul><li>Elle se colore sur n'importe quel champ (<b>Propriétés › Symbologie › Gradué</b>), se joint à d'autres couches et s'exporte vers d'autres logiciels.</li><li>La population de la couche est celle des rasters, maille par maille : les totaux sont identiques.</li><li>Le format se choisit dans l'onglet <b>Scénario</b> : GeoPackage (par défaut), Shapefile, les deux, ou aucune.</li><li>Durée d'écriture : moins d'une seconde pour Muramvya ; de l'ordre d'une à deux minutes pour tout un pays en mailles de 250 m.</li></ul>
 <h2>Demande en eau potable</h2>
 <table>
 <tr><th>Paramètre</th><th>Unité</th><th>Défaut</th></tr>

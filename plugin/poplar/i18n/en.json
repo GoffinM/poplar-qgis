@@ -624,5 +624,13 @@
  "calibration.excel.tip": "Summary, classes and distribution of each group with their Excel charts, assumptions and sources, as shown (current settings included). A calage.xlsx is also written by each run, in the results folder.",
  "calibration.excel_first": "Compute the calibration first (« Compute the calibration » button).",
  "calibration.excel_failed": "The workbook could not be written ({error}). Is it open in Excel?",
- "calibration.excel_done": "Calibration workbook saved: {path}"
+ "calibration.excel_done": "Calibration workbook saved: {path}",
+ "scenario.grid_layer": "Cell layer",
+ "scenario.grid_layer.tip.title": "Cell layer",
+ "scenario.grid_layer.tip": "A vector layer of the cells of the study area (empty ones included), with every result of every output year: population, density, capacity, not relocated, indicators. The GeoPackage keeps full names; the Shapefile cuts them to 10 characters (table mailles_champs.csv).",
+ "scenario.grid_layer.gpkg": "GeoPackage (mailles.gpkg)",
+ "scenario.grid_layer.shp": "Shapefile (mailles.shp)",
+ "scenario.grid_layer.both": "GeoPackage and Shapefile",
+ "scenario.grid_layer.none": "None",
+ "results.grid_layer_name": "cells (all results)"
 }

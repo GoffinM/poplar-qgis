@@ -3,6 +3,12 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.7.0 – 30/09/2026 : version du beta testing
+
+- **Couche des mailles** (`mailles.gpkg`) : toutes les mailles de la zone d'étude, vides comprises, avec tous les résultats de chaque année de sortie (population, densité, capacité, non relocalisés, indicateurs), la classe et l'unité administrative. Elle est chargée dans le groupe des résultats. Le format se choisit dans l'onglet Scénario : GeoPackage par défaut, Shapefile en option (avec une table des noms de champs), les deux, ou aucune.
+- Aide : fiche « Changement d'affectation planifié : ce qui est possible aujourd'hui », avec ses limites.
+- Reste à faire : décisions du 30/09 sur les catégories qui changent dans le temps (extension urbaine et changements planifiés, à concevoir ensemble après le beta).
+
 ## 0.6.0 – 30/09/2026
 
 - **Export Excel du calage** : bouton **Exporter en Excel…** de l'onglet Calage, qui enregistre le calage tel qu'il est affiché, réglages en cours compris. Chaque calcul qui part des toits écrit aussi un `calage.xlsx`.

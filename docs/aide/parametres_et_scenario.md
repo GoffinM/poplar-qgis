@@ -68,6 +68,16 @@ Dans le fichier de scénario :
 
 Une exclusion peut porter une **année** (`"year": 2030`) : elle s'applique alors à partir de cette année, et les résultats de l'année 2030 en tiennent déjà compte. Les couches de **lignes** (routes, rivières) et de **points** (forages, sources) reçoivent obligatoirement une largeur de tampon en mètres (`"buffer_m": 50`, colonne « Tampon (m) » de l'onglet Données). Pour une couche de polygones, le tampon est facultatif et élargit la zone, par exemple un lac et ses 100 m de berge. Le tampon est appliqué dans le système de calcul, donc toujours en mètres, même si la couche est en degrés.
 
+## Changement d'affectation planifié : ce qui est possible aujourd'hui
+
+Exemple : un camp de déplacés qui ferme en 2030 et devient un village. La gestion complète des changements de catégorie est prévue après le beta ; en attendant, deux outils existent.
+
+1. **Paramètres de la zone qui changent avec les années.** Dessinez le camp dans une couche de zones, liez-y le TCAM et la densité maximale, puis donnez des valeurs de camp jusqu'en 2029 et des valeurs de village à partir de 2030. Entre deux années charnières, les valeurs sont interpolées en ligne droite : pour un changement net, mettez deux années proches (2029 puis 2030).
+   - **Limite** : la nouvelle densité maximale ne s'applique qu'à la croissance et aux arrivées. Les habitants déjà présents au-delà de cette densité **restent sur place** ; ils ne partent pas progressivement vers d'autres mailles.
+2. **Zone d'exclusion datée « relocalisée »** (`relocate`, avec une année). Tous les habitants de la zone sont relocalisés **d'un coup**, à la date donnée, et la zone n'accueille plus personne ensuite.
+
+Aucun des deux ne reproduit encore une fermeture progressive, où le surplus migre au fil des années. C'est prévu dans le chantier des catégories qui changent dans le temps (voir `docs/reste_a_faire.md`).
+
 ## Projections démographiques (optionnel)
 
 Le fichier peut être un **CSV**, un classeur **Excel** (xlsx, xls) ou **OpenDocument** (ods), sous l'une de ces deux formes :

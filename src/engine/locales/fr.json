@@ -286,5 +286,6 @@
   "xlsx_census_field": "Champ de la couche",
   "xlsx_software_title": "Logiciel",
   "xlsx_made_on": "Classeur produit le",
-  "calibration_excel_failed": "Le classeur Excel du calage (calage.xlsx) n'a pas pu être écrit : {detail}"
+  "calibration_excel_failed": "Le classeur Excel du calage (calage.xlsx) n'a pas pu être écrit : {detail}",
+  "grid_layer_failed": "La couche des mailles (mailles.gpkg) n'a pas pu être écrite : {detail}"
 }

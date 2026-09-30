@@ -1,4 +1,4 @@
-# Reste à faire (état au 30/09/2026, version 0.6.0)
+# Reste à faire (état au 30/09/2026, version 0.7.0)
 
 ## 0. Version de référence 0.4.0 (30/09)
 
@@ -44,24 +44,24 @@
 - Aide en **anglais** (seul le français existe), bilan de la phase 6, README.
 - Fiche À propos : **organisme, licence, contact** à confirmer.
 
-## 5. Planifié après les chantiers en cours (note de suivi du 30/09, §3.4 et §3.5)
+## 5. Catégories qui changent dans le temps : extension urbaine et changements planifiés (après le beta)
 
-Ces deux points ne seront attaqués qu'une fois les sections 1 à 4 terminées. Un plan sera soumis avant tout code.
+Retours des collègues et décisions du 30/09/2026. Les notes de suivi §3.4 et §3.5 restent la référence détaillée.
 
-### 5.1 Strates dynamiques (§3.5, prioritaire)
-
-- La strate (rural, urbain…) devient une **variable d'état** qui évolue à chaque pas, au lieu d'être fixée une fois pour toutes.
-- Deux modes : **Planifié** (les transitions suivent un plan) et **Libre** (elles suivent des règles de densité) ; surplus redistribué ou compté comme non accueilli.
-- Hiérarchie des strates et **table des transitions** : `seuil_densite`, `voisins_min`, `duree_min`, `reversible`.
-- Polygones redessinés à chaque sortie (filtre majoritaire, `SieveFilter`, `Polygonize`, lissage de Chaikin) ; la grille reste la référence du calcul.
-- Identité et **généalogie des taches** : `id_tache`, événements, table `genealogie`, rasters `strate_AAAA` et `annee_changement_strate`.
-- Point d'architecture : aujourd'hui la classe de typologie est lue une fois par unité de calcul (`units.codes["class"]`) et tous les paramètres liés à la typologie (TCAM, densités, plafonds) en dépendent. Il faudra la recalculer à chaque pas et relire les paramètres en conséquence. C'est le cœur du chantier.
-
-### 5.2 Extension urbaine (§3.4)
-
-- Seuil de densité, contiguïté à 8 voisins, taille minimale, **hystérésis**.
-- Raster de statut (codes 0/1/2/3/9), raster `annee_urbanisation`, polygones des taches urbaines, tableau par zone (`scipy.ndimage`).
-- Recouvre en partie 5.1 : l'extension urbaine peut devenir un cas particulier des strates dynamiques (transition rural → urbain). À trancher dans le plan.
+- **Un seul mécanisme pour deux besoins.** La catégorie d'une maille (rural, urbain, camp, village…) devient un état qui peut changer à chaque pas. Deux modes pilotent ce changement :
+  - **par le modèle** : extension progressive des taches urbaines, par la migration vers les mailles voisines (seuil de densité, contiguïté, taille minimale, hystérésis ; note §3.4) ;
+  - **par l'utilisateur** : changements planifiés, par exemple un camp de déplacés qui ferme en 2030 et devient village ou centre urbain secondaire.
+  - **(i) et (iii) sont conçus et développés ensemble**, après les retours du beta testing.
+- **Décisions déjà prises :**
+  - **Option** : le calcul relit chaque maille à chaque pas, ce qui l'alourdit. C'est donc une option, désactivée par défaut, avec un bouton qui prévient de ce coût.
+  - **Priorité** : les changements planifiés par l'utilisateur **priment** sur ceux du modèle. Par exemple, un camp n'est jamais une zone de débordement de l'urbain.
+  - **Fermeture d'un camp** : la densité maximale baisse, et la population en excès **migre progressivement** vers d'autres mailles. Ce n'est ni une évacuation immédiate, ni un maintien sur place.
+  - **Hiérarchie des catégories** : à organiser proprement. Il s'agit de dire quels passages sont permis et lesquels sont interdits, par exemple une zone réservée qui ne peut pas devenir urbaine.
+- **Constat du 30/09** (vérifié sur un cas d'essai) : aujourd'hui, quand la densité maximale d'une zone baisse sous sa population, les habitants en trop **restent sur place** ; seules la croissance et les arrivées sont redirigées. La migration progressive du surplus à la fermeture d'un camp est donc une **règle nouvelle** du moteur, à concevoir : rythme de départ, destination, priorité par rapport à la croissance.
+- **Sorties prévues** : la catégorie de chaque maille par année, l'année de changement, et les polygones des taches par date de sortie (lissés ; la grille reste la référence du calcul).
+- **En attendant**, dans la version du beta : un changement planifié peut être imité avec des paramètres liés à la zone et variables dans le temps (TCAM, densité maximale), avec deux années proches pour un changement net.
+- **Point d'architecture** : aujourd'hui, la catégorie est lue une fois par unité de calcul (`units.codes["class"]`), et le TCAM, la densité maximale et la capacité en dépendent. Il faudra la recalculer à chaque pas. C'est le cœur du chantier ; le banc de non-régression garantira qu'un calcul sans changement de catégorie reste identique.
+- **Étape suivante** : un plan détaillé à valider (règles, table des changements planifiés, hiérarchie, sorties) avant tout code.
 
 ## 6. Plus tard
 

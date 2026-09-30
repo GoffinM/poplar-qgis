@@ -624,5 +624,13 @@
  "calibration.excel.tip": "Synthèse, classes et distribution de chaque groupe avec leurs graphiques Excel, hypothèses et sources, tels qu'affichés (réglages en cours compris). Un calage.xlsx est aussi écrit à chaque calcul, dans le dossier des résultats.",
  "calibration.excel_first": "Calculez d'abord le calage (bouton « Calculer le calage »).",
  "calibration.excel_failed": "Le classeur n'a pas pu être écrit ({error}). Est-il ouvert dans Excel ?",
- "calibration.excel_done": "Classeur du calage enregistré : {path}"
+ "calibration.excel_done": "Classeur du calage enregistré : {path}",
+ "scenario.grid_layer": "Couche des mailles",
+ "scenario.grid_layer.tip.title": "Couche des mailles",
+ "scenario.grid_layer.tip": "Une couche vectorielle des mailles de la zone d'étude (même vides), avec tous les résultats de chaque année de sortie : population, densité, capacité, non relocalisés, indicateurs. Le GeoPackage garde les noms complets ; le Shapefile coupe les noms à 10 caractères (table de correspondance mailles_champs.csv).",
+ "scenario.grid_layer.gpkg": "GeoPackage (mailles.gpkg)",
+ "scenario.grid_layer.shp": "Shapefile (mailles.shp)",
+ "scenario.grid_layer.both": "GeoPackage et Shapefile",
+ "scenario.grid_layer.none": "Aucune",
+ "results.grid_layer_name": "mailles (tous les résultats)"
 }
