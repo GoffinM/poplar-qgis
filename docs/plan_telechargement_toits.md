@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Proposé le 30/09/2026, en attente de validation |
+| **Statut** | Validé le 30/09/2026 (§5) ; étape 1 (moteur Google) et étape 2 (contrôle Muramvya) réalisées |
 | **Demande** | Bouton « Télécharger les toits de la zone d'étude » ; Google Open Buildings en priorité, Overture Maps en deuxième source (accord du 30/09) |
 | **Durée estimée** | 3 à 4 jours pour Google (étapes 1 à 3) ; 1 à 2 jours de plus pour Overture (étape 4) |
 
@@ -73,3 +73,38 @@ Commande pour Q1, à taper dans la console Python de QGIS (**Extensions › Cons
 ```python
 from osgeo import gdal, ogr; print(gdal.__version__, ogr.GetDriverByName("Parquet") is not None)
 ```
+
+## 5. Décisions du 30/09/2026
+
+| # | Décision |
+|---|---|
+| Q1 | QGIS 3.40 du poste : GDAL **3.10.3, pilote Parquet présent** → Overture faisable (étape 4) |
+| Q2 | Points par défaut, polygones en option |
+| Q3 | Zone = strates **élargies d'une marge** (réglable), **sans sortir d'une limite** (frontière nationale) si elle est donnée. But : voir les abords déjà peuplés, qu'on pourrait croire libres pour l'extension |
+| Q4 | `toits/` à côté du scénario, cache réglable |
+| Q5 | Une source par téléchargement dans un premier temps ; fusion étudiée plus tard (§7) |
+| Q6 | Proxy : test à faire sur le poste (réponse du 30/09) |
+
+**À signaler pour plus tard (logique métier)** : les toits de la marge sont hors des strates recensées. Ils ne servent pas au calage, mais ils ont des habitants. Leur population et leurs paramètres (TCAM, densités) seraient **hérités de la strate la plus proche**. Cela rejoint l'extension urbaine et les strates dynamiques (notes §3.4 et §3.5) ; la règle est à valider à ce moment-là.
+
+## 6. Résultats de l'étape 2 (Muramvya, 30/09/2026)
+
+| | Classeurs de Lionel | Téléchargement Google |
+|---|---|---|
+| Toits dans les deux communes | 38 942 | **39 126** |
+| Toits identiques (même position à 1 m près, même surface) | 38 936 | 38 936 |
+| Surface de toit par habitant, rural | 16,9 m² | 16,9 m² (identique) |
+| Surface de toit par habitant, urbain | 12,34 m² (écart +0,6 %) | 12,40 m² (écart +1,0 %) |
+
+- Les toits des classeurs **sont ceux de Google Open Buildings v3**. Les 190 toits en plus sont tous dans la strate urbaine, de confiance normale, et pas collés à la limite. Lionel a sans doute découpé avec une limite un peu différente.
+- Temps : 129 Mo téléchargés, puis 5,1 millions de lignes lues et filtrées, le tout en **16 s** ; en 9 s quand les tuiles sont déjà dans le cache.
+- Avec une marge de 2 km : **65 692 toits (+68 %)**. Les abords de la zone sont déjà très bâtis.
+
+## 7. Fusion de sources (pour plus tard)
+
+- **Deux bases en ligne** : Overture fusionne déjà Google, Microsoft et OpenStreetMap, avec ses propres règles de doublons. Pour croiser des bases en ligne, le plus simple est de prendre Overture.
+- **Base locale + base en ligne** (relevés de terrain, cadastre, numérisation SHER) : c'est le cas utile. La base locale est prioritaire là où elle existe ; la base en ligne comble ailleurs.
+- **Doublons non identiques** : deux contours d'un même toit, tracés par des algorithmes différents, se recouvrent sans coïncider.
+  - Polygones : deux toits sont le même si leur **recouvrement** dépasse un seuil (par exemple 50 % de la surface du plus petit).
+  - Points : le même si leurs centroïdes sont à moins d'une distance liée à la taille du toit (par exemple la moitié de √surface), et si les surfaces sont comparables (rapport entre 0,5 et 2).
+  - Recherche des voisins avec `scipy.spatial.cKDTree`, déjà disponible. Le toit de la source prioritaire est gardé, et le rapport compte les toits appariés, ajoutés et écartés.

@@ -5,16 +5,16 @@
 - Calage validé sur le poste (mêmes résultats), exécution rapide.
 - Corrigé : erreur Python au passage du découpage en « manuel » ; courbe toujours dessinée en paliers (segments et polynôme s'affichent maintenant) ; après un calcul, **toutes les années de sortie** sont chargées (la dernière cochée).
 
-## 1. Calage : compléments de l'interface
+## 1. Calage : compléments
 
-- Choix de la **source des habitants par classe** dans l'onglet Calage : surface de toit par habitant (actuel), **régression multiple** sur les strates (déjà dans le moteur, pas encore proposée dans l'onglet), ou saisie.
-- Affichage de la qualité de la régression (R², écarts par strate) dans l'onglet.
-- Attend des jeux de données avec **plusieurs strates recensées par groupe** (autres communes, ou recensement par colline). À Muramvya, chaque groupe n'a qu'un recensement : une seule équation pour huit inconnues.
-- **Export Excel « présentable »** du rapport de calage et des régressions : tableaux mis en forme, sans nouvelle dépendance (xlsx écrit directement).
-- **Rapport client** au format Word, rempli dans le modèle de la SHER : démarche, sources, hypothèses, calage, résultats. Attend le modèle Word et un exemple de rapport (voir la réponse du 30/09).
+- **Régression par strate** (précision du 30/09) : une courbe par groupe de strates (rural, urbain), calée **uniquement sur le total recensé**. C'est ce que fait déjà l'onglet : la forme de la courbe vient d'une hypothèse (habitants proportionnels à la surface de toit, entiers, entre 1 et 15), et seul son niveau (la surface de toit par habitant) est ajusté au total. La régression multiple sur plusieurs strates reste dans le moteur, mais n'est plus prévue dans l'onglet.
+- **Export Excel** du calage : classeur .xlsx mis en forme, avec **graphiques Excel natifs** (distribution des surfaces, courbe d'habitants par toit, cumul), écrit sans nouvelle dépendance. Plan de contenu à soumettre.
+- **Rapport client Word** : plus tard, selon le modèle fourni par la SHER.
 
-## 2. Téléchargement automatique des toits (plan soumis le 30/09 : `plan_telechargement_toits.md`)
+## 2. Téléchargement automatique des toits (`plan_telechargement_toits.md`, validé le 30/09)
 
+- Fait : moteur Google Open Buildings (tuiles, zone avec marge et limite, cache, rapport) et contrôle sur Muramvya.
+- Reste : fenêtre du plugin (étape 3), Overture (étape 4), aide et version 0.4.0.
 - Bouton « Télécharger les toits de la zone d'étude » dans l'onglet Calage.
 - Sources : **Google Open Buildings v3** (priorité, décision B1), puis **Overture Maps** (si le GDAL de QGIS lit le Parquet distant), éventuellement Microsoft Building Footprints.
 - Emprise de la zone d'étude, téléchargement en tâche de fond (progression, annulation), cache local réutilisable (GeoPackage), rapport de ce qui a été téléchargé (source, date, version, nombre de toits).
