@@ -1,0 +1,58 @@
+# Nouveautés par version
+
+Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
+Les dates sont celles de la publication de la version sur la branche de travail.
+
+## 0.4.0 – 30/09/2026 : version de référence
+
+Consolidation avant les chantiers suivants (Overture, export Excel, rapport client) :
+
+- **Banc de non-régression** (`tools/banc.py`) : les cas de référence de Muramvya et leurs chiffres clés, comparés aux valeurs attendues, avec un résumé `banc.md`. Cas couverts : raster → 2060, toits en mode « classeurs », toits avec le modèle actuel, téléchargement Google (option `--reseau`). Il tourne aussi avec les tests.
+- Onglet Calage : le champ « ou fichier Open Buildings » est retiré, puisque le téléchargement le remplace. La tuile CSV d'un ancien scénario est gardée et affichée sous la couche des toits.
+- Tableaux de paramètres (TCAM, densités, indicateurs) : cocher ou décocher « Croiser » ne perd plus les valeurs et ne laisse plus d'avertissement « Absent de la couche ».
+- Toits téléchargés : l'année des images est remplie d'office (2023, version v3 de Google Open Buildings).
+- Relecture du code et corrections ; liste de vérification sur le poste réécrite en une seule liste par onglet.
+
+## 0.3.7 – 30/09/2026
+
+- **Indicateurs** : chaque paramètre de l'eau (dotation, part non domestique, volume fixe, rendement, pointes) a son propre onglet, lié à sa propre couche, avec deux couches croisées au besoin. Les lignes se remplissent avec les valeurs du champ : on ne tape plus de noms.
+
+## 0.3.6 – 30/09/2026
+
+- Téléchargement des toits : fin de téléchargement affichée clairement, « Fermer » mis en avant, confirmation avant de télécharger à nouveau ; dans l'onglet Calage, « ✔ Toits téléchargés le … ».
+
+## 0.3.5 – 30/09/2026
+
+- **Téléchargement des toits de Google Open Buildings v3** depuis l'onglet Calage. On règle la zone (les strates), une marge, une limite facultative, le format (points ou polygones) et le seuil de confiance. Les tuiles sont gardées dans un cache, et un rapport indique la source, la date, les comptes et la licence.
+- Contrôle sur Muramvya : 38 936 des 38 942 toits des classeurs retrouvés à l'identique.
+
+## 0.3.4 – 30/09/2026
+
+- Calage : plus d'erreur au passage en découpage « manuel » ; la courbe dessinée suit la méthode choisie (paliers, segments, polynôme).
+- Après un calcul, toutes les années de sortie demandées sont chargées, et seule la dernière est cochée.
+
+## 0.3.1 à 0.3.3 – 29/09/2026
+
+- Raster inaccessible ignoré quand la population vient des toits ; messages qui nomment le réglage fautif et son onglet.
+- Chemins réseau (`\\serveur\…`) et shapefiles ouverts par leur `.shx` ; crédits.
+
+## 0.3.0 – 29/09/2026
+
+- **Onglet Calage** : la population de départ est calculée à partir des toits.
+  - Habitants entiers par toit, selon la classe de surface.
+  - Classes entre un plancher et un plafond, avec un découpage automatique ou manuel sur un graphique.
+  - Surface de toit par habitant ajustée au recensement, avec une alerte à ±2 %.
+  - Vues Distribution et Cumul.
+- **Rapport HTML** autonome (`report.html`), avec graphiques.
+- Toits lus depuis un fichier ou une base PostGIS, sans enregistrer le mot de passe.
+
+## 0.2.0 – 29/09/2026
+
+- TCAM et densités maximales liés à leurs propres couches, avec croisement possible de deux couches.
+- Projections lues depuis des classeurs xlsx, xls ou ods ; bibliothèque de scénarios.
+- Nouvelle charte graphique ; un dossier daté par exécution, exécutions à conserver et nettoyage.
+- Zones d'exclusion en lignes et en points, avec tampon.
+
+## 0.1.0 – 29/09/2026
+
+- Premier plugin QGIS sur le moteur Python : scénario, croissance, migration, non-convergence, demande en eau, rapports.

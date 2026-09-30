@@ -42,7 +42,7 @@ Dans l'onglet **Paramètres** :
 
 Une valeur saisie pour une zone qui n'existe pas dans la couche est signalée en ocre et dans le rapport : elle n'est pas utilisée.
 
-**Croiser deux couches** : cochez « Croiser avec une seconde couche » pour donner une valeur par combinaison, par exemple province × type. Pour chaque maille, l'outil cherche dans l'ordre la paire exacte (`A|Urbain1`), puis la zone de la première couche seule (`A|*`), puis celle de la seconde (`*|Urbain1`), puis la valeur par défaut.
+**Croiser deux couches** : cochez « Croiser avec une seconde couche » pour donner une valeur par combinaison, par exemple province × type. Pour chaque maille, l'outil cherche dans l'ordre la paire exacte (`A|Urbain1`), puis la zone de la première couche seule (`A|*`), puis celle de la seconde (`*|Urbain1`), puis la valeur par défaut. Les valeurs déjà saisies sont gardées quand on coche ou décoche la case : « A » devient « A | (toutes) », puis redevient « A ».
 
 **Tableur** : « Exporter… » enregistre le tableau en xlsx, ods ou csv ; « Importer… » le relit. Colonnes : `zone` (et `zone_2` en cas de croisement), `constant`, puis une colonne par année.
 

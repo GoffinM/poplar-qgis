@@ -1,136 +1,134 @@
-# Vérification du plugin sur votre poste
+# Recette du plugin sur votre poste
 
-Version 0.3.7. Si une version précédente est installée, désinstallez-la d'abord (**Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**), puis installez la nouvelle.
+Version 0.4.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
 
-Durée : 20 à 25 minutes. Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
+- Durée : environ 45 minutes. Les sections marquées « facultatif » ajoutent 15 minutes.
+- Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
+- Pour chaque ligne en échec, notez le numéro et ce que vous avez vu, avec une capture si possible. En cas d'erreur Python, copiez le texte complet de la fenêtre.
 
-## 0. Récupérer les fichiers
+## 0. Préparer
 
-Deux fichiers sont nécessaires : **le plugin** (un petit zip) et **le jeu d'exemple**.
+1. **Plugin** : téléchargez `poplar-0.4.0.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.4.0.zip
+2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis décompressez l'archive. Le dossier `data/test/muramvya/` contient les scénarios et les données.
+3. Si une version précédente de Poplar est installée : **Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**.
 
-1. **Plugin** : téléchargez directement `poplar-0.3.7.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.3.7.zip
-2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis **décompressez** l'archive. Le dossier `data/test/muramvya/` contient le scénario et les données.
-
-⚠️ **N'installez pas dans QGIS l'archive complète du dépôt** (`poplar-qgis-claude-legacy-code-assessment-frf66q.zip`). Ce n'est pas un plugin : QGIS refuse alors de le charger, avec l'erreur « No module named 'poplar-qgis-…/plugin/poplar' ». Le seul fichier à installer est `poplar-0.3.7.zip`, que l'on trouve aussi, une fois l'archive du dépôt décompressée, dans son dossier `dist/`.
-
-**Si cette erreur est déjà apparue**, supprimez d'abord l'installation ratée :
-1. Fermez QGIS.
-2. Supprimez le dossier `poplar-qgis-claude-legacy-code-assessment-frf66q` situé dans `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\` (collez ce chemin dans la barre d'adresse de l'explorateur Windows).
-3. Relancez QGIS.
-
-## 1. Installer
-
-1. Dans QGIS : **Extensions › Installer/Gérer les extensions › Installer depuis un ZIP**.
-2. Choisissez `dist/poplar-0.3.7.zip`, puis cliquez sur **Installer l'extension**.
-3. ✅ Vérifiez qu'une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent.
-
-## 2. Parcourir l'interface
+⚠️ Installez seulement `poplar-0.4.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 2.1 | Survolez chaque bouton de la barre d'outils | Une bulle d'aide s'affiche ; le bouton Calage est grisé (phase 6) |
-| 2.2 | Cliquez sur **Scénario**, puis **Ouvrir…**, puis choisissez `data/test/muramvya/scenario_muramvya.json` | La commune, la forêt et le raster sont ajoutés au projet ; les onglets sont remplis |
-| 2.3 | Parcourez les onglets Données, Paramètres et Indicateurs | Les couches, les champs et la forêt « Sans nouvel arrivant » sont renseignés. Paramètres : deux tableaux ; le TCAM est le même partout, les densités sont liées à `commune_muramvya` / `Type`, avec `Urbain2` signalé en ocre (absent de la couche) |
-| 2.3 bis | Pastilles à gauche des onglets | Pétrole : complet ; ocre : à vérifier (Paramètres, à cause d'`Urbain2`) ; cercle vide : pas encore utilisé |
-| 2.4 | Onglet **Scénario** : choisissez un dossier des résultats vide | — |
-| 2.5 | Cliquez sur **?** en haut à droite | La page d'aide de l'onglet s'ouvre ; la recherche fonctionne |
+| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.4.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
+| I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
+| I.3 | Bouton **À propos** | Version 0.4.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine) » |
 
-## 3. Calculer
+## 1. Scénario
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 3.1 | Onglet **Lancer** : **Vérifier le scénario** | « Scénario complet et cohérent » |
-| 3.2 | **Lancer le calcul** | La barre de progression avance ; QGIS reste utilisable ; fin en moins d'une minute environ |
-| 3.3 | Fin du calcul | Message « Calcul réussi » ; groupe « Poplar – Muramvya – exemple – *date heure* » avec la population et la densité 2060, colorées. Les résultats sont dans un sous-dossier daté du dossier choisi |
-| 3.3 bis | Relancez le calcul **sans rien retirer du projet** | Plus d'erreur « permission denied » : un second sous-dossier daté est créé |
-| 3.4 | Onglet **Rapport** | Statut « réussi », population de 170 565 à 320 361 habitants |
-| 3.5 | Onglet **Résultats** : cochez « Eau – production moyenne » et 2040, puis **Charger les couches** | La couche s'ajoute au groupe |
-| 3.6 | **Ouvrir le tableau** | `summary.csv` s'ouvre dans Excel avec des colonnes séparées et des virgules décimales |
+| S.1 | **Scénario › Ouvrir…** › `data/test/muramvya/scenario_muramvya.json` | La commune, la forêt et le raster sont ajoutés au projet ; les onglets sont remplis |
+| S.2 | Pastilles à gauche des onglets | Pétrole : complet ; ocre : à vérifier (Paramètres, à cause d'`Urbain2`) ; cercle vide : pas utilisé |
+| S.3 | Choisissez un dossier des résultats vide | — |
+| S.4 | **Bibliothèque… › Ajouter le scénario actuel…**, puis **Partir de ce scénario** | Le scénario est rechargé ; « Enregistrer… » demande un nouveau fichier |
+| S.5 | Bouton **?** en haut à droite | La page d'aide de l'onglet s'ouvre ; la recherche fonctionne |
 
-## 4. Nouveautés de la version 0.2.0
+## 2. Données
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 4.1 | Onglet **Résultats** : choisissez une exécution dans la liste, cochez **À conserver ★** et donnez-lui un nom | La liste affiche ★ et le nom |
-| 4.2 | **Nettoyer…** | Les exécutions non conservées sont cochées « Supprimer », avec leur taille ; **Supprimer la sélection** retire leurs couches du projet puis efface leurs dossiers |
-| 4.3 | Lancez un calcul, puis fermez la fenêtre Poplar | La même liste est proposée (fin de session) |
-| 4.4 | Onglet **Paramètres**, TCAM : choisissez la couche `commune_muramvya` et le champ `COMMUNES` | Deux lignes (les deux communes) et la ligne « Hors zones (défaut) » ; mettez 3,5 pour l'urbain et lancez |
-| 4.5 | Cochez **Croiser avec une seconde couche**, choisissez `commune_muramvya` / `Type` | Une ligne par paire commune × type |
-| 4.6 | **Exporter…** un tableau en xlsx, modifiez une valeur dans Excel, puis **Importer…** | La valeur modifiée apparaît |
-| 4.7 | Onglet **Données**, exclusions : ajoutez une couche de **lignes** (une route) sans tampon, puis **Vérifier le scénario** | Le contrôle demande un tampon ; avec 50 m, le calcul passe |
-| 4.8 | Onglet **Données**, projections : choisissez un fichier xlsx avec une colonne par année (par exemple une projection de l'ISTEEBU par commune) | L'aperçu indique « Une colonne par année · 2 unités · années » ; testez aussi un fichier .xls |
-| 4.9 | **Bibliothèque…** › **Ajouter le scénario actuel…**, puis **Partir de ce scénario** | Le scénario est rechargé ; « Enregistrer… » demande un nouveau fichier |
-| 4.11 | Onglet **Données** : bouton **…** à côté de « Zone d'étude » › **Fichier…**, choisissez un GeoPackage qui contient plusieurs couches | L'outil demande laquelle ; elle est ajoutée au projet et sélectionnée. Une couche de points dans une liste de polygones est refusée avec une explication |
-| 4.12 | Bouton **…** › **Base de données ou autre source…** : une table PostGIS de vos connexions | La table est ajoutée et sélectionnée ; après **Enregistrer…**, le fichier .json ne contient pas le mot de passe |
-| 4.13 | Posez un filtre sur la couche des communes (clic droit › Filtrer…), puis lancez | Le calcul ne porte que sur les entités filtrées |
-| 4.10 | Facultatif : un thème sombre (**Préférences › Général › Thème de l'interface › Night Mapping**, puis redémarrer QGIS) | La fenêtre Poplar passe en couleurs sombres |
+| D.1 | Parcourez l'onglet | Couches et champs renseignés ; la forêt est « Sans nouvel arrivant » |
+| D.2 | Bouton **…** à côté de « Zone d'étude » › **Fichier…** › un GeoPackage à plusieurs couches | L'outil demande laquelle ; elle est ajoutée et sélectionnée. Une couche de points proposée dans une liste de polygones est refusée, avec une explication |
+| D.3 | Exclusions : ajoutez une couche de **lignes** (une route) sans tampon, puis **Lancer › Vérifier le scénario** | Le contrôle demande un tampon ; avec 50 m, il passe |
+| D.4 | Projections : un fichier xlsx avec une colonne par année | L'aperçu indique « Une colonne par année · … unités · années » ; testez aussi un .xls |
+| D.5 | Posez un filtre sur la couche des communes (clic droit › Filtrer…), puis lancez | Le calcul ne porte que sur les entités filtrées ; retirez ensuite le filtre |
 
-## 4 bis. Calage (version 0.3.0)
+## 3. Paramètres
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| C.1 | Onglet **Calage** : couche des toits `buildings_muramvya`, surface `area_m2` ; strates `commune_muramvya` / `COMMUNES`, groupe `Type` ; population connue 136 759 (rural) et 34 251 (urbain), année 2024 | Le tableau des strates se remplit |
-| C.2 | **Calculer le calage** | « 38 942 toits lus » ; deux régressions, écarts d'environ +0,05 % et +0,6 % |
-| C.3 | Groupe Rural : changez le nombre de classes, le découpage (ruptures naturelles, surfaces égales, percentiles), le plancher et le plafond | Le graphique, le tableau et l'écart se mettent à jour aussitôt |
-| C.4 | Faites glisser une limite de classe sur le graphique ; modifiez un « habitant retenu » | Découpage « manuel » ; la case modifiée est colorée |
-| C.5 | Vue **Cumul** | Parts cumulées des toits et de la population, part de chaque classe |
-| C.6 | Cochez « Population de départ calculée à partir des toits », puis lancez | Le calcul part des toits ; onglet Rapport : **Ouvrir le rapport complet (HTML)** montre le calage et ses graphiques |
+| P.1 | Tableaux TCAM et densités | Le TCAM est le même partout ; les densités sont liées à `commune_muramvya` / `Type`, avec `Urbain2` en ocre (absent de la couche) |
+| P.2 | TCAM : couche `commune_muramvya`, champ `COMMUNES` | Deux lignes et « Hors zones (défaut) » ; mettez 3,5 pour l'urbain |
+| P.3 | Cochez **Croiser avec une seconde couche** | La valeur 3,5 est gardée, sur la ligne « URBAIN \| (toutes) » |
+| P.4 | Seconde couche `commune_muramvya` / `Type` | Une ligne par paire commune × type |
+| P.5 | Décochez **Croiser** | Retour aux deux lignes, 3,5 toujours là, **aucun avertissement ocre** |
+| P.6 | **Exporter…** un tableau en xlsx, modifiez une valeur dans Excel, puis **Importer…** | La valeur modifiée apparaît |
+| P.7 | Remettez le TCAM d'origine (rouvrir le scénario) | — |
 
-## 4 ter. Toits dans une base PostGIS (facultatif)
+## 4. Indicateurs
 
-1. Charger les toits de Muramvya dans la base (OSGeo4W Shell), avec votre serveur, votre base et votre utilisateur :
+| # | Action | Résultat attendu |
+|---|---|---|
+| N.1 | Onglet **Indicateurs** | Six onglets (Dotation, Non domestique, Volume fixe, Rendement, Pointe jour., Pointe hor.), avec les valeurs du scénario |
+| N.2 | Dotation : couche `commune_muramvya`, champ `Type` | Lignes « Rural » et « Urbain1 » ajoutées d'elles-mêmes ; saisissez 20 et 60 |
+| N.3 | Rendement : une autre couche de polygones et un autre champ | Lignes remplies avec les valeurs de ce champ |
+| N.4 | Dotation : cochez puis décochez **Croiser** | Valeurs gardées, aucun avertissement |
+| N.5 | Dotation : videz « Hors zones (défaut) » et une ligne de zone, puis lancez | Le calcul s'arrête sur un message qui nomme la dotation incomplète ; remettez la valeur |
+
+## 5. Calage
+
+| # | Action | Résultat attendu |
+|---|---|---|
+| C.1 | **Scénario › Ouvrir…** › `scenario_muramvya_toits.json`, onglet **Calage** | Toits `buildings_muramvya`, surface `area_m2` ; strates `commune_muramvya` / `COMMUNES`, groupe `Type` ; population connue 136 759 et 34 251 |
+| C.2 | **Calculer le calage** | « 38 942 toits lus » ; rural 16,9 m² par habitant (écart +0,05 %), urbain 12,34 m² (+0,61 %) |
+| C.3 | Groupe Rural : nombre de classes, découpage (ruptures naturelles, surfaces égales, percentiles, **manuel**), plancher, plafond | Graphique, tableau et écart se mettent à jour aussitôt, sans erreur |
+| C.4 | Courbe : paliers, segments, polynôme | Le dessin change avec la méthode |
+| C.5 | Faites glisser une limite de classe ; modifiez un « habitant retenu » | Découpage « manuel » ; la case modifiée est colorée |
+| C.6 | Vue **Cumul** | Parts cumulées des toits et de la population |
+| C.7 | **Exporter le calage…**, puis **Importer un calage…** | Les réglages reviennent à l'identique |
+
+### Téléchargement des toits (connexion Internet)
+
+| # | Action | Résultat attendu |
+|---|---|---|
+| T.1 | **Télécharger les toits…** | Zone `commune_muramvya`, marge 1 km, destination `toits\google_open_buildings_commune_muramvya.gpkg` |
+| T.2 | **Estimer** | « … 2 tuile(s), dont 0 déjà en cache ; 129 Mo à télécharger » (0 Mo si déjà téléchargé) |
+| T.3 | Marge 0, **Télécharger** | Progression ; « ✔ Terminé : 39 126 toits… » ; « Fermer » mis en avant |
+| T.4 | Fermer | Sous la couche des toits : « ✔ Toits téléchargés le … : 39 126 toits » ; **Année des images** : 2023 |
+| T.5 | Rouvrir la fenêtre, **Télécharger à nouveau** | « Déjà téléchargé le … » ; une confirmation est demandée |
+| T.6 | **Calculer le calage** | Rural 16,9 m² par habitant ; urbain 12,40 m², écart d'environ +1,0 % |
+| T.7 | Marge 2 km, **Télécharger**, puis **Annuler** en cours de route | « Téléchargement annulé » ; aucun fichier partiel dans le cache |
+
+### Toits dans une base PostGIS (facultatif)
+
+1. Chargez les toits dans la base (OSGeo4W Shell) :
    `ogr2ogr -f PostgreSQL "PG:host=SERVEUR dbname=BASE user=UTILISATEUR" data\test\muramvya\buildings_muramvya.gpkg -nln burundi.batiments -lco SPATIAL_INDEX=GIST`
-2. Dans QGIS : **Explorateur › PostgreSQL › Nouvelle connexion**, avec de préférence un service, un fichier pgpass ou une configuration d'authentification ; puis **Tester la connexion**.
+2. Dans QGIS : **Explorateur › PostgreSQL › Nouvelle connexion**, puis **Tester la connexion**.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| D.1 | Onglet Calage : bouton **…** de « Couche des toits » › **Base de données ou autre source…** › `burundi.batiments` ; surface `area_m2` | La table est ajoutée au projet et sélectionnée |
-| D.2 | Strates, population connue, puis **Calculer le calage** | Mêmes chiffres qu'avec le fichier : 38 942 toits, +0,05 % et +0,61 % |
-| D.3 | **Enregistrer…** le scénario et l'ouvrir dans un éditeur de texte | `"source": "PG:dbname=… host=… user=…"`, sans mot de passe |
-| D.4 | Fermer QGIS, le rouvrir, **Ouvrir…** le scénario | La table est retrouvée (noter si QGIS demande le mot de passe) |
-| D.5 | Noter la durée de « Calculer le calage » | Quelques secondes pour Muramvya ; à mesurer sur une grande table |
+| B.1 | Bouton **…** de « Couche des toits » › **Base de données ou autre source…** › `burundi.batiments`, surface `area_m2`, puis **Calculer le calage** | Mêmes chiffres qu'en C.2 |
+| B.2 | **Enregistrer…** le scénario, puis l'ouvrir dans un éditeur de texte | `"source": "PG:…"`, **sans mot de passe** |
+| B.3 | Fermer QGIS, le rouvrir, **Ouvrir…** le scénario | La table est retrouvée (notez si QGIS demande le mot de passe) |
 
-## 4 quater. Téléchargement des toits (version 0.3.5, retouchée en 0.3.6)
-
-Connexion Internet nécessaire.
+## 6. Lancer, Résultats, Rapport
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| E.1 | Onglet **Calage**, strates `commune_muramvya` choisies : **Télécharger les toits…** | La fenêtre s'ouvre avec la zone `commune_muramvya`, une marge de 1 km et une destination `toits\google_open_buildings_commune_muramvya.gpkg` |
-| E.2 | **Estimer** | « Zone de … km² : 2 tuile(s), dont 0 déjà en cache ; 129 Mo à télécharger » |
-| E.3 | Marge à 0, **Télécharger** | Progression ; message « ✔ Terminé : 39 126 toits… » sur toute la largeur ; « Fermer » mis en avant ; dans l’onglet Calage, sous la couche : « ✔ Toits téléchargés le … : 39 126 toits » |
-| E.3 bis | Rouvrir la fenêtre, puis **Télécharger à nouveau** | Message « Déjà téléchargé le … » ; une confirmation est demandée avant de remplacer le fichier |
-| E.4 | **Calculer le calage** | Rural : 16,9 m² par habitant (comme avec les toits des classeurs) ; urbain : 12,40 m², écart d'environ +1,0 % |
-| E.5 | Rouvrir la fenêtre, marge 2 km, **Estimer** | « dont 2 déjà en cache ; 0 Mo » ; le téléchargement prend quelques secondes ; environ 65 700 toits |
-| E.6 | **Annuler** pendant un téléchargement | « Téléchargement annulé », aucun fichier partiel dans le cache |
-| E.7 | Rapport HTML après un calcul avec ces toits | Ligne « Toits téléchargés depuis Google Open Buildings v3 le … Licence : … » |
+| L.1 | Rouvrez `scenario_muramvya.json` ; **Lancer › Vérifier le scénario** | « Scénario complet et cohérent » |
+| L.2 | **Lancer le calcul** | Progression ; QGIS reste utilisable ; quelques secondes |
+| L.3 | Fin du calcul | « Calcul réussi » ; groupe « Poplar – Muramvya – exemple – *date heure* » avec population et densité de **toutes les années de sortie** (2025 à 2060), seule 2060 cochée |
+| L.4 | Relancez **sans rien retirer du projet** | Un second sous-dossier daté est créé, sans erreur « permission denied » |
+| R.1 | Onglet **Rapport** | Statut « réussi », population de 170 565 à 320 361 habitants |
+| R.2 | **Ouvrir le rapport complet (HTML)** | Page lisible dans le navigateur, avec les graphiques |
+| R.3 | Onglet **Résultats** : « Eau – production moyenne », 2040, **Charger les couches** | La couche s'ajoute au groupe |
+| R.4 | **Ouvrir le tableau** | `summary.csv` s'ouvre dans Excel, colonnes séparées, virgules décimales |
+| R.5 | Choisissez une exécution, cochez **À conserver ★**, donnez un nom | La liste affiche ★ et le nom |
+| R.6 | **Nettoyer…** | Les exécutions non conservées sont proposées, avec leur taille ; **Supprimer la sélection** retire leurs couches et efface leurs dossiers |
+| R.7 | Fermez la fenêtre Poplar | La même liste est proposée (fin de session) |
+| R.8 | Scénario « toits » (`scenario_muramvya_toits.json`) : lancez | Le calcul part des toits ; le rapport HTML montre le calage |
 
-## 4 quinquies. Indicateurs liés à leurs couches (version 0.3.7)
-
-| # | Action | Résultat attendu |
-|---|---|---|
-| F.1 | Ouvrir `scenario_muramvya.json`, onglet **Indicateurs** | Six onglets (Dotation, Non domestique, Volume fixe, Rendement, Pointe jour., Pointe hor.) ; les valeurs de l'ancien scénario sont reprises |
-| F.2 | Onglet Dotation : zones `commune_muramvya`, champ `Type` | Lignes « Rural » et « Urbain1 » ajoutées d'elles-mêmes ; saisir 20 et 60 |
-| F.3 | Onglet Rendement : une autre couche de polygones et un autre champ | Lignes remplies avec les valeurs de ce champ |
-| F.4 | Lancer | Pas d'erreur ; les cartes `water_…` reflètent les deux découpages |
-| F.5 | Onglet Dotation : vider la ligne « Hors zones (défaut) » et une ligne de zone, puis lancer | Le calcul s'arrête avec un message qui nomme la dotation incomplète |
-
-## 5. Manque de place (facultatif)
-
-1. Onglet **Paramètres** : mettez la densité max de la ligne `Rural` à **600**, puis lancez le calcul.
-2. ✅ Une fenêtre « Manque de place en … » propose une hausse des densités, une couronne de mailles puits ou l'enregistrement des non relocalisés.
-3. Choisissez une solution, puis **Appliquer et relancer**. ✅ Le calcul se termine, et le rapport indique l'ajustement appliqué.
-
-## 6. Autres points
+## 7. Manque de place
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| 5.1 | **Traitement › Boîte à outils › Poplar › Lancer un scénario** avec `scenario_muramvya.json` | Le calcul tourne et le texte d'aide s'affiche à droite |
-| 5.2 | Bouton **À propos** | La fiche s'affiche (auteurs, licence et contact encore à confirmer) |
-| 5.3 | Facultatif : QGIS en anglais (**Préférences › Général › Langue**) | L'interface et le rapport passent en anglais |
-| 5.4 | Facultatif : QGIS 4 | Mêmes vérifications |
+| M.1 | Paramètres : densité max de `Rural` à **600**, puis lancez | Une fenêtre « Manque de place en … » propose trois solutions |
+| M.2 | Choisissez une solution, **Appliquer et relancer** | Le calcul se termine ; le rapport indique l'ajustement appliqué |
 
-## À me renvoyer
+## 8. Autres points
 
-Pour chaque ligne en échec : le numéro, ce que vous avez vu, et si possible une capture d'écran. En cas de message d'erreur Python, copiez le texte complet de la fenêtre d'erreur.
+| # | Action | Résultat attendu |
+|---|---|---|
+| A.1 | **Traitement › Boîte à outils › Poplar › Lancer un scénario** avec `scenario_muramvya.json` | Le calcul tourne et l'aide s'affiche à droite |
+| A.2 | Facultatif : QGIS en anglais (**Préférences › Général › Langue**) | Interface et rapport en anglais |
+| A.3 | Facultatif : thème sombre (**Préférences › Général › Thème de l'interface › Night Mapping**, redémarrer) | La fenêtre Poplar passe en couleurs sombres |
+| A.4 | Facultatif : QGIS 4 | Mêmes vérifications |
+| A.5 | Facultatif, **banc de non-régression** : dans l'OSGeo4W Shell, dossier du dépôt décompressé, `python tools\banc.py --reseau` | Tableau des chiffres clés et « **Tout est conforme.** » ; résumé dans `banc.md` |
