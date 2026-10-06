@@ -287,5 +287,10 @@
   "xlsx_software_title": "Software",
   "xlsx_made_on": "Workbook made on",
   "calibration_excel_failed": "The Excel workbook of the calibration (calage.xlsx) could not be written: {detail}",
-  "grid_layer_failed": "The cell layer (mailles.gpkg) could not be written: {detail}"
+  "grid_layer_failed": "The cell layer (mailles.gpkg) could not be written: {detail}",
+  "strata_free_mode": "Free strata: polygons grow by colonisation ({polygons} polygons at the start, at least {neighbors} neighbours out of 8).",
+  "strata_cell_size": "Free strata: the cell size is {size} m, not 250 m (the reference). The speed cap of the fronts ({size} m/year) and the neighbour rule depend on it.",
+  "strata_reclassification": "Free strata: the growth rates differ between strata and no recalibration by administrative unit is on. Totals may drift away from the projections through reclassification (see the plausibility indicators).",
+  "strata_colonised": "{year}: {cells} cell(s) colonised.",
+  "conservation_failed": "Stopped in {year}: the population is not conserved (difference of {difference} inhabitants). This is an engine error, to be reported."
 }

@@ -34,6 +34,11 @@ RELOCATE = "relocate"
 BEHAVIOURS = (OUTSIDE, NO_INFLOW, RELOCATE)
 CENSUS = "census"
 PROJECTION = "projection"
+PLANNED = "planned"
+FREE = "free"
+STRATA_MODES = (PLANNED, FREE)
+COLONIZATION_PARAMETERS = {"colonization_min_inflow": 0.1, "saturation_share": 0.8}
+"""Parameters of the colonising polygon in free mode, with their defaults (plan_polygones_libres.md §9)."""
 
 
 class ScenarioError(ValueError):
@@ -96,6 +101,31 @@ class Projections:
 
 
 @dataclass
+class StratumSettings:
+    rank: Optional[int] = None
+    colonizable: bool = True
+
+
+@dataclass
+class StrataSettings:
+    """Strata that change in time (fiche §3.5, plan_polygones_libres.md).
+
+    ``planned``: the polygons given as input never change (the default, same
+    results as before). ``free``: polygons grow by colonisation.
+    """
+
+    mode: str = PLANNED
+    min_neighbors: int = 3
+    cell_membership_share: float = 0.5
+    min_inflow_unit: str = "share_of_capacity"
+    classes: Dict[str, StratumSettings] = field(default_factory=dict)
+
+    @property
+    def free(self) -> bool:
+        return self.mode == FREE
+
+
+@dataclass
 class IndicatorSpec:
     type: str
     parameters: Dict[str, Any] = field(default_factory=dict)
@@ -132,6 +162,7 @@ class Scenario:
     """Write each run in its own time-stamped sub-folder of ``output_directory`` (see engine.runs)."""
     output_grid_layer: str = "gpkg"
     """Layer of the grid cells with every result: ``gpkg`` (default), ``shp``, ``both`` or ``none``."""
+    strata: StrataSettings = field(default_factory=StrataSettings)
     extrapolation: str = CONSTANT
     base_dir: str = ""
 
@@ -173,6 +204,8 @@ class Scenario:
                                    "source": data.pop("population_source")}
         data["output"] = {"directory": data.pop("output_directory"), "per_run": data.pop("output_per_run"),
                           "grid_layer": data.pop("output_grid_layer")}
+        if self.strata == StrataSettings():
+            data.pop("strata")                       # files of the planned mode stay as they were
         return _without_passwords(_drop_none(data))
 
     def save(self, path: str) -> None:
@@ -287,6 +320,21 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
                                   bool(spec.get("recalibrate", False)), spec.get("sheet"), spec.get("unit_column"),
                                   spec.get("year_column"), spec.get("value_column"))
     indicators = [IndicatorSpec(item.get("type", ""), item.get("parameters", {})) for item in data.get("indicators", [])]
+    strata = StrataSettings()
+    strata_data = data.get("strata")
+    if strata_data is not None:
+        if not isinstance(strata_data, dict):
+            errors.append(message("scenario_invalid_value", key="strata", value=str(strata_data),
+                                  expected="{mode, min_neighbors, cell_membership_share, min_inflow_unit, classes}"))
+        else:
+            classes = {}
+            for name, rules in (strata_data.get("classes") or {}).items():
+                rules = rules if isinstance(rules, dict) else {}
+                classes[str(name)] = StratumSettings(rules.get("rank"), bool(rules.get("colonizable", True)))
+            strata = StrataSettings(
+                mode=str(strata_data.get("mode", PLANNED)), min_neighbors=strata_data.get("min_neighbors", 3),
+                cell_membership_share=strata_data.get("cell_membership_share", 0.5),
+                min_inflow_unit=str(strata_data.get("min_inflow_unit", "share_of_capacity")), classes=classes)
 
     if errors or time is None or study_area is None or typology is None:
         raise ScenarioError(errors or [message("scenario_missing_key", key="time")])
@@ -304,7 +352,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
         output_directory=(data.get("output") or {}).get("directory", "outputs"),
         output_per_run=bool((data.get("output") or {}).get("per_run", False)),
         output_grid_layer=str((data.get("output") or {}).get("grid_layer", "gpkg")),
-        extrapolation=data.get("extrapolation", CONSTANT), base_dir=base_dir,
+        extrapolation=data.get("extrapolation", CONSTANT), base_dir=base_dir, strata=strata,
     )
     errors.extend(validate(scenario))
     if errors:
@@ -383,6 +431,7 @@ def validate(scenario: Scenario) -> List[Message]:
 
     if scenario.output_grid_layer not in FORMATS:
         invalid("output.grid_layer", scenario.output_grid_layer, " | ".join(FORMATS))
+    errors.extend(_validate_strata(scenario.strata))
     for spec in scenario.indicators:
         from .indicators import REGISTRY
 
@@ -397,6 +446,29 @@ def validate(scenario: Scenario) -> List[Message]:
             scenario.indicator_tables(spec)
         except ValueError as error:
             errors.append(message("scenario_invalid_parameter", detail=str(error)))
+    return errors
+
+
+def _validate_strata(strata: StrataSettings) -> List[Message]:
+    errors: List[Message] = []
+
+    def invalid(key: str, value: Any, expected: str) -> None:
+        errors.append(message("scenario_invalid_value", key=f"strata.{key}", value=str(value), expected=expected))
+
+    if strata.mode not in STRATA_MODES:
+        invalid("mode", strata.mode, " | ".join(STRATA_MODES))
+    if not isinstance(strata.min_neighbors, int) or not 0 <= strata.min_neighbors <= 8:
+        invalid("min_neighbors", strata.min_neighbors, "0…8")
+    if not isinstance(strata.cell_membership_share, (int, float)) or not 0.5 <= strata.cell_membership_share <= 1:
+        invalid("cell_membership_share", strata.cell_membership_share, "0.5…1")
+    if strata.min_inflow_unit not in ("share_of_capacity", "inhabitants"):
+        invalid("min_inflow_unit", strata.min_inflow_unit, "share_of_capacity | inhabitants")
+    for name, rules in strata.classes.items():
+        if rules.rank is not None and (not isinstance(rules.rank, int) or isinstance(rules.rank, bool)
+                                       or rules.rank < 0):
+            invalid(f"classes.{name}.rank", rules.rank, "0, 1, 2…")
+    if strata.free and not any(rules.rank is not None for rules in strata.classes.values()):
+        errors.append(message("scenario_missing_key", key="strata.classes.<class>.rank"))
     return errors
 
 

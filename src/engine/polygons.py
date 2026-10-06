@@ -295,3 +295,19 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
     change = taken & won[pair_of]
     new_pid[unit[change]] = colonising[change]
     return outcome(new_pid, cells[pair_cell[winners]], pair_poly[winners], pair_inflow[winners])
+
+
+@dataclass
+class PolygonHistory:
+    """What the free mode did during a run: the state, its changes, and views for the outputs."""
+
+    units: Units
+    table: PolygonTable
+    initial: np.ndarray
+    final: np.ndarray
+    events: List[dict] = field(default_factory=list)
+    """One entry per colonised cell: ``year``, ``cell``, ``row``, ``col``, ``polygon``, ``inflow``."""
+    membership: Dict[int, np.ndarray] = field(default_factory=dict)
+    """Polygon of each cell (raster) at the start and at each output year."""
+    reclassification: Optional[np.ndarray] = None
+    """Population added per unit by the change of growth rate of colonised units (plan §4, S1)."""

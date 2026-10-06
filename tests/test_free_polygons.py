@@ -12,7 +12,6 @@ from engine.simulation import run
 from world import box, make_world, write_polygons
 
 CELL = 250.0
-STEP3 = pytest.mark.xfail(strict=True, reason="free mode wired into the simulation at step 3")
 
 FREE = {
     "mode": "free",
@@ -54,7 +53,6 @@ def events_by_year(result):
     return found
 
 
-@STEP3
 def test_square_city_grows_ring_by_ring(tmp_path):
     result = run(load_scenario(square_city_world(str(tmp_path))))
     polygons = result.polygons
@@ -75,7 +73,6 @@ def test_square_city_grows_ring_by_ring(tmp_path):
     assert (polygons.membership[2024 + 4][9:12, 9:12] == city).all()
 
 
-@STEP3
 def test_colonised_cells_inherit_the_city_parameters(tmp_path):
     result = run(load_scenario(square_city_world(str(tmp_path), years=2)))
     capacity = read_raster(os.path.join(result.directory, "capacity_2026.tif")).values
@@ -140,7 +137,6 @@ def slanted_world(directory):
                       admin=[(north, "north"), (south, "south")], **overrides)
 
 
-@STEP3
 def test_slanted_front_keeps_exclusions_and_communes(tmp_path):
     result = run(load_scenario(slanted_world(str(tmp_path))))
     polygons = result.polygons
@@ -156,3 +152,11 @@ def test_slanted_front_keeps_exclusions_and_communes(tmp_path):
     for step in result.steps:
         assert step.population_after_migration + step.unallocated + step.placed_in_sink == pytest.approx(
             step.population_after_growth, rel=1e-9)
+
+
+@pytest.mark.xfail(strict=True, reason="B1 as specified: a saturated cell receives no more migrants, so the front "
+                                       "stops after the first ring (decision pending, see the bilan of step 3)")
+def test_front_keeps_moving_after_the_first_ring(tmp_path):
+    result = run(load_scenario(square_city_world(str(tmp_path), years=15)))
+    colonised_years = {int(e["year"]) for e in result.polygons.events}
+    assert len(result.polygons.events) > 5 and max(colonised_years) > 2030

@@ -20,7 +20,7 @@ from osgeo import gdal
 from . import __version__
 from .base_population import base_population_from_density
 from .grid import Grid
-from .growth import grow
+from .growth import grow, growth_factor
 from .i18n import Message, message
 from .indicators import Indicator, create_indicator
 from .nonconvergence import (
@@ -31,14 +31,17 @@ from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
+from .polygons import (NO_POLYGON, NO_RANK, ColonisationRules, PolygonHistory, Stratum, cell_membership, colonise,
+                       initial_polygons, part_layer)
 from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
 from .report import StepReport
 from .scenario import (
-    NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError, VectorInput, parameter_zone_inputs,
+    COLONIZATION_PARAMETERS, NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError, VectorInput,
+    parameter_zone_inputs,
 )
-from .timeline import PER_STEP, build_timeline
+from .timeline import ANNUAL, PER_STEP, build_timeline
 from .units import NO_VALUE, Layer, Zone, build_sink_units, build_units
 from .roof_population import parse_calibration, population_from_roofs, strata_from_features
 from .roofs import read_roofs
@@ -69,6 +72,8 @@ class RunResult:
     failure: Optional[NonConvergenceError] = None
     """Set when the run stopped for lack of room: deficit and proposed ``dmax`` increase."""
     failure_year: Optional[float] = None
+    polygons: Optional[PolygonHistory] = None
+    """Free strata mode only: polygon of each unit, colonisations, views of the cells."""
 
 
 def calibrate(scenario: Scenario):
@@ -107,9 +112,10 @@ def run(
     base = population.copy()  # ceiling of overloaded units (A4) and of no-inflow units (A7-bis c1)
     base_start = population.sum()
 
+    free = model.free
     timeline = build_timeline(
         t0, scenario.time.end_year, scenario.time.time_step, scenario.time.output_years,
-        scenario.time.migration_frequency, scenario.time.first_migration_year,
+        ANNUAL if free else scenario.time.migration_frequency, scenario.time.first_migration_year,
         event_years=[e.year for e in scenario.exclusions if e.year is not None],
     )
     warnings.extend(model.resolution_warnings(scenario))
@@ -117,7 +123,7 @@ def run(
     settings = MigrationSettings(
         k=scenario.migration.k, tolerance=scenario.migration.tolerance,
         max_iterations=scenario.migration.max_iterations, policy=scenario.migration.policy,
-        max_auto_increase=scenario.migration.max_auto_increase, approve=approve,
+        max_auto_increase=scenario.migration.max_auto_increase, approve=approve, share_ties=free,
     )
     units = model.units
     n = len(units)
@@ -134,7 +140,12 @@ def run(
     status = SUCCESS
     failure, failure_year = None, None
 
+    history = model.start_history(t0) if free else None
+
     def write(year: float) -> None:
+        if history is not None:
+            history.membership[int(round(year))] = cell_membership(units, model.polygon_id,
+                                                                   scenario.strata.cell_membership_share)
         indicator_values = model.indicator_values(population, year)
         outputs.extend(write_year_rasters(out_dir, year, units, population, unallocated, capacity_now,
                                           scenario.density_unit, indicator_values))
@@ -165,6 +176,8 @@ def run(
 
         before = float(population.sum())
         rates = unit_means(model.tables["growth_rate"], units, step.start, step.end)
+        if history is not None:
+            model.measure_reclassification(history, population, rates, step)
         population = grow(population, rates, step.duration)
         if model.sink is not None:
             mean_rate = float(np.average(rates, weights=np.maximum(population, 1e-12)))
@@ -181,7 +194,7 @@ def run(
                 outcome = migrate_with_policy(
                     population, units.area_km2, base, model.dmax(step.end) * multiplier,
                     units.no_inflow | dated_no_inflow, units.cx, units.cy, settings,
-                    evacuated=evacuated, sink=model.sink,
+                    evacuated=evacuated, sink=model.sink, labels=model.polygon_id if free else None,
                 )
             except NonConvergenceError as error:
                 steps.append(StepReport(step.start, step.end, before, after_growth, after_growth, 0.0, 0.0, 0.0, 0,
@@ -198,6 +211,15 @@ def run(
             unallocated = unallocated + outcome.unallocated
             capacity_now = outcome.capacity
             report = StepReport.from_outcome(step.start, step.end, before, after_growth, outcome, sink_before)
+            balance = report.population_after_migration + report.unallocated + report.placed_in_sink
+            if abs(balance - after_growth) > 1e-6 * max(1.0, abs(after_growth)):
+                raise RuntimeError(message("conservation_failed", year=f"{step.end:g}",
+                                           difference=f"{balance - after_growth:.3f}").render(scenario.language))
+            if history is not None:
+                colonised = model.colonise(history, population, capacity_now,
+                                           units.no_inflow | dated_no_inflow | evacuated, outcome.inflow, step.end)
+                if colonised:
+                    events.append(message("strata_colonised", year=f"{step.end:g}", cells=colonised))
         else:
             report = StepReport(step.start, step.end, before, after_growth, after_growth, 0.0, 0.0, 0.0, 0,
                                 True, 1.0, SUCCESS, [])
@@ -218,8 +240,10 @@ def run(
                                         model.column_units(scenario)))
     except Exception as error:  # pragma: no cover
         warnings.append(message("grid_layer_failed", detail=str(error)))
+    if history is not None:
+        history.final = model.polygon_id.copy()
     result = RunResult(status, steps, warnings, outputs, out_dir, float(population.sum()), float(base_start), events,
-                       failure, failure_year)
+                       failure, failure_year, history)
     _write_run_report(scenario, result, model, clock.time() - started)
     used = scenario.to_dict()
     used["base_dir"] = scenario.base_dir                  # its relative paths, for grid_layer.rebuild
@@ -320,9 +344,15 @@ class _Model:
         parameter_layers: Dict[str, Tuple[str, ...]] = {}  # parameters linked to their own zones (spec §2.3 bis)
         zone_names: Dict[Tuple, str] = {}
 
+        self.free = scenario.strata.free
+        typology_key = (scenario.path(typology.source), typology.layer, typology.where, typology.field)
+
         def zone_layers(specs) -> Tuple[str, ...]:
             names = []
             for spec in specs:
+                if self.free and (scenario.path(spec.source), spec.layer, spec.where, spec.field) == typology_key:
+                    names.append("class")        # linked to the strata: follows the polygon (plan §2.1, P3)
+                    continue
                 key = (scenario.path(spec.source), spec.layer, spec.where, spec.field)
                 if key not in zone_names:
                     zone_names[key] = f"zones_{len(zone_names)}"
@@ -354,6 +384,8 @@ class _Model:
             shared.add("admin", scenario.admin_units, scenario.admin_units.field)
         layers.extend(shared.layers())
 
+        if self.free:
+            layers.append(part_layer(zones))      # one polygon per connected part (P2)
         xmin, xmax, ymin, ymax = study.GetEnvelope()
         margin = 0.0
         if scenario.migration.policy == SINK:
@@ -365,6 +397,8 @@ class _Model:
         shared.derive(self.units)
         if self.units.report.unclassified_area_km2 > 0.01:
             self.warnings.append(message("typology_gaps", area=round(self.units.report.unclassified_area_km2, 2)))
+        if self.free:
+            self._start_polygons(scenario, zones)
         if units_only:                       # enough to rebuild the cell layer of a run (grid_layer.rebuild)
             return self
         self.calibration_report = None
@@ -385,6 +419,15 @@ class _Model:
             except KeyError as error:
                 raise ScenarioError([message("scenario_parameter_missing", parameter=name, detail=str(error))]) from None
 
+        if self.free and not (scenario.projections and scenario.projections.recalibrate):
+            ranked = [name for name, rules in scenario.strata.classes.items() if rules.rank is not None]
+            try:
+                rates = {(self.tables["growth_rate"].for_key(name).years, self.tables["growth_rate"].for_key(name).values)
+                         for name in ranked}
+            except KeyError:
+                rates = set()
+            if len(rates) > 1:
+                self.warnings.append(message("strata_reclassification"))
         self.indicators: List[Indicator] = [
             create_indicator(spec.type, scenario.indicator_tables(spec)) for spec in scenario.indicators
         ]
@@ -440,6 +483,70 @@ class _Model:
         for name in report["roofs"].get("unknown_usage") or []:
             self.warnings.append(message("roofs_unknown_usage", category=name or "∅"))
         return result.per_unit
+
+    # --- free strata mode (plan_polygones_libres.md) ---------------------------------------------
+
+    def _start_polygons(self, scenario: Scenario, zones: List[Zone]) -> None:
+        strata = scenario.strata
+        rules = {name: Stratum(NO_RANK if r.rank is None else int(r.rank), r.colonizable)
+                 for name, r in strata.classes.items()}
+        start = scenario.time.start_year if scenario.time.start_mode == PROJECTION else scenario.time.base_year
+        self.polygon_id, self.polygons = initial_polygons(self.units, zones, rules, float(start))
+        self.strata = strata
+        self.settings_tolerance = scenario.migration.tolerance
+        labels = self.units.labels["class"]
+        codes = self.units.codes["class"]
+        known = self.polygon_id >= 0
+        codes[known] = [labels.index(self.polygons.stratum[p]) for p in self.polygon_id[known]]
+        self.initial_class = codes.copy()
+        self.warnings.append(message("strata_free_mode", polygons=len(self.polygons), neighbors=strata.min_neighbors))
+        if abs(scenario.cell_size - 250.0) > 1e-6:
+            self.warnings.append(message("strata_cell_size", size=f"{scenario.cell_size:g}"))
+
+    def start_history(self, year: float) -> PolygonHistory:
+        return PolygonHistory(self.units, self.polygons, self.polygon_id.copy(), self.polygon_id.copy(),
+                              reclassification=np.zeros(len(self.units)))
+
+    def colonization_values(self, year: float) -> Tuple[np.ndarray, np.ndarray]:
+        """Minimum inflow and saturation share of each polygon, from its stratum."""
+        values = []
+        for name, default in COLONIZATION_PARAMETERS.items():
+            table = self.tables.get(name)
+            values.append(np.array([default if table is None else table.for_keys([stratum]).value_at(year)
+                                    for stratum in self.polygons.stratum], dtype=np.float64))
+        return values[0], values[1]
+
+    def colonise(self, history: PolygonHistory, population, capacity, protected, inflow, year: float) -> int:
+        """One colonisation pass after the migration of a step; the new polygons count from the next step."""
+        if inflow is None:
+            return 0
+        min_inflow, saturation_share = self.colonization_values(year)
+        rules = ColonisationRules(self.strata.min_neighbors, self.strata.cell_membership_share,
+                                  float(self.settings_tolerance), self.strata.min_inflow_unit)
+        result = colonise(self.units, self.polygon_id, self.polygons, population, capacity, protected, inflow,
+                          min_inflow, saturation_share, rules)
+        if len(result.cells) == 0:
+            return 0
+        self.polygon_id = result.polygon_id
+        changed = np.flatnonzero(result.changed)
+        labels = self.units.labels["class"]
+        self.units.codes["class"][changed] = [labels.index(self.polygons.stratum[p]) for p in self.polygon_id[changed]]
+        self.units.__dict__.pop("_combination_cache", None)        # parameters follow the new strata
+        ncols = self.units.grid.ncols
+        for cell, polygon, received in zip(result.cells, result.winners, result.inflows):
+            history.events.append({"year": float(year), "cell": int(cell), "row": int(cell // ncols),
+                                   "col": int(cell % ncols), "polygon": int(polygon), "inflow": float(received)})
+        return len(result.cells)
+
+    def measure_reclassification(self, history: PolygonHistory, population, rates, step) -> None:
+        """Population that the change of growth rate of colonised units adds in this step (S1)."""
+        changed = self.units.codes["class"] != self.initial_class
+        if not changed.any():
+            return
+        initial_view = replace(self.units, codes={**self.units.codes, "class": self.initial_class})
+        initial_rates = unit_means(self.tables["growth_rate"], initial_view, step.start, step.end)
+        effect = population * (growth_factor(rates, step.duration) - growth_factor(initial_rates, step.duration))
+        history.reclassification += np.where(changed, effect, 0.0)
 
     def dmax(self, year: float) -> np.ndarray:
         return to_hab_per_km2(unit_values(self.tables["dmax"], self.units, year), self.density_unit)

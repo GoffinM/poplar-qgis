@@ -287,5 +287,10 @@
   "xlsx_software_title": "Logiciel",
   "xlsx_made_on": "Classeur produit le",
   "calibration_excel_failed": "Le classeur Excel du calage (calage.xlsx) n'a pas pu être écrit : {detail}",
-  "grid_layer_failed": "La couche des mailles (mailles.gpkg) n'a pas pu être écrite : {detail}"
+  "grid_layer_failed": "La couche des mailles (mailles.gpkg) n'a pas pu être écrite : {detail}",
+  "strata_free_mode": "Strates libres : les polygones s'étendent par colonisation ({polygons} polygones au départ, au moins {neighbors} voisines sur 8).",
+  "strata_cell_size": "Strates libres : la maille est de {size} m, et non de 250 m (maille de référence). Le plafond de vitesse des fronts ({size} m/an) et la règle des voisines en dépendent.",
+  "strata_reclassification": "Strates libres : les TCAM diffèrent entre strates et aucun recalage par commune n'est activé. Les totaux peuvent s'écarter des projections par effet de reclassement (voir les indicateurs de plausibilité).",
+  "strata_colonised": "{year} : {cells} maille(s) colonisée(s).",
+  "conservation_failed": "Arrêt en {year} : la population n'est pas conservée ({difference} habitants d'écart). C'est une erreur du moteur, à signaler."
 }
