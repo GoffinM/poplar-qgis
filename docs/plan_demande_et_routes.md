@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Proposé le 06/10/2026, **à valider avant tout code** |
+| **Statut** | A validé (A-a à A-d) et livré en 0.8.2, avec le téléchargement OpenStreetMap des routes (B-c) ; **B à valider avant tout code** |
 | **Demandes du 06/10** | (A) lancer le calcul de la demande seul, sur un calcul de population déjà fait ; (B) P14 : les fronts ne doivent pas être circulaires ; premier facteur d'attraction : les routes |
 | **Ordre** | A d'abord, B ensuite |
 
@@ -64,7 +64,7 @@ Les routes agissent à **deux endroits** du modèle, sans changer la vitesse com
 |---|---|---|
 | B-a | Les routes agissent-elles sur la migration (1), sur la colonisation (2), ou les deux ? | Les deux, chacune réglable et désactivable. La migration seule suffit peut-être : à tester sur Muramvya |
 | B-b | En mode **planifié** aussi (la migration y suivrait les routes, dans les limites des polygones) ? | Non par défaut : le mode planifié reste identique à l'outil actuel. Option possible |
-| B-c | Source des routes | Couche fournie par l'utilisateur (n'importe quel format). Plus tard, un téléchargement OpenStreetMap comme pour les toits ? |
+| B-c | Source des routes | Couche fournie par l'utilisateur (n'importe quel format), ou téléchargée depuis OpenStreetMap (fait en 0.8.2 : champ `classe` nationale / provinciale / autre) |
 | B-d | Poids par classe de route, portée | Poids par défaut : nationale 1, provinciale 0,6, autre 0,3 ; portée de 500 m ; tout est modifiable dans l'onglet Strates |
 | B-e | Autres facteurs d'attraction plus tard (pente, centres, services) | Le même mécanisme les acceptera : l'attractivité est un produit de facteurs. On commence par les routes seules |
 

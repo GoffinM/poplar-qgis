@@ -3,13 +3,14 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
-## 0.8.2 – 06/10/2026 : demande recalculée sans relancer la population
+## 0.8.2 – 06/10/2026 : demande recalculée sans relancer la population, routes OpenStreetMap
 
 - **Recalculer la demande** (onglets Indicateurs et Résultats) : la demande en eau du calcul affiché est recalculée avec les paramètres actuels, en tâche de fond, sans relancer le modèle de population. Résultats dans un sous-dossier daté `demande_AAAAMMJJ_HHMM` (rasters, `summary.csv`, couche des mailles, `demande_parametres.json`) ; la dernière demande est celle chargée dans QGIS. On peut aussi ajouter la demande à un calcul lancé sans indicateur.
 - Chaque calcul garde la population de chaque morceau de maille (`populations.npz`, quelques dizaines de Ko), avec sa classe : en mode libre, une maille colonisée garde les paramètres de son nouveau polygone.
 - Calculs antérieurs : la population des mailles est répartie au prorata de la surface des morceaux, avec un avertissement.
 - Si les couches ne donnent plus la grille du calcul, le recalcul s'arrête et l'explique.
 - En ligne de commande : `python -m engine demand <dossier> [--scenario fichier]`.
+- **Routes OpenStreetMap** : bouton **Télécharger les routes OpenStreetMap…** (onglet Données), par l'API Overpass, en tâche de fond. Voies coupées à la zone, classées nationale / provinciale / autre, ajoutées au projet ; rapport `.download.json` (licence ODbL). En ligne de commande : `python -m engine download-roads`. Le modèle ne s'en sert pas encore.
 
 ## 0.8.1 – 06/10/2026
 

@@ -18,6 +18,20 @@ Un exemple complet se trouve dans `data/test/muramvya/scenario_muramvya.json`.
 
 Les chemins sont relatifs au fichier de scénario.
 
+### Routes OpenStreetMap
+
+Le bouton **Télécharger les routes OpenStreetMap…** (onglet Données) récupère toutes les voies de la zone d'étude (champ OSM `highway` : routes, pistes, chemins) par l'API **Overpass**, en tâche de fond.
+
+- Zone : la zone d'étude par défaut, élargie d'une marge (2 km par défaut), et gardée dans une limite facultative (une frontière).
+- Les lignes sont coupées à la zone et écrites dans le système de calcul, dans `routes/routes_osm_<zone>.gpkg` à côté du scénario, avec les champs `highway`, `classe`, `nom`, `ref`, `surface`, `osm_id` et `longueur_m`.
+- Classes : **nationale** (motorway, trunk, primary), **provinciale** (secondary, tertiary), **autre** (tout le reste). Les voies en projet ou en construction sont écartées.
+- La couche est ajoutée au projet, colorée par classe. Le fichier `.download.json` voisin garde la date, le serveur, la requête et les longueurs par classe.
+- Si un serveur Overpass est saturé, le suivant est essayé. Si aucun ne répond, réessayez plus tard ou vérifiez le proxy (**Préférences › Options › Réseau**).
+- Licence ODbL : citez « © OpenStreetMap contributors ».
+- Le modèle ne se sert **pas encore** des routes : l'attraction des routes est à l'étude (plan B).
+
+En ligne de commande : `python -m engine download-roads <zone.gpkg> <sortie.gpkg> --crs EPSG:32735 [--margin 2000]`.
+
 ## Temps
 
 | Réglage | Rôle | Exemple |

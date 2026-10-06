@@ -21,6 +21,10 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>projections</code></td><td>Projections démographiques (voir plus bas)</td><td>non</td></tr>
 </table>
 <p>Les chemins sont relatifs au fichier de scénario.</p>
+<h3>Routes OpenStreetMap</h3>
+<p>Le bouton <b>Télécharger les routes OpenStreetMap…</b> (onglet Données) récupère toutes les voies de la zone d'étude (champ OSM <code>highway</code> : routes, pistes, chemins) par l'API <b>Overpass</b>, en tâche de fond.</p>
+<ul><li>Zone : la zone d'étude par défaut, élargie d'une marge (2 km par défaut), et gardée dans une limite facultative (une frontière).</li><li>Les lignes sont coupées à la zone et écrites dans le système de calcul, dans <code>routes/routes_osm_&lt;zone&gt;.gpkg</code> à côté du scénario, avec les champs <code>highway</code>, <code>classe</code>, <code>nom</code>, <code>ref</code>, <code>surface</code>, <code>osm_id</code> et <code>longueur_m</code>.</li><li>Classes : <b>nationale</b> (motorway, trunk, primary), <b>provinciale</b> (secondary, tertiary), <b>autre</b> (tout le reste). Les voies en projet ou en construction sont écartées.</li><li>La couche est ajoutée au projet, colorée par classe. Le fichier <code>.download.json</code> voisin garde la date, le serveur, la requête et les longueurs par classe.</li><li>Si un serveur Overpass est saturé, le suivant est essayé. Si aucun ne répond, réessayez plus tard ou vérifiez le proxy (<b>Préférences › Options › Réseau</b>).</li><li>Licence ODbL : citez « © OpenStreetMap contributors ».</li><li>Le modèle ne se sert <b>pas encore</b> des routes : l'attraction des routes est à l'étude (plan B).</li></ul>
+<p>En ligne de commande : <code>python -m engine download-roads &lt;zone.gpkg&gt; &lt;sortie.gpkg&gt; --crs EPSG:32735 [--margin 2000]</code>.</p>
 <h2>Temps</h2>
 <table>
 <tr><th>Réglage</th><th>Rôle</th><th>Exemple</th></tr>

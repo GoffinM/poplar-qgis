@@ -180,6 +180,11 @@ class DataPage(Page):
         add_row(form, "data.typology", widget)
         widget, self.admin, self.admin_field = layer_with_field(POLYGON_FILTER, allow_empty=True)
         add_row(form, "data.admin_units", widget)
+        self.roads_button = QPushButton(tr("roads.open"))
+        self.roads_button.setToolTip(tip("roads.open"))
+        self.roads_button.clicked.connect(lambda: self.open_roads())
+        add_row(form, "data.roads", self.roads_button)
+        self.roads_dialog = None
         layout.addWidget(box)
 
         box, form = _box("data.population")
@@ -254,6 +259,27 @@ class DataPage(Page):
         self.start_year = _spin(1900, 2200, 2026)
         add_row(form, "data.projections.start_year", self.start_year)
         layout.addWidget(box)
+
+    def open_roads(self, show=True):
+        """Download window of the OpenStreetMap roads, on the study area; the layer goes to the project."""
+        from .roads_dialog import DownloadRoadsDialog
+
+        running = self.roads_dialog
+        if running is not None and running.task is not None:     # one download at a time: show the one running
+            if show:
+                running.exec()
+            return running
+        base = (self.dialog.base_dir() if getattr(self.dialog, "path", None)
+                else QgsProject.instance().homePath() or os.path.expanduser("~"))
+        dialog = DownloadRoadsDialog(self.study.currentLayer(), base, self)
+        dialog.downloaded.connect(lambda layer: layer is not None and self.dialog.iface.messageBar().pushSuccess(
+            "Poplar", tr("roads.added", name=layer.name())))
+        if self.roads_dialog is not None:
+            self.roads_dialog.deleteLater()
+        self.roads_dialog = dialog
+        if show:
+            dialog.exec()
+        return dialog
 
     def _add_exclusion(self, item):
         row = self.exclusions.rowCount()

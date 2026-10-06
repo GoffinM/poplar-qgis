@@ -55,6 +55,13 @@ def main(argv=None) -> int:
     download_parser.add_argument("--polygons", action="store_true", help="outlines instead of points")
     download_parser.add_argument("--min-confidence", type=float)
     download_parser.add_argument("--cache", default=os.path.join(os.path.expanduser("~"), ".poplar", "cache"))
+    roads_parser = commands.add_parser("download-roads", help="download the OpenStreetMap roads of a zone (Overpass)")
+    roads_parser.add_argument("zone", help="polygons of the zone (the strata layer, for example)")
+    roads_parser.add_argument("output", help="GeoPackage to write")
+    roads_parser.add_argument("--crs", required=True, help="calculation CRS, for example EPSG:32735")
+    roads_parser.add_argument("--margin", type=float, default=0.0, help="margin around the zone, in metres")
+    roads_parser.add_argument("--limit", help="polygons the zone must stay in (a national boundary)")
+    roads_parser.add_argument("--server", action="append", help="Overpass server (repeatable; public ones by default)")
     args = parser.parse_args(argv)
     if args.command == "grid":
         from .grid_layer import rebuild
@@ -90,6 +97,8 @@ def main(argv=None) -> int:
         return _demand(args)
     if args.command == "download-roofs":
         return _download_roofs(args)
+    if args.command == "download-roads":
+        return _download_roads(args)
     if args.command == "report":
         from .html_report import write_html_report
 
@@ -162,6 +171,38 @@ def _demand(args) -> int:
         print("run without populations per unit: population of each cell shared pro rata of the area")
     for path in result.files:
         print(path)
+    return 0
+
+
+def _zone(args):
+    from osgeo import osr
+
+    from .downloads.zone import DownloadZone, ZoneLayer
+
+    srs = osr.SpatialReference()
+    srs.SetFromUserInput(args.crs)
+    return DownloadZone.from_layers(ZoneLayer(args.zone), srs.ExportToWkt(), args.margin,
+                                    ZoneLayer(args.limit) if args.limit else None)
+
+
+def _download_roads(args) -> int:
+    from .downloads import osm_roads
+    from .downloads.zone import EmptyZone
+
+    try:
+        zone = _zone(args)
+    except EmptyZone:
+        print("the zone is empty (no polygon, or nothing inside the limit)", file=sys.stderr)
+        return 1
+    try:
+        fetcher = osm_roads.UrllibFetcher(timeout=osm_roads.TIMEOUT_S + 60)
+        report = osm_roads.download_osm_roads(zone, args.output, fetcher, args.server,
+                                              lambda fraction: print(f"\r{fraction:6.1%}", end="", flush=True))
+    except osm_roads.OverpassError as error:
+        print(f"\nno Overpass server answered: {error}", file=sys.stderr)
+        return 1
+    lengths = ", ".join(f"{name} {km:g} km" for name, km in report["counts"]["length_km"].items())
+    print(f"\n{report['counts']['kept']} roads written to {args.output} ({lengths}); {osm_roads.ATTRIBUTION}")
     return 0
 
 

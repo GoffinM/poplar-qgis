@@ -957,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 7
-    assert version() == "0.8.1"
+    assert version() == "0.8.2"
     AboutDialog()
 
 
@@ -1146,4 +1146,42 @@ def test_demand_computed_again_on_the_run_shown(iface, scenario_copy):
     names = {l.name() for l in QgsProject.instance().mapLayers().values()}
     assert "population 2030" in names and f"water_domestic 2030 · {folder}" in names
 
+    QgsProject.instance().clear()
+
+
+def test_osm_roads_downloaded_from_the_data_tab(iface, scenario_copy, tmp_path):
+    import sys
+
+    sys.path.insert(0, os.path.join(REPO, "tests"))
+    from test_osm_roads import WAYS, FakeOverpass, _osm
+
+    from poplar.engine.downloads import osm_roads
+    from poplar.i18n import tr
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("data")
+    roads = page.open_roads(show=False)
+    assert roads.zone_layer.currentLayer() is page.study.currentLayer()
+    assert os.path.basename(roads.output.filePath()).startswith("routes_osm_")
+    roads.output.setFilePath(str(tmp_path / "routes.gpkg"))
+    roads.margin.setValue(0)
+    # The Muramvya roads of WAYS sit around the centre of the test zone: some are kept, every one is classed.
+    roads.fetcher = FakeOverpass(_osm(WAYS))
+    assert roads.start(background=False, ask=False)
+    assert roads.report is not None, roads.info.text()
+    layer = roads.layer
+    assert layer is not None and layer.renderer().type() == "categorizedSymbol"
+    assert {c.value() for c in layer.renderer().categories()} == {"nationale", "provinciale", "autre"}
+    assert layer.featureCount() == roads.report["counts"]["kept"] > 0
+    assert tr("roads.done", **__import__("poplar.ui.roads_dialog", fromlist=["_summary"])._summary(roads.report)) \
+        == roads.info.text()
+    assert any(tr("roads.added", name=layer.name()) in str(m) for m in iface.bar.messages)
+
+    roads.fetcher = FakeOverpass(_osm(WAYS), refusing=set(osm_roads.SERVERS))      # every server busy
+    assert roads.start(background=False, ask=False)
+    assert "429" in roads.info.text() and roads.report["output"] == str(tmp_path / "routes.gpkg")
+    names = [l.name() for l in QgsProject.instance().mapLayers().values()]
+    assert "routes" in names                                            # the roads already there, still loaded
     QgsProject.instance().clear()

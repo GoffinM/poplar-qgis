@@ -41,6 +41,7 @@ Version 0.8.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | D.3 | Exclusions : ajoutez une couche de **lignes** (une route) sans tampon, puis **Lancer › Vérifier le scénario** | Le contrôle demande un tampon ; avec 50 m, il passe |
 | D.4 | Projections : un fichier xlsx avec une colonne par année | L'aperçu indique « Une colonne par année · … unités · années » ; testez aussi un .xls |
 | D.5 | Posez un filtre sur la couche des communes (clic droit › Filtrer…), puis lancez | Le calcul ne porte que sur les entités filtrées ; retirez ensuite le filtre |
+| D.6 | **Télécharger les routes OpenStreetMap…** (nouveau en 0.8.2), zone d'étude, marge 2 km, **Télécharger** | En moins d'une minute, couche `routes_osm_…` ajoutée, colorée par classe (la RN7 en nationale) ; le message donne le nombre de voies et les kilomètres par classe. Notez le temps et les longueurs |
 
 ## 2 bis. Strates (nouveau en 0.8.0)
 
