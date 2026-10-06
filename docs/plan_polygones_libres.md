@@ -4,7 +4,7 @@
 |---|---|
 | **Statut** | Version 2 du 06/10/2026 : plan validé dans ses grandes lignes, avec les corrections B1, B2 et S1 intégrées. **À valider avant tout code** |
 | **Demande** | Chantier prioritaire du 06/10 : un polygone saturé déborde sur ses voisines, qui prennent son identité et toutes ses propriétés. La vitesse du front est un résultat, publié comme indicateur |
-| **Références** | Fiche diagnostic §3.4 (extension urbaine) et §3.5 (**pas encore dans le dépôt** : voir P0). Plan précédent : `plan_categories_dynamiques.md`, que ce plan remplace pour le mode libre (§11) |
+| **Références** | Fiche diagnostic §3.4 (extension urbaine) et §3.5 (strates dynamiques, ajoutée le 06/10 ; cohérence vérifiée au §13). La fiche fixe les principes ; **en cas d'écart, ce plan prévaut** (fiche §3.5). Plan précédent : `plan_categories_dynamiques.md`, que ce plan remplace pour le mode libre (§11) |
 | **Décisions du 06/10** | B1 (nouveau déclencheur de colonisation), B2 (mailles coupées au front), S1 (double comptage, §4) ; P1, P2, P5 et P6 acceptés |
 | **Durée estimée** | 8 à 10 jours pour le moteur et ses sorties (6 étapes), plus 1,5 jour pour l'interface |
 
@@ -114,6 +114,7 @@ Tout est calculé à partir de l'état `t`. Les changements d'identifiant prenne
 | Sortie | Contenu |
 |---|---|
 | `polygon_id_AAAA.tif` | int32, identifiant de chaque maille selon la règle d'appartenance (§2.2a) ; « sans polygone majoritaire » = valeur à part. Il est accompagné d'une table de légende (id → strate, rang) et d'un style QGIS |
+| `statut_AAAA.tif` (proposé, fiche §3.4) | uint8, dérivé de `polygon_id` et de la généalogie : 0 non urbain, 1 urbain dès l'état initial, 2 extension, 3 nouveau noyau, 9 exclusion. « Urbain » = rang au moins égal à un rang choisi (fiche Q8). La fiche fait du §3.4 le cas simple du mécanisme du §3.5 |
 | `annee_colonisation.tif` | int16 : année où la maille, ou son résidu, a changé de polygone. Vide si jamais ; 0 pour l'état initial. Un seul raster suffit pour animer toute la série |
 | `polygones.gpkg`, couche `polygones` | Une entité par polygone et par année de sortie. Attributs : `id` conservé, `strate`, `rang`, `parent`, `annee`, `surface_km2`, `population`, `densite_moyenne`, `part_saturee`. Géométrie vectorisée à partir du raster, puis **lissée pour l'affichage seulement** (lissage de Chaikin, sans toucher aux sommets partagés). La surface et la population viennent des **unités**, jamais du contour lissé |
 | `polygones.gpkg`, table `genealogie` | `id`, `annee`, `evenement` (`initial`, `extension`, `nouveau_noyau`, `contact`), `parent`, `mailles`, `population` |
@@ -262,12 +263,13 @@ Les mondes sont construits en mémoire, sans raster ni fichier, comme les tests 
 | P6 | Propriété `colonizable: false` par strate, en plus des exclusions |
 | P7 | Remplacé par B1 : il n'y a plus de seuil de densité, mais saturation, flux et saturation du colonisateur |
 | P11 | Remplacé par B2 : appartenance à 50 % de surface, et colonisation des seules unités de rang inférieur et colonisables |
+| P0 | **Réglé le 06/10** : la fiche §3.5 est dans le dépôt (commit 108266f), relue et cohérente avec ce plan (§13) |
+| P15 | **Réglé par la fiche §3.5** : l'option garde les noms `planned` (Planifié, polygones figés) et `free` (Libre). Les fermetures de camp et autres changements datés s'appelleront « changements datés », pour ne pas confondre |
 
 **Encore ouverts :**
 
 | # | Point | Ma proposition |
 |---|---|---|
-| **P0** | La section 3.5 de la fiche **n'est toujours pas dans le dépôt**. Le 06/10, la branche de travail, `main` et le disque ne contiennent que la version qui s'arrête au §3.4. Elle n'a peut-être pas été poussée | La pousser sur la branche de travail. Je la relirai et j'ajusterai ce plan avant l'étape 1 |
 | **P3** | « Toutes les propriétés » : un paramètre lié à **une autre couche** que la typologie (zone de desserte, commune) suit-il aussi le polygone ? | Non : seules les propriétés de la strate suivent le polygone. Ce qui vient d'une couche fixe reste attaché au lieu. C'est aussi la parade à l'effet de reclassement (§4) |
 | **P4** | Plafond de 250 m/an, avec un front plus lent en diagonale | Accepter, publier le plafond, signaler un front « bridé » |
 | **P8** | **Nouveaux noyaux** : avec au moins 3 voisins exigés, la colonisation ne crée jamais de noyau isolé. Pourtant la généalogie prévoit l'événement, et vous les avez acceptés le 30/09 | Une règle à part, désactivée par défaut : un amas d'au moins `n` mailles contiguës, toutes saturées et éloignées de tout polygone de rang supérieur, crée un **nouveau polygone** de la strate choisie. Il reçoit le diagnostic « à vérifier » quand une contrainte artificielle peut l'expliquer (enclave, migration bloquée) |
@@ -276,8 +278,10 @@ Les mondes sont construits en mémoire, sans raster ni fichier, comme les tests 
 | **P12** | Règle A4 après colonisation | Une maille colonisée prend `max(densité de départ, dmax du colonisateur)` |
 | **P13** | Résidu de rang inférieur dans une maille déjà majoritairement colonisée (§2.2c) | Colonisable sans condition de voisinage, mais avec les conditions de saturation et de flux |
 | **P14** | Valeurs par défaut de `colonization_min_inflow` (10 % de la capacité) et de `saturation_share` (0,8) | À caler sur Muramvya (étape 5), avec le bilan des vitesses de front obtenues |
+| **P17** | Nouveaux noyaux : la fiche §3.5 prévoit qu'ils reçoivent un nouvel identifiant et les compte parmi les indicateurs. Elle suppose donc que la règle P8 existe | Réaliser P8 dès la première version (étape 4). Reste à décider si elle est active par défaut ; je propose qu'elle soit désactivée par défaut et signalée dans le rapport |
+| **P18** | Fiche Q10 : surface minimale de tache et niveau de lissage des polygones de sortie | Surface minimale paramétrable (par défaut, une maille, soit 0,0625 km²) pour l'affichage seulement ; lissage de Chaikin en 2 passes. Les chiffres restent ceux de la grille |
+| **P19** | Fiche §3.5 : « maille de référence de 250 m ». Le scénario permet une autre taille de maille | En mode libre, avertir si la maille n'est pas de 250 m : le plafond de vitesse (250 m/an) et la règle des 3 voisins en dépendent |
 | **P16** | **Biais d'orientation de la migration** (constaté le 06/10 sur le cas test) : le moteur départage les receveuses à égale distance par le plus petit indice (spec §6.3, déterministe). Le nord et l'ouest sont donc favorisés : la mi-côté nord reçoit 41,7 habitants, la sud 31,3. C'est sans effet visible aujourd'hui, mais avec la colonisation, ce biais peut orienter la croissance des fronts. | Garder la règle en mode figé, pour ne rien changer. En mode libre, partager à parts égales entre les receveuses ex aequo, ce qui reste déterministe et rend le front symétrique |
-| **P15** | Nom de l'option : `"planned"` désigne ici les strates figées, alors que « planifié » désignait le 30/09 les changements datés (fermeture d'un camp) | `"fixed"` / `"free"`, et garder « planifié » pour les changements datés. J'applique `"planned"` tant que vous n'avez pas tranché |
 
 ## 11. Rapport avec le plan du 30/09 (`plan_categories_dynamiques.md`)
 
@@ -291,7 +295,7 @@ Ce plan **remplace le mode « Libre »** du plan du 30/09 :
 
 Les réponses du 30/09 restent valables : Q1 (évaluation par maille, précisée par B2), Q3 (nouveaux noyaux et leur diagnostic, voir P8), Q4 (pas de retour en arrière) et Q9 (généalogie dès la première version).
 
-Les **changements planifiés** du plan du 30/09 (fermeture d'un camp, départ progressif du surplus) **restent à faire, en second temps**. Ils s'écriront sur la même architecture : à une date donnée, un changement de `polygon_id` ou des propriétés d'un polygone, avec un plafond qui descend en ligne droite.
+Les **changements datés** du plan du 30/09 (fermeture d'un camp, départ progressif du surplus) **restent à faire, en second temps**. Ils s'écriront sur la même architecture : à une date donnée, un changement de `polygon_id` ou des propriétés d'un polygone, avec un plafond qui descend en ligne droite.
 
 ## 12. Étapes
 
@@ -305,3 +309,25 @@ Les **changements planifiés** du plan du 30/09 (fermeture d'un camp, départ pr
 | 6 | Interface du plugin (maquette d'abord), aide, version | Tests du plugin | 1,5 j |
 
 Chaque étape passe tous les tests, y compris le banc en mode figé, avant la suivante.
+
+## 13. Cohérence avec la fiche §3.5 (vérifiée le 06/10)
+
+| Sujet de la fiche §3.5 | Dans ce plan | Accord |
+|---|---|---|
+| Deux modes, Planifié (par défaut, résultats identiques) et Libre | §2.3 : `planned` / `free`, banc de non-régression en mode figé | Oui |
+| Excédent jamais perdu en silence, population non accueillie par horizon | Politiques existantes (`stop` arrête avec un diagnostic, `unallocated` enregistre ce qui n'a pas trouvé de place) ; contrôle de conservation à chaque pas (§3d) | Oui |
+| `polygon_id` par unité, héritage de toutes les propriétés | §2.1 | Oui. La fiche cite strate, TCAM, densité max et paramètres de colonisation : ce sont les propriétés de la strate (P3) |
+| Couche communale séparée et fixe | §2.1, §4 | Oui |
+| Hiérarchie, exclusions et strates non colonisables | §3c, conditions 4 et 5 | Oui |
+| Déclencheur : saturation, flux, saturation du colonisateur, contiguïté | §3c (B1) | Oui |
+| 250 m, une couronne par pas, pas interne annuel | §2.3, §3c | Oui ; avertissement ajouté si la maille n'est pas de 250 m (P19) |
+| Vitesse du front comme résultat publié | §3c, §6 | Oui |
+| Identité conservée, nouveaux noyaux avec un nouvel identifiant, généalogie | §2.1, §5 | Oui, à condition de réaliser la règle des nouveaux noyaux (P17) |
+| Polygones lissés pour l'affichage seulement, grille comme référence | §5 | Oui |
+| Indicateurs de plausibilité (sept indicateurs) | §6 : les sept, plus l'effet de reclassement (S1) | Oui |
+| Fiche §4 : modules `strates.py` et `polygones.py` | §7 : `polygons.py`, `polygon_outputs.py` et `plausibility.py` (identifiants en anglais, règle de CLAUDE.md) | Écart de noms seulement ; le plan prévaut |
+| Fiche §3.4 comme cas simple du §3.5 (raster de statut, année d'urbanisation) | §5 : `statut_AAAA.tif` dérivé (proposé) et `annee_colonisation.tif` | Oui, avec la sortie proposée |
+| Fiche Q9 (strates, rangs, non colonisables), Q10 (lissage, surface minimale), Q11 (mode par défaut pour BUR71) | §9 (réglages par strate), P18 ; Q11 reste à trancher par vous | Questions reprises |
+
+Une précision de S1 : la fiche dit que le TCAM est hérité. La parade « TCAM lié aux communes » (§4, point 3) reste un choix de l'utilisateur, au moment de régler ses paramètres. Le TCAM n'est alors plus une propriété de la strate : il reste attaché au lieu, et rien ne le fait voyager avec le polygone.
+

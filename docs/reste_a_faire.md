@@ -48,7 +48,7 @@
 
 ## 4 bis. Chantier prioritaire (06/10) : évolution des polygones dans le temps, mode libre
 
-- Plan proposé : `plan_polygones_libres.md` (architecture `polygon_id`, ordre des opérations, sorties, indicateurs de plausibilité, cas test synthétique, points P0 à P12). **À valider avant tout code.**
+- Plan proposé : `plan_polygones_libres.md` (version 2 du 06/10 : B1, B2, S1 ; fiche §3.5 ajoutée et cohérente, P0 réglé). Points ouverts : P3, P4, P8 à P10, P12 à P14, P16 à P19. **À valider avant tout code.**
 
 ## 5. Catégories qui changent dans le temps : extension urbaine et changements planifiés (après le beta)
 
