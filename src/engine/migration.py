@@ -13,7 +13,7 @@ The population is conserved exactly: it is only moved, never rounded.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 from scipy.spatial import cKDTree
@@ -21,6 +21,43 @@ from scipy.spatial import cKDTree
 
 EPSILON = 1e-9
 """Numerical zero, in inhabitants."""
+
+
+@dataclass
+class Inflow:
+    """Population received by each unit from each label (polygon) during a step: gross, every iteration."""
+
+    keys: np.ndarray
+    """Sorted ``unit * nlabels + label``."""
+    amounts: np.ndarray
+    nlabels: int
+
+    @classmethod
+    def empty(cls, nlabels: int = 1) -> "Inflow":
+        return cls(np.zeros(0, dtype=np.int64), np.zeros(0), max(1, nlabels))
+
+    @classmethod
+    def from_transfers(cls, receivers: np.ndarray, labels: np.ndarray, amounts: np.ndarray,
+                       nlabels: int) -> "Inflow":
+        nlabels = max(1, int(nlabels))
+        receivers = np.asarray(receivers, dtype=np.int64)
+        labels = np.asarray(labels, dtype=np.int64)
+        amounts = np.asarray(amounts, dtype=np.float64)
+        keep = labels >= 0
+        keys, inverse = np.unique(receivers[keep] * nlabels + labels[keep], return_inverse=True)
+        totals = np.bincount(inverse.ravel(), weights=amounts[keep], minlength=len(keys))
+        return cls(keys, totals, nlabels)
+
+    def received(self, units: np.ndarray, labels: np.ndarray) -> np.ndarray:
+        """What each unit received from the matching label (0 where nothing)."""
+        keys = np.asarray(units, dtype=np.int64) * self.nlabels + np.asarray(labels, dtype=np.int64)
+        if len(self.keys) == 0:
+            return np.zeros(len(keys))
+        position = np.minimum(np.searchsorted(self.keys, keys), len(self.keys) - 1)
+        return np.where(self.keys[position] == keys, self.amounts[position], 0.0)
+
+    def total(self) -> float:
+        return float(self.amounts.sum())
 
 
 @dataclass
@@ -34,6 +71,8 @@ class MigrationResult:
     """Excess still above capacity; below ``tolerance`` per unit when converged."""
     receivers_exhausted: bool
     """True if migration stopped because no unit had free capacity left."""
+    inflow: Optional[Inflow] = None
+    """What each unit received from each label, when ``labels`` were given."""
 
 
 def migrate(
@@ -46,6 +85,8 @@ def migrate(
     tolerance: float = 1.0,
     max_iterations: int = 10_000,
     export_all: Optional[np.ndarray] = None,
+    labels: Optional[np.ndarray] = None,
+    share_ties: bool = False,
 ) -> MigrationResult:
     """Move the excess population to the nearest units with free capacity.
 
@@ -57,6 +98,13 @@ def migrate(
     Units flagged in ``export_all`` (no-inflow zones) send away all their
     excess, even below the tolerance, so that their population never
     exceeds their ceiling (decision of 29/09/2026).
+
+    ``labels`` (one integer per unit, e.g. its polygon; negative for none)
+    turns on the record of what each unit receives from each label; it
+    changes nothing else. ``share_ties`` splits the last share equally
+    between the receivers tied at the k-th distance, instead of giving it to
+    the lowest index (free strata mode, decision P16): fronts then grow
+    without a preferred direction.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -74,6 +122,11 @@ def migrate(
     moved = 0.0
     iterations = 0
     exhausted = False
+    record = labels is not None
+    if record:
+        labels = np.asarray(labels, dtype=np.int64)
+        nlabels = int(labels.max(initial=-1)) + 1
+        got_units, got_labels, got_amounts = [], [], []
     while True:
         excess = population - capacity
         sources = np.flatnonzero(is_source(excess))
@@ -88,16 +141,30 @@ def migrate(
         iterations += 1
 
         n = min(k, len(receivers))
-        targets = nearest_receivers(coords[sources], coords[receivers], receivers, n)
-        shares = excess[sources] / n
+        if share_ties:
+            origin, targets, weights = shared_receivers(coords[sources], coords[receivers], receivers, n)
+            amounts = excess[sources][origin] * weights
+        else:
+            targets = nearest_receivers(coords[sources], coords[receivers], receivers, n).ravel()
+            origin = np.repeat(np.arange(len(sources)), n)
+            amounts = np.repeat(excess[sources] / n, n)
         # All transfers of an iteration are computed from the same state, then applied.
-        np.add.at(population, targets.ravel(), np.repeat(shares, n))
+        np.add.at(population, targets, amounts)
         population[sources] = capacity[sources]
         moved += float(excess[sources].sum())
+        if record:
+            got_units.append(targets)
+            got_labels.append(labels[sources][origin])
+            got_amounts.append(amounts)
 
     remaining = float(np.maximum(population - capacity, 0).sum())
     converged = not np.any(is_source(population - capacity))
-    return MigrationResult(population, iterations, converged, moved, remaining, exhausted)
+    inflow = None
+    if record:
+        inflow = (Inflow.from_transfers(np.concatenate(got_units), np.concatenate(got_labels),
+                                        np.concatenate(got_amounts), nlabels)
+                  if got_units else Inflow.empty(nlabels))
+    return MigrationResult(population, iterations, converged, moved, remaining, exhausted, inflow)
 
 
 def nearest_receivers(
@@ -129,6 +196,43 @@ def nearest_receivers(
         pending = pending[~complete]
         window = min(total, window * 2)
     return result
+
+
+def shared_receivers(
+    source_xy: np.ndarray, receiver_xy: np.ndarray, receiver_ids: np.ndarray, n: int
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The ``n`` nearest receivers of each source, ties at the n-th distance sharing the last share.
+
+    Returns ``(source position, receiver id, weight)``, one row per transfer;
+    the weights of a source add up to 1. Receivers strictly closer than the
+    n-th distance get ``1/n`` each; those at the n-th distance share the rest.
+    """
+    tree = cKDTree(receiver_xy)
+    total = len(receiver_ids)
+    window = min(total, n + 8)
+    pending = np.arange(len(source_xy))
+    origins, targets, weights = [], [], []
+    while len(pending):
+        dist, pos = tree.query(source_xy[pending], k=window)
+        dist = dist.reshape(len(pending), window)
+        pos = pos.reshape(len(pending), window)
+        complete = (window == total) | (dist[:, n - 1] < dist[:, -1] * (1 - 1e-12))
+        rows = np.flatnonzero(complete)
+        if len(rows):
+            d = dist[rows]
+            nth = d[:, n - 1:n]
+            closer = d < nth * (1 - 1e-12)
+            tied = ~closer & (d <= nth * (1 + 1e-12))
+            m = closer.sum(axis=1, keepdims=True)
+            t = tied.sum(axis=1, keepdims=True)
+            weight = np.where(closer, 1.0 / n, np.where(tied, (n - m) / (n * t), 0.0))
+            r, c = np.nonzero(weight > 0)
+            origins.append(pending[rows][r])
+            targets.append(receiver_ids[pos[rows][r, c]])
+            weights.append(weight[r, c])
+        pending = pending[~complete]
+        window = min(total, window * 2)
+    return np.concatenate(origins), np.concatenate(targets), np.concatenate(weights)
 
 
 @dataclass

@@ -22,7 +22,7 @@ import numpy as np
 
 from .capacity import capacity as unit_capacity
 from .i18n import DEFAULT_LANGUAGE, Message, message
-from .migration import EPSILON, MigrationResult, migrate
+from .migration import EPSILON, Inflow, MigrationResult, migrate
 
 STOP = "stop"
 RAISE_DMAX = "raise_dmax"
@@ -89,6 +89,8 @@ class MigrationSettings:
     """Interactive approval of a ``dmax`` increase (used by the plugin)."""
     dmax_scope: Optional[np.ndarray] = None
     """Units where ``dmax`` may be raised (all receivable units if None)."""
+    share_ties: bool = False
+    """Split the last share between receivers tied at the k-th distance (free strata mode, P16)."""
 
     def __post_init__(self) -> None:
         if self.policy not in POLICIES:
@@ -106,6 +108,8 @@ class StepOutcome:
     dmax_factor: float = 1.0
     sink_population: Optional[np.ndarray] = None
     messages: List[Message] = field(default_factory=list)
+    inflow: Optional[Inflow] = None
+    """What each unit received from each label, when ``labels`` were given (free strata mode)."""
 
 
 def capacity_deficit(population, capacity, receivable) -> float:
@@ -150,6 +154,7 @@ def migrate_with_policy(
     settings: MigrationSettings,
     evacuated: Optional[np.ndarray] = None,
     sink: Optional[Sink] = None,
+    labels: Optional[np.ndarray] = None,
 ) -> StepOutcome:
     """One migration step, with the capacity check and the non-convergence policy.
 
@@ -194,10 +199,10 @@ def migrate_with_policy(
         if settings.policy == SINK:
             if sink is None:
                 raise ValueError("the 'sink' policy needs a ring of sink cells")
-            return _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messages)
+            return _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messages, labels)
 
     result = migrate(population, cap, receivable, x, y, settings.k, settings.tolerance, settings.max_iterations,
-                     export_all=~receivable)
+                     export_all=~receivable, labels=labels, share_ties=settings.share_ties)
     unallocated = np.zeros(len(population))
     if not result.converged:
         excess = result.population - cap
@@ -214,10 +219,10 @@ def migrate_with_policy(
         result.population = result.population - leftover
         status = PARTIAL
         messages.append(message("recorded_as_unallocated", excess=round(total)))
-    return StepOutcome(result.population, cap, unallocated, result, status, factor, None, messages)
+    return StepOutcome(result.population, cap, unallocated, result, status, factor, None, messages, result.inflow)
 
 
-def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messages) -> StepOutcome:
+def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messages, labels=None) -> StepOutcome:
     n = len(population)
     all_population = np.concatenate([population, sink.population])
     all_capacity = np.concatenate([cap, sink.capacity])
@@ -227,6 +232,8 @@ def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messag
         np.concatenate([x, sink.x]), np.concatenate([y, sink.y]),
         settings.k, settings.tolerance, settings.max_iterations,
         export_all=~all_receivable,
+        labels=None if labels is None else np.concatenate([labels, np.full(len(sink.x), -1)]),
+        share_ties=settings.share_ties,
     )
     if not result.converged:
         raise NonConvergenceError(messages + [message("sink_insufficient")], result.remaining_excess)
@@ -234,8 +241,12 @@ def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messag
     messages.append(message("sink_placed", placed=round(placed)))
     migration = MigrationResult(result.population[:n], result.iterations, True, result.moved,
                                 result.remaining_excess, result.receivers_exhausted)
+    inflow = result.inflow
+    if inflow is not None:                           # what the sink cells received is not needed
+        kept = inflow.keys < n * inflow.nlabels
+        inflow = Inflow(inflow.keys[kept], inflow.amounts[kept], inflow.nlabels)
     return StepOutcome(result.population[:n], cap, np.zeros(n), migration, SUCCESS_WITH_ADJUSTMENTS, 1.0,
-                       result.population[n:], messages)
+                       result.population[n:], messages, inflow)
 
 
 def _capacity(area_km2, base_population, dmax, no_inflow, evacuated) -> np.ndarray:

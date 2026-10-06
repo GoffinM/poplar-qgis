@@ -34,6 +34,7 @@ from typing import Dict, List, Optional, Sequence, Tuple
 import numpy as np
 from osgeo import ogr
 
+from .migration import Inflow
 from .units import Layer, Units, Zone
 from .vector_io import polygonal_part
 
@@ -87,40 +88,6 @@ class PolygonTable:
 
     def colonizables(self) -> np.ndarray:
         return np.array(self.colonizable, dtype=bool)
-
-
-@dataclass
-class Inflow:
-    """Population received by each unit from each polygon during one step (gross, all iterations)."""
-
-    keys: np.ndarray
-    """Sorted ``unit * npolygons + polygon``."""
-    amounts: np.ndarray
-    npolygons: int
-
-    @classmethod
-    def empty(cls, npolygons: int) -> "Inflow":
-        return cls(np.zeros(0, dtype=np.int64), np.zeros(0), max(1, npolygons))
-
-    @classmethod
-    def from_transfers(cls, receivers: np.ndarray, polygons: np.ndarray, amounts: np.ndarray,
-                       npolygons: int) -> "Inflow":
-        npolygons = max(1, npolygons)
-        receivers = np.asarray(receivers, dtype=np.int64)
-        polygons = np.asarray(polygons, dtype=np.int64)
-        amounts = np.asarray(amounts, dtype=np.float64)
-        keep = polygons >= 0
-        keys, inverse = np.unique(receivers[keep] * npolygons + polygons[keep], return_inverse=True)
-        totals = np.bincount(inverse.ravel(), weights=amounts[keep], minlength=len(keys))
-        return cls(keys, totals, npolygons)
-
-    def received(self, units: np.ndarray, polygons: np.ndarray) -> np.ndarray:
-        """What each unit received from the matching polygon (0 where nothing)."""
-        keys = np.asarray(units, dtype=np.int64) * self.npolygons + np.asarray(polygons, dtype=np.int64)
-        if len(self.keys) == 0:
-            return np.zeros(len(keys))
-        position = np.minimum(np.searchsorted(self.keys, keys), len(self.keys) - 1)
-        return np.where(self.keys[position] == keys, self.amounts[position], 0.0)
 
 
 @dataclass

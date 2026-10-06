@@ -196,3 +196,84 @@ def test_step_report():
     assert report.balance_error == pytest.approx(0)
     assert "partiel" in report.to_text()
     assert '"status": "partial"' in report.to_json()
+
+
+# --- Free strata mode: record of the inflows, ties shared (plan_polygones_libres.md §3b, P16) ----------
+
+def random_grid(seed):
+    rng = np.random.default_rng(seed)
+    n = 900
+    xs, ys = np.meshgrid(np.arange(30.0), np.arange(30.0))
+    area = rng.uniform(0.2, 1.0, n)
+    p0 = rng.gamma(1.5, 100.0, n) * area
+    no_inflow = rng.random(n) < 0.1
+    cap = capacity(area, p0, np.full(n, 400.0), no_inflow)
+    labels = rng.integers(-1, 4, n)
+    return p0 * 1.3, cap, no_inflow, xs.ravel(), ys.ravel(), labels
+
+
+@pytest.mark.parametrize("seed", range(3))
+def test_recording_the_inflows_changes_nothing(seed):
+    grown, cap, no_inflow, x, y, labels = random_grid(seed)
+    plain = migrate(grown, cap, ~no_inflow, x, y, export_all=no_inflow)
+    recorded = migrate(grown, cap, ~no_inflow, x, y, export_all=no_inflow, labels=labels)
+    np.testing.assert_array_equal(plain.population, recorded.population)
+    assert plain.inflow is None
+    # Every inhabitant moved is recorded once per move, under the label of the unit that sent it.
+    sent_by_labelled = recorded.inflow.total()
+    assert sent_by_labelled <= recorded.moved + 1e-6
+    unlabelled = migrate(grown, cap, ~no_inflow, x, y, export_all=no_inflow, labels=np.zeros(900, int))
+    assert unlabelled.inflow.total() == pytest.approx(unlabelled.moved, rel=1e-12)
+
+
+def test_inflow_is_credited_to_the_direct_sender():
+    # Unit 0 (label 7) overflows into unit 1 (label 3), which overflows into unit 2 (label 3).
+    result = migrate([30.0, 0.0, 0.0], [10.0, 10.0, 100.0], [True] * 3, [0.0, 1.0, 2.0], [0.0] * 3, k=1,
+                     labels=np.array([7, 3, 3]))
+    inflow = result.inflow
+    assert inflow.received(np.array([1]), np.array([7]))[0] == pytest.approx(20.0)
+    assert inflow.received(np.array([2]), np.array([7]))[0] == 0.0
+    assert inflow.received(np.array([2]), np.array([3]))[0] == pytest.approx(10.0)
+
+
+def test_ties_shared_equally():
+    # One source, four receivers at distance 1, k = 3: each receives a quarter instead of a third
+    # for the three lowest indices.
+    xs, ys = np.meshgrid(np.arange(3.0), np.arange(3.0))
+    population = np.zeros(9)
+    population[4] = 22.0
+    cap = np.full(9, 10.0)
+    cap[[0, 2, 6, 8]] = 0.0                                       # the corners take nobody
+    shared = migrate(population, cap, cap > 0, xs.ravel(), ys.ravel(), share_ties=True)
+    np.testing.assert_allclose(shared.population[[1, 3, 5, 7]], [3.0, 3.0, 3.0, 3.0])
+    assert shared.population.sum() == pytest.approx(22.0)
+    lowest = migrate(population, cap, cap > 0, xs.ravel(), ys.ravel())
+    np.testing.assert_allclose(lowest.population[[1, 3, 5, 7]], [4.0, 4.0, 4.0, 0.0])
+
+
+def test_ties_beyond_the_closer_receivers_share_what_is_left():
+    # Receivers at distances 1, 2, 2, 2 (k = 3): the closest gets 1/3, the three tied share 2/3.
+    population = np.array([12.0, 0.0, 0.0, 0.0, 0.0])
+    x = np.array([0.0, 1.0, 2.0, -2.0, 0.0])
+    y = np.array([0.0, 0.0, 0.0, 0.0, 2.0])
+    result = migrate(population, [9.0, 10.0, 10.0, 10.0, 10.0], [True] * 5, x, y, share_ties=True)
+    np.testing.assert_allclose(result.population, [9.0, 1.0, 2.0 / 3, 2.0 / 3, 2.0 / 3])
+
+
+@pytest.mark.parametrize("seed", range(3))
+def test_shared_ties_keep_the_invariants(seed):
+    grown, cap, no_inflow, x, y, labels = random_grid(seed)
+    result = migrate(grown, cap, ~no_inflow, x, y, export_all=no_inflow, share_ties=True, labels=labels)
+    assert result.converged
+    assert result.population.sum() == pytest.approx(grown.sum(), rel=1e-12)
+    assert np.all(result.population - cap < 1)
+    assert np.all(result.population[no_inflow] <= grown[no_inflow] + 1e-9)
+
+
+def test_policy_migration_returns_the_inflows_without_the_sink():
+    sink = Sink(x=np.array([2.0]), y=np.zeros(1), capacity=np.array([100.0]), population=np.zeros(1))
+    outcome = migrate_with_policy(**T9, settings=MigrationSettings(policy=SINK), sink=sink, labels=np.array([0, 1]))
+    assert outcome.inflow is not None
+    assert (outcome.inflow.keys < 2 * outcome.inflow.nlabels).all()
+    plain = migrate_with_policy(**T9, settings=MigrationSettings(policy=UNALLOCATED), labels=np.array([0, 1]))
+    assert plain.inflow is not None and plain.inflow.total() >= 0
