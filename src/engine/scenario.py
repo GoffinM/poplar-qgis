@@ -106,6 +106,35 @@ class StratumSettings:
     colonizable: bool = True
 
 
+DEFAULT_ROAD_WEIGHTS = {"nationale": 1.0, "provinciale": 0.6, "autre": 0.3}
+
+
+@dataclass
+class RoadSettings:
+    """Attraction of the roads (plan_demande_et_routes.md, B, validated on 06/10/2026).
+
+    Attractiveness of a place: ``1 + weight × exp(−distance / reach_m)``, with the weight of the nearest
+    road of each class (the largest term is kept). It acts on the migration (the distance a migrant
+    « feels » is the real distance divided by the attractiveness of the arrival unit) and on the
+    colonisation (a cell whose attractiveness reaches ``1 + threshold`` needs only ``min_neighbors``
+    neighbouring cells of the colonising polygon). The speed of the fronts stays a result.
+    """
+
+    weights: Dict[str, float] = field(default_factory=lambda: dict(DEFAULT_ROAD_WEIGHTS))
+    source: str = ""
+    layer: Optional[str] = None
+    where: Optional[str] = None
+    field: Optional[str] = None             # (after ``weights``: the name hides dataclasses.field below)
+    """Field of the class of each road; without it, every road has the weight of ``*`` (1 by default)."""
+    reach_m: float = 500.0
+    migration: bool = True
+    colonization: bool = True
+    min_neighbors: int = 2
+    threshold: float = 0.5
+    in_planned_mode: bool = False
+    """Planned mode: the migration follows the roads too (off by default: same results as the former tool)."""
+
+
 @dataclass
 class StrataSettings:
     """Strata that change in time (fiche §3.5, plan_polygones_libres.md).
@@ -126,6 +155,12 @@ class StrataSettings:
     smoothing_passes: int = 2
     new_nuclei: Dict[str, Any] = field(default_factory=dict)
     """Rule of the new nuclei (P8/P17), off by default: enabled, stratum, min_cells, enclave_km2, migration_share."""
+    roads: Optional[RoadSettings] = None
+    """Attraction of the roads (off without a road layer)."""
+
+    def roads_active(self) -> bool:
+        """The roads change something in this mode."""
+        return self.roads is not None and bool(self.roads.source) and (self.free or self.roads.in_planned_mode)
 
     @property
     def free(self) -> bool:
@@ -344,7 +379,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
                 min_inflow_unit=str(strata_data.get("min_inflow_unit", "share_of_capacity")), classes=classes,
                 urban_rank=strata_data.get("urban_rank"), min_patch_area_km2=strata_data.get("min_patch_area_km2"),
                 smoothing_passes=strata_data.get("smoothing_passes", 2),
-                new_nuclei=dict(strata_data.get("new_nuclei") or {}))
+                new_nuclei=dict(strata_data.get("new_nuclei") or {}), roads=_roads(strata_data.get("roads"), errors))
 
     if errors or time is None or study_area is None or typology is None:
         raise ScenarioError(errors or [message("scenario_missing_key", key="time")])
@@ -459,6 +494,49 @@ def validate(scenario: Scenario) -> List[Message]:
     return errors
 
 
+ROAD_KEYS = ("source", "layer", "where", "field", "weights", "reach_m", "migration", "colonization", "min_neighbors",
+             "threshold", "in_planned_mode")
+
+
+def _roads(data: Any, errors: List[Message]) -> Optional[RoadSettings]:
+    if data is None:
+        return None
+    if not isinstance(data, dict) or not data.get("source"):
+        errors.append(message("scenario_missing_key", key="strata.roads.source"))
+        return None
+    unknown = set(data) - set(ROAD_KEYS)
+    if unknown:
+        errors.append(message("scenario_invalid_value", key="strata.roads", value=", ".join(sorted(unknown)),
+                              expected=", ".join(ROAD_KEYS)))
+    known = {k: v for k, v in data.items() if k in ROAD_KEYS}
+    if "weights" in known:
+        try:
+            known["weights"] = {str(k): float(v) for k, v in (known["weights"] or {}).items()}
+        except (TypeError, ValueError, AttributeError):
+            errors.append(message("scenario_invalid_value", key="strata.roads.weights", value=str(known["weights"]),
+                                  expected="{class: weight}"))
+            known.pop("weights")
+    return RoadSettings(**known)
+
+
+def _validate_roads(roads: RoadSettings) -> List[Message]:
+    errors: List[Message] = []
+
+    def invalid(key: str, value: Any, expected: str) -> None:
+        errors.append(message("scenario_invalid_value", key=f"strata.roads.{key}", value=str(value), expected=expected))
+
+    if not isinstance(roads.reach_m, (int, float)) or roads.reach_m <= 0:
+        invalid("reach_m", roads.reach_m, "> 0")
+    if not isinstance(roads.min_neighbors, int) or not 0 <= roads.min_neighbors <= 8:
+        invalid("min_neighbors", roads.min_neighbors, "0…8")
+    if not isinstance(roads.threshold, (int, float)) or roads.threshold <= 0:
+        invalid("threshold", roads.threshold, "> 0")
+    for key, weight in roads.weights.items():
+        if weight < 0:
+            invalid(f"weights.{key}", weight, ">= 0")
+    return errors
+
+
 def _validate_strata(strata: StrataSettings) -> List[Message]:
     errors: List[Message] = []
 
@@ -487,6 +565,8 @@ def _validate_strata(strata: StrataSettings) -> List[Message]:
         invalid("new_nuclei.stratum", nuclei.get("stratum"), " | ".join(strata.classes) or "a class of strata.classes")
     if strata.free and not any(rules.rank is not None for rules in strata.classes.values()):
         errors.append(message("scenario_missing_key", key="strata.classes.<class>.rank"))
+    if strata.roads is not None:
+        errors.extend(_validate_roads(strata.roads))
     return errors
 
 

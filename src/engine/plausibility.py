@@ -15,7 +15,9 @@ each horizon (interval between two output years):
 - population not placed;
 - reclassification effect (decision S1), per administrative unit;
 - mass balance of the run, per horizon: final = start + growth - not placed
-  - placed in the sink ring; the gap must be zero.
+  - placed in the sink ring; the gap must be zero;
+- roads (plan B): share of the extensions within the reach of a main road,
+  against the same share of the rural cells at the start.
 
 Written as ``plausibilite.csv`` (one row per polygon and horizon) and
 ``plausibilite.json`` (everything, read by the HTML report and by the
@@ -74,6 +76,32 @@ def compute(history: PolygonHistory, steps: Sequence, cell_size: float, urban_fr
                         "to_check": sorted(flags.get(p, set()))} for p in nucleus_ids],
         "reclassification": history.reclassification_by_admin,
         "mass_balance": mass_balance(steps, years),
+        "roads": roads_indicators(history, urban_from),
+    }
+
+
+def roads_indicators(history: PolygonHistory, urban_from: int) -> Optional[dict]:
+    """Share of the extensions within the reach of a main road, against the same share of the rural cells
+    at the start (plan B): above the baseline, the fronts follow the roads."""
+    import numpy as np
+
+    roads = history.roads
+    if not roads:
+        return None
+    distance = np.asarray(roads["main_distance"]).ravel()
+    reach = float(roads["reach_m"])
+    cells = [int(e["cell"]) for e in history.events if e.get("event", "extension") == "extension"]
+    start = history.membership[history.start_year].ravel()
+    ranks = np.asarray(history.table.rank + [NO_RANK])          # index -1 (no polygon) gives NO_RANK
+    rural = (start >= 0) & (ranks[np.where(start >= 0, start, -1)] < urban_from)
+    near = distance <= reach
+    return {
+        "reach_m": reach,
+        "extensions": len(cells),
+        "extensions_near_share": float(near[cells].mean()) if cells else None,
+        "baseline_near_share": float(near[rural].mean()) if rural.any() else None,
+        "migration": bool(roads.get("migration")), "colonization": bool(roads.get("colonization")),
+        "min_neighbors": roads.get("min_neighbors"), "threshold": roads.get("threshold"),
     }
 
 

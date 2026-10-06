@@ -91,6 +91,8 @@ class MigrationSettings:
     """Units where ``dmax`` may be raised (all receivable units if None)."""
     share_ties: bool = False
     """Split the last share between receivers tied at the k-th distance (free strata mode, P16)."""
+    attraction: Optional[np.ndarray] = None
+    """Attractiveness of each unit (roads, plan B): migrants go by the felt distance."""
 
     def __post_init__(self) -> None:
         if self.policy not in POLICIES:
@@ -202,7 +204,8 @@ def migrate_with_policy(
             return _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messages, labels)
 
     result = migrate(population, cap, receivable, x, y, settings.k, settings.tolerance, settings.max_iterations,
-                     export_all=~receivable, labels=labels, share_ties=settings.share_ties)
+                     export_all=~receivable, labels=labels, share_ties=settings.share_ties,
+                     attraction=settings.attraction)
     unallocated = np.zeros(len(population))
     if not result.converged:
         excess = result.population - cap
@@ -234,6 +237,7 @@ def _migrate_with_sink(population, cap, receivable, x, y, settings, sink, messag
         export_all=~all_receivable,
         labels=None if labels is None else np.concatenate([labels, np.full(len(sink.x), -1)]),
         share_ties=settings.share_ties,
+        attraction=None if settings.attraction is None else np.concatenate([settings.attraction, np.ones(len(sink.x))]),
     )
     if not result.converged:
         raise NonConvergenceError(messages + [message("sink_insufficient")], result.remaining_excess)

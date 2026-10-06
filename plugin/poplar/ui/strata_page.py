@@ -12,11 +12,12 @@ from qgis.PyQt.QtWidgets import (
     QMessageBox, QPushButton, QRadioButton, QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
+from ..compat import LINE_FILTER
 from ..engine.patches import ORIGINAL, revert_patches
 from ..i18n import tip, tr
 from .pages import Page, _box, _spin
 from .parameter_table import field_values
-from .widgets import add_row, choice_combo, set_combo_value
+from .widgets import add_row, choice_combo, find_or_add_layer, layer_with_field, set_combo_value, source_of
 
 PLANNED, FREE = "planned", "free"
 SHARE, INHABITANTS = "share_of_capacity", "inhabitants"
@@ -24,6 +25,9 @@ INFLOW, SATURATION = "colonization_min_inflow", "saturation_share"
 DEFAULTS = {INFLOW: 0.1, SATURATION: 0.8}
 NUCLEI = {"enabled": False, "stratum": None, "min_cells": 16, "enclave_km2": 5.0, "migration_share": 0.5}
 COLUMNS = ("class", "rank", "colonizable", "urban", "inflow", "saturation")
+ROAD_WEIGHTS = {"nationale": 1.0, "provinciale": 0.6, "autre": 0.3}
+ROAD_DEFAULTS = {"reach_m": 500.0, "migration": True, "colonization": True, "min_neighbors": 2, "threshold": 0.5,
+                 "in_planned_mode": False}
 
 
 class StrataPage(Page):
@@ -134,6 +138,8 @@ class StrataPage(Page):
         add_row(form, "strata.nuclei.migration_share", self.migration_share)
         layout.addWidget(self.nuclei_box)
 
+        self._roads_box(layout)
+
         self.outputs_box, form = _box("strata.outputs")
         self.smoothing = _spin(0, 5, 2)
         add_row(form, "strata.smoothing", self.smoothing)
@@ -142,6 +148,144 @@ class StrataPage(Page):
         add_row(form, "strata.min_patch", self.min_patch)
         layout.addWidget(self.outputs_box)
         layout.addStretch(1)
+
+    def _roads_box(self, layout):
+        """Attraction of the roads (plan_demande_et_routes.md, B)."""
+        self.roads_box = QGroupBox(tr("strata.roads"))
+        inner = QVBoxLayout(self.roads_box)
+        self.roads_on = QCheckBox(tr("strata.roads.enabled"))
+        self.roads_on.setToolTip(tip("strata.roads.enabled"))
+        self.roads_on.toggled.connect(lambda *args: self._enable())
+        inner.addWidget(self.roads_on)
+        self.roads_settings = QWidget()
+        form = QFormLayout(self.roads_settings)
+        form.setContentsMargins(0, 0, 0, 0)
+        widget, self.road_layer, self.road_field = layer_with_field(LINE_FILTER, allow_empty=True)
+        row = QWidget()
+        line = QHBoxLayout(row)
+        line.setContentsMargins(0, 0, 0, 0)
+        line.addWidget(widget, 1)
+        self.road_download = QPushButton(tr("strata.roads.download"))
+        self.road_download.setToolTip(tip("strata.roads.download"))
+        self.road_download.clicked.connect(lambda: self._download_roads())
+        line.addWidget(self.road_download)
+        add_row(form, "strata.roads.layer", row)
+        self.road_weights = QTableWidget(0, 2)
+        self.road_weights.setHorizontalHeaderLabels([tr("strata.roads.class"), tr("strata.roads.weight")])
+        self.road_weights.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.road_weights.verticalHeader().setVisible(False)
+        self.road_weights.setMaximumHeight(130)
+        add_row(form, "strata.roads.weights", self.road_weights)
+        self.road_reach = _spin(10, 100000, 500, decimals=0, step=50)
+        self.road_reach.setSuffix(" m")
+        add_row(form, "strata.roads.reach", self.road_reach)
+        actions = QWidget()
+        line = QHBoxLayout(actions)
+        line.setContentsMargins(0, 0, 0, 0)
+        self.road_migration = QCheckBox(tr("strata.roads.migration"))
+        self.road_migration.setToolTip(tip("strata.roads.migration"))
+        self.road_colonization = QCheckBox(tr("strata.roads.colonization"))
+        self.road_colonization.setToolTip(tip("strata.roads.colonization"))
+        line.addWidget(self.road_migration)
+        line.addWidget(self.road_colonization)
+        line.addStretch(1)
+        add_row(form, "strata.roads.actions", actions)
+        self.road_neighbours = _spin(0, 8, 2)
+        add_row(form, "strata.roads.min_neighbors", self.road_neighbours)
+        self.road_threshold = _spin(0.01, 100, 0.5, decimals=2, step=0.1)
+        add_row(form, "strata.roads.threshold", self.road_threshold)
+        self.road_planned = QCheckBox(tr("strata.roads.in_planned_mode"))
+        self.road_planned.setToolTip(tip("strata.roads.in_planned_mode"))
+        form.addRow(self.road_planned)
+        hint = QLabel(tr("strata.roads.hint"))
+        hint.setWordWrap(True)
+        form.addRow(hint)
+        inner.addWidget(self.roads_settings)
+        self.road_field.fieldChanged.connect(lambda *args: self._fill_road_weights(self._road_weights()))
+        self.road_layer.layerChanged.connect(lambda *args: self._fill_road_weights(self._road_weights()))
+        self.road_colonization.toggled.connect(lambda *args: self._enable())
+        layout.addWidget(self.roads_box)
+        self._fill_road_weights(dict(ROAD_WEIGHTS))
+
+    def _road_weights(self):
+        weights = {}
+        for row in range(self.road_weights.rowCount()):
+            item, spin = self.road_weights.item(row, 0), self.road_weights.cellWidget(row, 1)
+            if item is not None and spin is not None:
+                weights[item.data(Qt.ItemDataRole.UserRole)] = spin.value()
+        return weights
+
+    def _fill_road_weights(self, weights):
+        """One row per class of the field (default weights for nationale, provinciale, autre), or « * »."""
+        field = self.road_field.currentField()
+        names = field_values(self.road_layer.currentLayer(), field) if field else []
+        if not field:
+            names = ["*"]
+        kept = [] if names and field else list(weights)       # a former field's classes are not carried over
+        for name in kept + (list(ROAD_WEIGHTS) if field else []):
+            if name not in names and (name != "*") == bool(field):
+                names.append(name)
+        self.road_weights.setRowCount(0)
+        for name in names:
+            row = self.road_weights.rowCount()
+            self.road_weights.insertRow(row)
+            item = QTableWidgetItem(tr("strata.roads.all") if name == "*" else name)
+            item.setData(Qt.ItemDataRole.UserRole, name)
+            item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEditable)
+            self.road_weights.setItem(row, 0, item)
+            default = weights.get(name, ROAD_WEIGHTS.get(name, 1.0 if name == "*" else 0.0))
+            self.road_weights.setCellWidget(row, 1, _spin(0, 100, float(default), decimals=2, step=0.1))
+
+    def _download_roads(self):
+        """OpenStreetMap roads (window of the Data tab); the layer downloaded becomes the road layer."""
+        dialog = self.dialog.page("data").open_roads(show=False)
+        dialog.downloaded.connect(self._roads_downloaded)
+        dialog.exec()
+        return dialog
+
+    def _roads_downloaded(self, layer):
+        if layer is None:
+            return
+        self.roads_on.setChecked(True)
+        self.road_layer.setLayer(layer)
+        self.road_field.setField("classe")
+        self._fill_road_weights(self._road_weights())
+
+    def _load_roads(self, roads):
+        self.roads_on.setChecked(bool(roads and roads.get("source")))
+        roads = {**ROAD_DEFAULTS, **(roads or {})}
+        if roads.get("source"):
+            layer = find_or_add_layer(self.dialog.absolute(roads["source"]), roads.get("layer"), False,
+                                      roads.get("where"))
+            if layer is not None:
+                self.road_layer.setLayer(layer)
+        self.road_field.setField(roads.get("field") or "")
+        self._fill_road_weights(dict(roads.get("weights") or ROAD_WEIGHTS))
+        self.road_reach.setValue(float(roads["reach_m"]))
+        self.road_migration.setChecked(bool(roads["migration"]))
+        self.road_colonization.setChecked(bool(roads["colonization"]))
+        self.road_neighbours.setValue(int(roads["min_neighbors"]))
+        self.road_threshold.setValue(float(roads["threshold"]))
+        self.road_planned.setChecked(bool(roads["in_planned_mode"]))
+
+    def _store_roads(self):
+        if not self.roads_on.isChecked():
+            return None
+        spec = source_of(self.road_layer.currentLayer())
+        if not spec:
+            return None
+        roads = {key: spec[key] for key in ("source", "layer", "where") if spec.get(key)}
+        if self.road_field.currentField():
+            roads["field"] = self.road_field.currentField()
+        weights = {k: round(v, 6) for k, v in self._road_weights().items()}
+        if weights != (ROAD_WEIGHTS if roads.get("field") else {"*": 1.0}):
+            roads["weights"] = weights
+        values = {"reach_m": float(self.road_reach.value()), "migration": self.road_migration.isChecked(),
+                  "colonization": self.road_colonization.isChecked(), "min_neighbors": self.road_neighbours.value(),
+                  "threshold": round(float(self.road_threshold.value()), 6),
+                  "in_planned_mode": self.road_planned.isChecked()}
+        roads.update({k: v for k, v in values.items() if v != ROAD_DEFAULTS[k]})
+        return roads
 
     # --- state ----------------------------------------------------------------------
 
@@ -159,6 +303,9 @@ class StrataPage(Page):
             widget.setEnabled(free)
         for widget in (self.nucleus_stratum, self.min_cells, self.enclave, self.migration_share):
             widget.setEnabled(free and self.nuclei.isChecked())
+        self.roads_settings.setEnabled(self.roads_on.isChecked())
+        for widget in (self.road_neighbours, self.road_threshold):
+            widget.setEnabled(free and self.road_colonization.isChecked())
 
     def _inflow_unit_changed(self):
         share = self.inflow_unit.currentData() == SHARE
@@ -238,6 +385,7 @@ class StrataPage(Page):
         self.min_cells.setValue(int(nuclei["min_cells"]))
         self.enclave.setValue(float(nuclei["enclave_km2"]))
         self.migration_share.setValue(int(round(100 * float(nuclei["migration_share"]))))
+        self._load_roads(strata.get("roads"))
         self.smoothing.setValue(int(strata.get("smoothing_passes", 2)))
         area = strata.get("min_patch_area_km2")
         cell = float(data.get("cell_size", 250.0) or 250.0)
@@ -319,7 +467,8 @@ class StrataPage(Page):
             self.table.item(row, 3).setText(tr("common.yes") if urban else "–")
 
     def store(self, data):
-        if self.table.rowCount() == 0 and self.mode() == PLANNED and not self.extra:
+        roads = self._store_roads()
+        if self.table.rowCount() == 0 and self.mode() == PLANNED and not self.extra and roads is None:
             data.pop("strata", None)
             return
         classes = {}
@@ -359,6 +508,8 @@ class StrataPage(Page):
                   "migration_share": self.migration_share.value() / 100.0}
         if nuclei["enabled"]:
             strata["new_nuclei"] = nuclei
+        if roads is not None:
+            strata["roads"] = roads
         strata.update(self.extra)
         if strata == {"mode": PLANNED}:
             data.pop("strata", None)

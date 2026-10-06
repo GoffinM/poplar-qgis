@@ -19,7 +19,8 @@ migration of a step, on the state at the start of the step:
 3. the colonising polygon is saturated: the share of its habitable area at
    capacity reaches its ``saturation_share``;
 4. at least ``min_neighbors`` of the 8 neighbouring cells belong to the
-   colonising polygon, or the cell itself already does (residue, P13);
+   colonising polygon (fewer near a road, plan B), or the cell itself
+   already does (residue, P13);
 5. the colonising polygon has a strictly higher rank; units in exclusion
    zones and units of strata that cannot be colonised never change.
 
@@ -100,6 +101,9 @@ class ColonisationRules:
     tolerance: float = 1.0
     """Free places under which a unit is at capacity: the migration tolerance."""
     min_inflow_unit: str = SHARE_OF_CAPACITY
+    near_road: Optional[np.ndarray] = None
+    """Cells (flat) near a road (roads, plan B): they need only ``min_neighbors_road`` neighbours."""
+    min_neighbors_road: int = 2
 
 
 @dataclass
@@ -263,7 +267,11 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
     pair_keys = np.unique(pair_cell[keep] * npoly + pair_poly[keep])
     pair_cell, pair_poly = np.divmod(pair_keys, npoly)
     counts = (neighbours[pair_cell] == pair_poly[:, None]).sum(axis=1)
-    contiguous = (counts >= rules.min_neighbors) | (own[pair_cell] == pair_poly)
+    needed_neighbours = np.full(len(cells), rules.min_neighbors)
+    if rules.near_road is not None:
+        needed_neighbours = np.where(np.asarray(rules.near_road, bool)[cells],
+                                     min(rules.min_neighbors, rules.min_neighbors_road), rules.min_neighbors)
+    contiguous = (counts >= needed_neighbours[pair_cell]) | (own[pair_cell] == pair_poly)
     usable = contiguous & saturated_polygon[pair_poly]
     pair_cell, pair_poly = pair_cell[usable], pair_poly[usable]
     if len(pair_cell) == 0:
@@ -427,3 +435,5 @@ class PolygonHistory:
     start_year: int = 0
     reclassification_by_admin: List[dict] = field(default_factory=list)
     """Cumulated reclassification effect per administrative unit, at the start and at each output year."""
+    roads: Optional[dict] = None
+    """Roads (plan B): ``main_distance`` (cell raster, m), ``reach_m``, settings used."""

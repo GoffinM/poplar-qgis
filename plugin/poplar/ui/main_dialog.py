@@ -28,7 +28,7 @@ from .pages import (
 from .strata_page import StrataPage
 
 INFORMATION = {"crs_used", "raster_reprojected", "start_from_projection", "roofs_calibrated", "strata_free_mode",
-               "strata_nuclei_off", "strata_nuclei_on"}
+               "strata_nuclei_off", "strata_nuclei_on", "roads_used"}
 """Report lines that describe the run; every other warning is shown in the message bar."""
 ICONS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
 HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario", "strata": "strates",

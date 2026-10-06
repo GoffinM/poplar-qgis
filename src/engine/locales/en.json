@@ -325,5 +325,12 @@
   "html_reading_recul": "retreat",
   "html_reading_naissance": "birth",
   "populations_not_saved": "The population of each unit (populations.npz) could not be kept: the demand cannot be computed again exactly. {detail}",
-  "demand_approximated": "Run older than version 0.8.2: the population of each cell was shared between its units pro rata of their area (exact for whole cells, but for rounding: the rasters give the population to the inhabitant)."
+  "demand_approximated": "Run older than version 0.8.2: the population of each cell was shared between its units pro rata of their area (exact for whole cells, but for rounding: the rasters give the population to the inhabitant).",
+  "roads_used": "Attraction of the roads: {lines} sections read ({lengths}), reach {reach} m; acts on: {actions}.",
+  "roads_none": "Attraction of the roads: no road within the extent of the run ({source}); it changes nothing.",
+  "roads_unknown_classes": "Attraction of the roads: classes without a weight, counted with the weight of « * » (0 by default): {classes}.",
+  "roads_unreadable": "Road layer cannot be read ({source}): {detail}",
+  "plausibility_roads": "Extensions within {reach} m of a main road: {share} % (against {baseline} % of the rural cells at the start).",
+  "html_polygons_roads": "Roads",
+  "html_polygons_roads_text": "{count} cells colonised, {share} % of them within {reach} m of a main road, against {baseline} % of the rural cells at the start. Above this baseline, the fronts follow the roads."
 }

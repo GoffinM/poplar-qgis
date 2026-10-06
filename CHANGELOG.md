@@ -3,6 +3,13 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.9.0 – 06/10/2026 : attraction des routes
+
+- **Attraction des routes** (onglet Strates, mode libre) : les migrants vont de préférence près des routes (distance ressentie = distance / attractivité), et une maille proche d'une route se colonise avec 2 voisines au lieu de 3. Attractivité `1 + poids × exp(− distance / portée)`, poids par classe (nationale 1, provinciale 0,6, autre 0,3), portée 500 m ; chaque action peut être désactivée. Couche de lignes quelconque, ou téléchargée depuis OpenStreetMap depuis le même cadre.
+- Mode planifié inchangé, sauf option explicite (migration le long des routes).
+- Sorties : `attractivite.tif` ; indicateur de plausibilité « extensions près d'une route principale » (rapport, `plausibilite.json`).
+- Cas test synthétique : la ville s'allonge le long de la route (9 × 7 mailles avec les poids par défaut, 11 × 5 avec un poids de 3, 7 × 7 sans route).
+
 ## 0.8.2 – 06/10/2026 : demande recalculée sans relancer la population, routes OpenStreetMap
 
 - **Recalculer la demande** (onglets Indicateurs et Résultats) : la demande en eau du calcul affiché est recalculée avec les paramètres actuels, en tâche de fond, sans relancer le modèle de population. Résultats dans un sous-dossier daté `demande_AAAAMMJJ_HHMM` (rasters, `summary.csv`, couche des mailles, `demande_parametres.json`) ; la dernière demande est celle chargée dans QGIS. On peut aussi ajouter la demande à un calcul lancé sans indicateur.

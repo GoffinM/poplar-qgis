@@ -243,6 +243,14 @@ def _polygons_section(indicators: Dict[str, Any], language: str) -> str:
         parts.append(f"<h3>{_esc(_t('polygons_reclass', language))}</h3>")
         parts.append(_table([_t("polygons_admin", language), _t("polygons_effect", language)],
                             [(r["admin"], n(r["effect"])) for r in reclass]))
+    roads = indicators.get("roads")
+    if roads:
+        share = roads.get("extensions_near_share")
+        base = roads.get("baseline_near_share")
+        parts.append(f"<h3>{_esc(_t('polygons_roads', language))}</h3>")
+        text = _t("polygons_roads_text", language, reach=n(roads["reach_m"]), count=n(roads["extensions"]),
+                  share=n(None if share is None else 100 * share), baseline=n(None if base is None else 100 * base))
+        parts.append(f"<p>{_esc(text)}</p>")
     balance = indicators.get("mass_balance") or []
     if balance:
         parts.append(f"<h3>{_esc(_t('polygons_balance', language))}</h3>")

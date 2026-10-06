@@ -87,6 +87,7 @@ def migrate(
     export_all: Optional[np.ndarray] = None,
     labels: Optional[np.ndarray] = None,
     share_ties: bool = False,
+    attraction: Optional[np.ndarray] = None,
 ) -> MigrationResult:
     """Move the excess population to the nearest units with free capacity.
 
@@ -105,6 +106,11 @@ def migrate(
     between the receivers tied at the k-th distance, instead of giving it to
     the lowest index (free strata mode, decision P16): fronts then grow
     without a preferred direction.
+
+    ``attraction`` (one value >= 1 per unit; roads, plan B) changes the
+    distance a migrant « feels »: the real distance divided by the
+    attractiveness of the arrival unit. Without it, the nearest units by
+    real distance receive, as before.
     """
     if k < 1:
         raise ValueError("k must be at least 1")
@@ -115,6 +121,10 @@ def migrate(
     receivable = np.asarray(receivable, dtype=bool)
     coords = np.column_stack([np.asarray(x, dtype=np.float64), np.asarray(y, dtype=np.float64)])
     strict = np.zeros(len(population), dtype=bool) if export_all is None else np.asarray(export_all, dtype=bool)
+    if attraction is not None:
+        attraction = np.asarray(attraction, dtype=np.float64)
+        if len(attraction) != len(population) or np.any(attraction < 1 - 1e-12):
+            raise ValueError("attraction: one value >= 1 per unit is expected")
 
     def is_source(excess: np.ndarray) -> np.ndarray:
         return (excess >= tolerance) | (strict & (excess > EPSILON))
@@ -141,7 +151,11 @@ def migrate(
         iterations += 1
 
         n = min(k, len(receivers))
-        if share_ties:
+        if attraction is not None:
+            origin, targets, weights = attracted_receivers(coords[sources], coords[receivers], receivers, n,
+                                                           attraction[receivers], share_ties)
+            amounts = excess[sources][origin] * weights
+        elif share_ties:
             origin, targets, weights = shared_receivers(coords[sources], coords[receivers], receivers, n)
             amounts = excess[sources][origin] * weights
         else:
@@ -229,6 +243,55 @@ def shared_receivers(
             r, c = np.nonzero(weight > 0)
             origins.append(pending[rows][r])
             targets.append(receiver_ids[pos[rows][r, c]])
+            weights.append(weight[r, c])
+        pending = pending[~complete]
+        window = min(total, window * 2)
+    return np.concatenate(origins), np.concatenate(targets), np.concatenate(weights)
+
+
+def attracted_receivers(
+    source_xy: np.ndarray, receiver_xy: np.ndarray, receiver_ids: np.ndarray, n: int,
+    receiver_attraction: np.ndarray, share_ties: bool = True,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """The ``n`` receivers of each source with the smallest « felt » distance (real distance / attractiveness).
+
+    Same output as :func:`shared_receivers`. With ``share_ties``, receivers tied at the n-th felt distance
+    share the last share; otherwise the lowest index wins. Receivers are fetched by real distance until
+    no receiver further away can be felt closer: a receiver at real distance ``d`` is felt at least at
+    ``d / max(attractiveness)``.
+    """
+    tree = cKDTree(receiver_xy)
+    total = len(receiver_ids)
+    top = float(receiver_attraction.max())
+    window = min(total, 4 * n + 8)
+    pending = np.arange(len(source_xy))
+    origins, targets, weights = [], [], []
+    while len(pending):
+        dist, pos = tree.query(source_xy[pending], k=window)
+        dist = dist.reshape(len(pending), window)
+        pos = pos.reshape(len(pending), window)
+        felt = dist / receiver_attraction[pos]
+        rows = np.repeat(np.arange(len(pending)), window)
+        order = np.lexsort((pos.ravel(), felt.ravel(), rows)).reshape(len(pending), window) % window
+        felt = np.take_along_axis(felt, order, axis=1)
+        pos = np.take_along_axis(pos, order, axis=1)
+        nth = felt[:, n - 1:n]
+        complete = (window == total) | (dist[:, -1] / top > nth[:, 0] * (1 + 1e-12))
+        done = np.flatnonzero(complete)
+        if len(done):
+            f, p, d = felt[done], pos[done], nth[done]
+            if share_ties:
+                closer = f < d * (1 - 1e-12)
+                tied = ~closer & (f <= d * (1 + 1e-12))
+                m = closer.sum(axis=1, keepdims=True)
+                t = tied.sum(axis=1, keepdims=True)
+                weight = np.where(closer, 1.0 / n, np.where(tied, (n - m) / (n * t), 0.0))
+            else:
+                weight = np.zeros(f.shape)
+                weight[:, :n] = 1.0 / n
+            r, c = np.nonzero(weight > 0)
+            origins.append(pending[done][r])
+            targets.append(receiver_ids[p[r, c]])
             weights.append(weight[r, c])
         pending = pending[~complete]
         window = min(total, window * 2)

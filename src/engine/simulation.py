@@ -37,7 +37,7 @@ from .polygons import (NO_POLYGON, NO_RANK, ColonisationRules, NucleusRules, Pol
 from . import plausibility, polygon_outputs
 from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
-from .raster_io import read_raster
+from .raster_io import read_raster, write_raster
 from .report import StepReport
 from .scenario import (
     COLONIZATION_PARAMETERS, NO_INFLOW, OUTSIDE, PROJECTION, RELOCATE, Scenario, ScenarioError, VectorInput,
@@ -126,7 +126,14 @@ def run(
         k=scenario.migration.k, tolerance=scenario.migration.tolerance,
         max_iterations=scenario.migration.max_iterations, policy=scenario.migration.policy,
         max_auto_increase=scenario.migration.max_auto_increase, approve=approve, share_ties=free,
+        attraction=model.migration_attraction(),
     )
+    if model.roads is not None:
+        attraction_path = os.path.join(out_dir, "attractivite.tif")
+        write_raster(attraction_path, model.roads.cell, model.grid.geotransform, model.grid.crs_wkt, nodata=-9999.0)
+        outputs_first = [attraction_path]
+    else:
+        outputs_first = []
     units = model.units
     n = len(units)
     dated_no_inflow = np.zeros(n, dtype=bool)
@@ -137,7 +144,7 @@ def run(
     capacity_now = np.zeros(n)
     steps: List[StepReport] = []
     events: List[Message] = []
-    outputs: List[str] = []
+    outputs: List[str] = list(outputs_first)
     rows: List[Dict[str, object]] = []
     status = SUCCESS
     failure, failure_year = None, None
@@ -468,6 +475,9 @@ class _Model:
         self.indicators: List[Indicator] = [
             create_indicator(spec.type, scenario.indicator_tables(spec)) for spec in scenario.indicators
         ]
+        self.roads = None
+        if scenario.strata.roads_active() and population:
+            self._load_roads(scenario)
         for (index, name), names in indicator_layers.items():
             table = self.indicators[index].parameters[name]
             table.layers = names
@@ -521,6 +531,40 @@ class _Model:
             self.warnings.append(message("roofs_unknown_usage", category=name or "∅"))
         return result.per_unit
 
+    # --- attraction of the roads (plan_demande_et_routes.md, B) ------------------------------------
+
+    def _load_roads(self, scenario: Scenario) -> None:
+        from .roads import RoadLayerError, road_attraction
+
+        settings = scenario.strata.roads
+        try:
+            self.roads = road_attraction(self.units, settings, scenario.path(settings.source))
+        except (RoadLayerError, RuntimeError, OSError) as error:
+            raise ScenarioError([message("roads_unreadable", source=settings.source, detail=str(error))]) from None
+        self.road_settings = settings
+        if self.roads.lines == 0:
+            self.warnings.append(message("roads_none", source=settings.source))
+        lengths = ", ".join(f"{name} {km:g} km" for name, km in self.roads.length_km.items()) or "0 km"
+        self.warnings.append(message("roads_used", lines=self.roads.lines, lengths=lengths,
+                                     reach=f"{settings.reach_m:g}",
+                                     actions=", ".join(a for a, on in (("migration", settings.migration),
+                                                                        ("colonisation", settings.colonization
+                                                                         and self.free)) if on) or "-"))
+        if self.roads.unknown_classes:
+            self.warnings.append(message("roads_unknown_classes", classes=", ".join(self.roads.unknown_classes)))
+
+    def migration_attraction(self) -> Optional[np.ndarray]:
+        if self.roads is None or not self.road_settings.migration:
+            return None
+        return self.roads.unit
+
+    def near_road(self) -> Optional[np.ndarray]:
+        """Cells where colonisation needs fewer neighbours (attractiveness >= 1 + threshold)."""
+        if self.roads is None or not self.road_settings.colonization:
+            return None
+        cell = np.nan_to_num(self.roads.cell, nan=1.0).ravel()
+        return cell >= 1.0 + self.road_settings.threshold - 1e-12
+
     # --- free strata mode (plan_polygones_libres.md) ---------------------------------------------
 
     def _start_polygons(self, scenario: Scenario, zones: List[Zone]) -> None:
@@ -549,8 +593,15 @@ class _Model:
             self.warnings.append(message("strata_cell_size", size=f"{scenario.cell_size:g}"))
 
     def start_history(self, year: float) -> PolygonHistory:
-        return PolygonHistory(self.units, self.polygons, self.polygon_id.copy(), self.polygon_id.copy(),
-                              reclassification=np.zeros(len(self.units)), start_year=int(round(year)))
+        history = PolygonHistory(self.units, self.polygons, self.polygon_id.copy(), self.polygon_id.copy(),
+                                 reclassification=np.zeros(len(self.units)), start_year=int(round(year)))
+        if self.roads is not None:
+            settings = self.road_settings
+            history.roads = {"main_distance": self.roads.main_distance, "reach_m": settings.reach_m,
+                             "migration": settings.migration, "colonization": settings.colonization,
+                             "min_neighbors": settings.min_neighbors, "threshold": settings.threshold,
+                             "near_road": self.near_road()}
+        return history
 
     def colonization_values(self, year: float) -> Tuple[np.ndarray, np.ndarray]:
         """Minimum inflow and saturation share of each polygon, from its stratum."""
@@ -567,7 +618,8 @@ class _Model:
             return 0
         min_inflow, saturation_share = self.colonization_values(year)
         rules = ColonisationRules(self.strata.min_neighbors, self.strata.cell_membership_share,
-                                  float(self.settings_tolerance), self.strata.min_inflow_unit)
+                                  float(self.settings_tolerance), self.strata.min_inflow_unit, self.near_road(),
+                                  self.road_settings.min_neighbors if self.roads is not None else 2)
         result = colonise(self.units, self.polygon_id, self.polygons, population, capacity, protected, inflow,
                           min_inflow, saturation_share, rules)
         before = self.polygon_id

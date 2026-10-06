@@ -325,5 +325,12 @@
   "html_reading_recul": "recul",
   "html_reading_naissance": "naissance",
   "populations_not_saved": "La population par unité (populations.npz) n'a pas pu être gardée : la demande ne pourra pas être recalculée exactement. {detail}",
-  "demand_approximated": "Calcul antérieur à la version 0.8.2 : la population de chaque maille a été répartie entre ses unités au prorata de leur surface (exact pour les mailles entières, à l'arrondi près : les rasters donnent la population à l'habitant près)."
+  "demand_approximated": "Calcul antérieur à la version 0.8.2 : la population de chaque maille a été répartie entre ses unités au prorata de leur surface (exact pour les mailles entières, à l'arrondi près : les rasters donnent la population à l'habitant près).",
+  "roads_used": "Attraction des routes : {lines} tronçons lus ({lengths}), portée {reach} m ; agit sur : {actions}.",
+  "roads_none": "Attraction des routes : aucune route dans l'emprise du calcul ({source}) ; elle ne change rien.",
+  "roads_unknown_classes": "Attraction des routes : classes sans poids, comptées pour le poids « * » (0 par défaut) : {classes}.",
+  "roads_unreadable": "Couche des routes illisible ({source}) : {detail}",
+  "plausibility_roads": "Extensions à moins de {reach} m d'une route principale : {share} % (contre {baseline} % des mailles rurales au départ).",
+  "html_polygons_roads": "Routes",
+  "html_polygons_roads_text": "{count} mailles colonisées, dont {share} % à moins de {reach} m d'une route principale, contre {baseline} % des mailles rurales au départ. Au-dessus de cette référence, les fronts suivent les routes."
 }

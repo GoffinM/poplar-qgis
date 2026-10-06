@@ -957,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 7
-    assert version() == "0.8.2"
+    assert version() == "0.9.0"
     AboutDialog()
 
 
@@ -1184,4 +1184,48 @@ def test_osm_roads_downloaded_from_the_data_tab(iface, scenario_copy, tmp_path):
     assert "429" in roads.info.text() and roads.report["output"] == str(tmp_path / "routes.gpkg")
     names = [l.name() for l in QgsProject.instance().mapLayers().values()]
     assert "routes" in names                                            # the roads already there, still loaded
+    QgsProject.instance().clear()
+
+
+def test_roads_set_in_the_strata_tab_and_used_by_a_free_run(iface, scenario_copy, tmp_path):
+    import sys
+
+    sys.path.insert(0, os.path.join(REPO, "tests"))
+    from test_osm_roads import FakeOverpass, _osm
+    from test_downloads import CENTRE
+
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("strata")
+    assert not page.roads_on.isChecked() and not page.roads_settings.isEnabled()
+    assert "roads" not in (dialog.collect().get("strata") or {})              # planned scenario unchanged
+    # A road through Muramvya, « downloaded » from OpenStreetMap from the Strata tab.
+    x, y = CENTRE
+    roads = dialog.page("data").open_roads(show=False)
+    roads.output.setFilePath(str(tmp_path / "routes.gpkg"))
+    roads.fetcher = FakeOverpass(_osm([({"highway": "primary"}, [(x - 20000, y), (x + 20000, y)]),
+                                       ({"highway": "track"}, [(x, y - 20000), (x, y + 20000)])]))
+    roads.downloaded.connect(page._roads_downloaded)
+    assert roads.start(background=False, ask=False) and roads.report["counts"]["kept"] > 0
+    assert page.roads_on.isChecked() and page.road_field.currentField() == "classe"
+    assert page._road_weights()["nationale"] == 1.0 and page._road_weights()["autre"] == 0.3
+    next(b for b in page.modes.buttons() if b.property("mode") == "free").setChecked(True)
+    page._mode_changed()
+    for name, rank in (("Rural", 1), ("Urbain1", 2)):
+        page.table.cellWidget(_strata_row(page, name), 1).setValue(rank)
+    page.road_reach.setValue(400)
+    data = dialog.collect()
+    stored = data["strata"]["roads"]
+    assert stored["field"] == "classe" and stored["reach_m"] == 400 and "weights" not in stored, stored.get("weights")
+    dialog.reload(data)
+    assert dialog.collect()["strata"]["roads"] == stored
+    directory = _run_in_dialog(dialog)
+    assert os.path.isfile(os.path.join(directory, "attractivite.tif"))
+    report = json.load(open(os.path.join(directory, "plausibilite.json"), encoding="utf-8"))
+    assert report["roads"]["reach_m"] == 400
+    assert not any("Attraction" in str(m) for m in iface.bar.messages[-2:])   # information, not a warning
+    page.roads_on.setChecked(False)
+    assert "roads" not in dialog.collect()["strata"]
     QgsProject.instance().clear()

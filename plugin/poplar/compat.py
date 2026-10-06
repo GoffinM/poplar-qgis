@@ -8,10 +8,12 @@ try:  # QGIS >= 3.34
     POLYGON_FILTER = Qgis.LayerFilter.PolygonLayer
     RASTER_FILTER = Qgis.LayerFilter.RasterLayer
     VECTOR_FILTER = Qgis.LayerFilter.VectorLayer
+    LINE_FILTER = Qgis.LayerFilter.LineLayer
 except AttributeError:  # pragma: no cover - older QGIS
     POLYGON_FILTER = QgsMapLayerProxyModel.PolygonLayer
     RASTER_FILTER = QgsMapLayerProxyModel.RasterLayer
     VECTOR_FILTER = QgsMapLayerProxyModel.VectorLayer
+    LINE_FILTER = QgsMapLayerProxyModel.LineLayer
 
 
 try:  # QGIS >= 3.30

@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | A validé (A-a à A-d) et livré en 0.8.2, avec le téléchargement OpenStreetMap des routes (B-c) ; **B à valider avant tout code** |
+| **Statut** | A validé (A-a à A-d) et livré en 0.8.2, avec le téléchargement OpenStreetMap des routes (B-c) ; B validé le 06/10/2026 et livré en 0.9.0 (propositions B-a à B-e retenues) |
 | **Demandes du 06/10** | (A) lancer le calcul de la demande seul, sur un calcul de population déjà fait ; (B) P14 : les fronts ne doivent pas être circulaires ; premier facteur d'attraction : les routes |
 | **Ordre** | A d'abord, B ensuite |
 
