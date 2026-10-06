@@ -58,8 +58,8 @@ Version 0.8.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | ST.9 | **Comparer avec un calcul planifié…** | `comparaison_modes.html` s'ouvre : surfaces urbaines, population hors du périmètre planifié, non accueillis, vitesse des fronts |
 | ST.10 | Onglet Rapport, calcul libre | Section « Polygones (strates libres) : indicateurs de plausibilité » avec le bilan de masse (écart nul) |
 | ST.11 | Bouton **?** sur l'onglet Strates | Page d'aide « Strates : polygones planifiés ou libres » |
-| ST.12 | Mode **Libre**, cadre **Attraction des routes** (nouveau en 0.9.0) : **OpenStreetMap…**, téléchargez | Case cochée, couche `routes_osm_…` et champ `classe` choisis ; poids nationale 1, provinciale 0,6, autre 0,3 |
-| ST.13 | **Lancer** (part saturée 25 %, comme pour l'essai du 06/10), puis **Comparer** avec le calcul libre sans routes | `attractivite.tif` chargeable ; rapport : part des extensions près d'une route principale supérieure à celle des mailles rurales ; les polygones s'allongent le long de la RN7. Notez l'emprise et la compacité, avec le poids 1 puis 3 |
+| ST.12 | Mode **Libre**, cadre **Attraction des routes** (nouveau en 0.9.0) : **OpenStreetMap…**, téléchargez | Case cochée, couche `routes_osm_…` et champ `classe` choisis ; poids nationale 2, provinciale 0,6, autre 0,3 |
+| ST.13 | **Lancer** (part saturée 25 %, comme pour l'essai du 06/10), puis **Comparer** avec le calcul libre sans routes | `attractivite.tif` chargeable ; rapport : part des extensions près d'une route principale supérieure à celle des mailles rurales ; les polygones s'allongent le long de la RN7. Notez l'emprise et la compacité ; comparez à la carte de `docs/essai_routes_muramvya.md` |
 | ST.14 | Mode **Planifié** avec les routes, case « en mode planifié » décochée, **Lancer** | Résultats identiques au calcul planifié sans routes |
 | ST.15 | Calcul libre (ST.7) : couche « Polygones 2060 », zoom sur la ville (nouveau en 0.9.1) | Contours arrondis, sans escalier de mailles ; ville et rural jointifs (aucun liseré blanc) ; au bord, la limite communale réelle. Le raster `polygon_id_2060` reste en mailles |
 

@@ -957,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 7
-    assert version() == "0.9.2"
+    assert version() == "0.9.3"
     AboutDialog()
 
 
@@ -1210,7 +1210,7 @@ def test_roads_set_in_the_strata_tab_and_used_by_a_free_run(iface, scenario_copy
     roads.downloaded.connect(page._roads_downloaded)
     assert roads.start(background=False, ask=False) and roads.report["counts"]["kept"] > 0
     assert page.roads_on.isChecked() and page.road_field.currentField() == "classe"
-    assert page._road_weights()["nationale"] == 1.0 and page._road_weights()["autre"] == 0.3
+    assert page._road_weights()["nationale"] == 2.0 and page._road_weights()["autre"] == 0.3
     next(b for b in page.modes.buttons() if b.property("mode") == "free").setChecked(True)
     page._mode_changed()
     for name, rank in (("Rural", 1), ("Urbain1", 2)):

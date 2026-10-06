@@ -47,9 +47,9 @@ Ces deux paramètres peuvent varier dans le temps, comme le TCAM, si on les donn
 Sans autre facteur, toutes les directions se valent : une ville s'étend en anneau. Le cadre **Attraction des routes** fait suivre les routes à l'urbanisation, sans imposer de vitesse (la vitesse des fronts reste un résultat).
 
 - **Couche** : une couche de lignes, avec un champ de classe facultatif. Le bouton **OpenStreetMap…** la télécharge (champ `classe` : nationale, provinciale, autre).
-- **Attractivité** d'un lieu : `1 + poids × exp(− distance / portée)`, avec la route la plus proche de chaque classe ; on garde le plus grand terme. Elle vaut 1 loin de toute route et 2 sur une route de poids 1. Par défaut : nationale 1, provinciale 0,6, autre 0,3 ; portée 500 m.
+- **Attractivité** d'un lieu : `1 + poids × exp(− distance / portée)`, avec la route la plus proche de chaque classe ; on garde le plus grand terme. Elle vaut 1 loin de toute route et 3 sur une nationale (poids 2). Par défaut : nationale 2, provinciale 0,6, autre 0,3 ; portée 500 m (le poids des nationales, d'abord 1, a été porté à 2 le 06/10/2026 après l'essai de Muramvya).
 - **Migration** : la distance « ressentie » par un migrant est la distance réelle divisée par l'attractivité de la maille d'arrivée. Les migrants vont donc plutôt le long des routes, et ces mailles se remplissent en premier.
-- **Colonisation** : une maille « près d'une route » (attractivité d'au moins 1 + seuil, 1,5 par défaut) demande 2 voisines au lieu de 3.
+- **Colonisation** : une maille « près d'une route » (attractivité d'au moins 1 + seuil, 1,5 par défaut : à moins de 690 m d'une nationale ou de 90 m d'une provinciale) demande 2 voisines au lieu de 3.
 - Chaque action peut être décochée. En mode **planifié**, les routes ne changent rien, sauf si la case dédiée est cochée (la migration suit alors les routes, dans les limites des polygones figés).
 
 Sorties : `attractivite.tif` ; dans `plausibilite.json` et le rapport, la part des extensions à moins de la portée d'une route principale (poids ≥ 0,5), comparée à la même part des mailles rurales au départ. Si la première dépasse nettement la seconde, les fronts suivent les routes. L'indice de compacité doit baisser par rapport au calcul sans routes.
@@ -59,10 +59,10 @@ Cas test (ville de 3 × 3 mailles au centre, une route nationale est-ouest, 25 a
 | Réglage | Emprise de la ville (est-ouest × nord-sud) |
 |---|---|
 | Sans route | 7 × 7 mailles |
-| Poids par défaut (1), portée 500 m | 9 × 7 |
-| Poids 3, portée 500 m | 11 × 5 |
+| Poids 1, portée 500 m | 9 × 7 |
+| Poids par défaut (2), portée 500 m | 9 × 5 |
 
-L'effet des poids par défaut est donc modeste ; c'est surtout la migration qui l'apporte. Le réglage est à caler sur une zone dont on connaît l'urbanisation récente le long des routes.
+À Muramvya (essai réel, `docs/essai_routes_muramvya.md`), le poids 2 oriente surtout les extensions le long de la RN7, sans changer beaucoup la compacité. Le réglage est à caler sur une zone dont on connaît l'urbanisation récente le long des routes.
 
 ## 4. Nouveaux noyaux
 

@@ -3,6 +3,11 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.9.3 – 06/10/2026 : nationales à 2
+
+- Attraction des routes : poids par défaut des routes nationales porté de 1 à 2 (provinciales 0,6, autres 0,3 inchangés). Une maille est « près d'une route » jusqu'à 690 m d'une nationale. Les scénarios qui donnent leurs poids ne changent pas.
+- Essai de Muramvya complété (`docs/essai_routes_muramvya.md`) : les extensions suivent la RN7.
+
 ## 0.9.2 – 06/10/2026 : essai réel des routes
 
 - Téléchargements : les requêtes s'identifient (« User-Agent » Poplar), comme le demande la politique d'usage d'OpenStreetMap ; un client Python anonyme peut être refusé.

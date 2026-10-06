@@ -133,18 +133,18 @@ def _extent(result):
 def test_the_city_stretches_along_the_road(tmp_path):
     ring = run(load_scenario(city_world(str(tmp_path / "ring"), roads=False)))
     assert _extent(ring) == (7, 7)                                      # no road: as wide as high
+    weak = run(load_scenario(city_world(str(tmp_path / "weak"), weight=1.0)))
+    width, height = _extent(weak)
+    assert width > height                                               # weight 1 (validated first): 9 x 7
     roads = run(load_scenario(city_world(str(tmp_path / "road"))))
-    width, height = _extent(roads)
-    assert width > height                                               # defaults (weight 1, 500 m): 9 x 7
-    strong = run(load_scenario(city_world(str(tmp_path / "strong"), weight=3.0)))
-    assert _extent(strong)[0] - _extent(strong)[1] > width - height     # a heavier road: a longer finger
-    for result in (roads, strong):                                     # population never lost
+    assert _extent(roads) == (9, 5)                                     # default, national 2: a longer finger
+    for result in (weak, roads):                                       # population never lost
         assert result.status == "success"
         balance = json.load(open(os.path.join(result.directory, "plausibilite.json"), encoding="utf-8"))
         assert all(abs(row["gap"]) < 1e-6 for row in balance["mass_balance"])
     out = roads.directory
     attraction = read_raster(os.path.join(out, "attractivite.tif")).values
-    assert attraction[15, 3] == pytest.approx(2.0, abs=0.03) and attraction[0, 3] < 1.01
+    assert attraction[15, 3] == pytest.approx(3.0, abs=0.06) and attraction[0, 3] < 1.01
     indicators = json.load(open(os.path.join(out, "plausibilite.json"), encoding="utf-8"))["roads"]
     assert indicators["extensions"] > 0
     assert indicators["extensions_near_share"] > indicators["baseline_near_share"]
@@ -186,7 +186,7 @@ def test_road_settings_are_checked(tmp_path):
     data = json.load(open(path, encoding="utf-8"))
     roads = data["strata"]["roads"]
     scenario = scenario_from_dict(data, str(tmp_path))
-    assert scenario.strata.roads.weights == {"nationale": 1.0, "provinciale": 0.6, "autre": 0.3}
+    assert scenario.strata.roads.weights == {"nationale": 2.0, "provinciale": 0.6, "autre": 0.3}
     assert scenario.strata.roads.reach_m == 500 and scenario.strata.roads.min_neighbors == 2
     assert scenario.to_dict()["strata"]["roads"]["source"] == "routes.gpkg"
     for change, key in (({"reach_m": 0}, "strata.roads.reach_m"), ({"min_neighbors": 9}, "strata.roads.min_neighbors"),

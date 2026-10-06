@@ -106,7 +106,7 @@ class StratumSettings:
     colonizable: bool = True
 
 
-DEFAULT_ROAD_WEIGHTS = {"nationale": 1.0, "provinciale": 0.6, "autre": 0.3}
+DEFAULT_ROAD_WEIGHTS = {"nationale": 2.0, "provinciale": 0.6, "autre": 0.3}
 
 
 @dataclass

@@ -26,6 +26,18 @@ Chaque calcul dure environ 10 s, sans aucun habitant non accueilli, avec un bila
 - **Limite de l'indicateur** : une route est « principale » si son poids atteint 0,5. Avec des poids × 3, les routes « autres » le deviennent (0,9), et presque toute la commune est alors « près d'une route principale » (93 %). Pour comparer des variantes de poids, mieux vaut lire la compacité et la carte.
 - Il s'agit d'**indicateurs de plausibilité** : sans historique d'urbanisation de Muramvya, rien ne permet de dire quel poids est « juste ». Une image satellite ancienne (par exemple 2010) et une récente permettraient de vérifier si les extensions réelles suivent la RN7 et les provinciales.
 
-## À décider
+## Décision du 06/10/2026 : nationales à 2
 
-Garder les poids par défaut validés (nationale 1), ou passer à un effet plus fort (par exemple nationale 2 à 3), en attendant un calage sur des extensions observées ?
+Le poids par défaut des nationales passe de 1 à 2 (provinciales 0,6 et autres 0,3 inchangés).
+
+| Variante | Mailles colonisées | Surface urbaine | Compacité | Extensions près d'une route principale | Mailles rurales au départ |
+|---|---|---|---|---|---|
+| Sans routes | 47 | 8,11 km² | 0,30 / 0,49 | – | – |
+| Nationale 1 (ancien défaut) | 51 | 8,10 km² | 0,29 / 0,43 | 84 % | 69 % |
+| **Nationale 2 (nouveau défaut)** | 49 | 7,95 km² | 0,28 / 0,48 | 82 % | 69 % |
+
+![Carte](essai_routes_muramvya_n2.png)
+
+Avec 2, les extensions suivent la RN7 : le village du nord s'étend vers le nord et le sud le long de la nationale, au lieu de l'est (vers les provinciales) ; la ville gagne vers le sud-ouest le long de la RN7. La compacité change peu : la forme s'oriente plus qu'elle ne s'étire. Le fort étirement de la variante « × 3 » venait surtout des provinciales (1,8).
+
+Cas test synthétique : 9 × 5 mailles avec 2, contre 9 × 7 avec 1 et 7 × 7 sans route.
