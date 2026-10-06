@@ -74,12 +74,14 @@ Tout est calculé à partir de l'état `t`. Les changements d'identifiant prenne
 1. **Candidates** : pour chaque polygone P, les mailles voisines de P (8 voisins, appartenance au sens du §2.2a) qui contiennent des unités de rang inférieur à P et colonisables. On y ajoute les résidus du §2.2c.
 2. **Conditions**, toutes requises, évaluées après la migration du pas :
    1. **La maille est saturée** : toutes ses unités candidates sont à capacité, c'est-à-dire à leur propre capacité, celle de leur strate actuelle.
-   2. **Elle a reçu du colonisateur un flux suffisant** : la somme reçue de P par ses unités candidates pendant le pas atteint au moins **`colonization_min_inflow`**. Ce seuil se donne en habitants, ou en part de la capacité des unités candidates.
+   2. **Le colonisateur exerce une pression suffisante** (**décision B du 06/10**, qui remplace « flux reçu par la maille ») : pendant le pas, P a envoyé **hors de ses propres unités** au moins **`colonization_min_inflow`**. Ce seuil se donne en habitants, ou en part de la capacité des unités candidates de la maille.
+      - *Pourquoi* : une maille saturée ne peut plus recevoir personne, et la migration passe par-dessus elle. Avec un flux reçu, le front s'arrêtait après la première couronne (constat de l'étape 3, ville carrée : 3 à 5 mailles colonisées en 20 ans, quelle que soit la densité rurale). La maille voisine saturée est celle où le polygone aurait placé ses habitants s'il y avait eu de la place.
+      - B englobe la règle précédente : recevoir x du polygone implique que le polygone a exporté au moins x.
    3. **Le colonisateur est lui-même saturé** : la part de sa surface habitable à capacité atteint au moins **`saturation_share`**. On compte la part de **surface**, et non le nombre d'unités, pour que les petits morceaux ne pèsent pas autant que les mailles entières. Les morceaux en zone d'exclusion n'entrent pas dans ce calcul.
    4. **Contiguïté** : au moins **`min_neighbors`** voisines (3 sur 8 par défaut) appartiennent à P **à l'état `t`**.
    5. **Rang et protection** : P est de rang strictement supérieur ; l'unité n'est pas en zone d'exclusion, et sa strate est colonisable (P6, accepté).
 3. **Une seule couronne par pas**, garantie par construction : les voisins sont comptés sur l'état `t`, donc une maille colonisée à ce pas ne compte pas encore comme voisine.
-4. **Conflits** (plusieurs colonisateurs possibles) : le rang le plus élevé gagne, puis le polygone qui a envoyé le plus de migrants à la maille pendant ce pas, puis le plus petit identifiant (règle déterministe).
+4. **Conflits** (plusieurs colonisateurs possibles) : le rang le plus élevé gagne, puis le polygone qui a **exporté** le plus pendant le pas (décision B), puis le plus petit identifiant (règle déterministe).
 5. **Mémoire** : `annee_colonisation` de la maille et un événement « extension » dans la généalogie.
 
 **Ce que produit cette règle.** Une maille colonisée, saturée à 156 habitants (dmax rurale de Muramvya), prend au pas suivant la dmax urbaine : sa capacité monte à 625 habitants. Le polygone doit alors d'abord **remplir ses nouvelles mailles** avant de redevenir saturé (condition 3), et seulement ensuite il peut avancer à nouveau. La vitesse du front naît ainsi de l'écart entre les densités et du taux de croissance, sans paramètre de vitesse, comme demandé.
@@ -195,7 +197,8 @@ Les mondes sont construits en mémoire, sans raster ni fichier, comme les tests 
 5. **Le rural ne colonise jamais U** (rang inférieur).
 6. **Héritage** : une maille colonisée a, l'année suivante, le TCAM et la dmax de U. Sa capacité passe de 156,25 à 625 habitants.
 7. **Conservation** : le total est exact chaque année. Avec un TCAM rural nul et sans recalage, `total(t) = total(t−1) + croissance de U`.
-8. **Conflit** : avec une seconde ville « V » de même rang, une maille qui reçoit des deux villes va à celle qui lui a envoyé le plus de migrants. Avec un rang plus élevé pour V, elle va à V.
+8. **Conflit** : avec une seconde ville « V » de même rang, une maille voisine des deux villes va à celle qui a exporté le plus. Avec un rang plus élevé pour V, elle va à V.
+8 bis. **Le front repart** (décision B) : sur 20 ans, la ville avance par vagues, avec une pause pendant qu'elle remplit ses nouvelles mailles, et aucun habitant n'est non accueilli. Essai du 06/10 avec un rural à 2 400 hab/km² : colonisations en 2025, 2030, 2036, 2040 et 2044.
 9. **Chaque condition B1 seule** : on la rend fausse une à une (`saturation_share` = 1,0 avec une maille non pleine, flux minimal à 100 % de la capacité, etc.). La colonisation de l'année 1 disparaît à chaque fois.
 10. **Front** : la vitesse publiée est positive et au plus 250 m/an. La forme n'est **pas** exactement symétrique : voir P16.
 11. **Mode `planned` sur le même monde** : `polygon_id` ne bouge pas, et les populations sont identiques à celles du moteur actuel.
@@ -245,7 +248,7 @@ Les mondes sont construits en mémoire, sans raster ni fichier, comme les tests 
 - `mode` : `"planned"` (strates figées) par défaut. Un scénario existant ne change pas.
 - `rank` : entier, plus grand = plus urbain. À saisir pour chaque classe en mode libre ; une classe sans rang ne colonise pas et n'est pas colonisée.
 - `colonizable` : `true` par défaut ; `false` pour un camp ou une zone protégée.
-- `colonization_min_inflow` : un paramètre du **colonisateur**, lu par strate et variable dans le temps, comme la dmax. Il se donne en habitants (`inhabitants`) ou en part de la capacité des unités candidates (`share_of_capacity`). Proposition par défaut : 10 % de la capacité, à caler sur Muramvya.
+- `colonization_min_inflow` : un paramètre du **colonisateur**, lu par strate et variable dans le temps, comme la dmax. Depuis la décision B, c'est la **population que le colonisateur doit avoir exportée hors de ses limites pendant le pas**, en habitants (`inhabitants`) ou en part de la capacité des unités candidates de la maille (`share_of_capacity`). Proposition par défaut : 10 % de la capacité, à caler sur Muramvya.
 - `saturation_share` : part de la surface habitable du colonisateur à capacité, de 0 à 1. Paramètre du colonisateur, 0,8 par défaut, à caler sur Muramvya.
 - `min_neighbors` : de 1 à 8, 3 par défaut.
 - `cell_membership_share` : de 0,5 à 1, 0,5 par défaut. En dessous de 0,5, une maille pourrait appartenir à deux polygones à la fois.
@@ -261,6 +264,7 @@ Les mondes sont construits en mémoire, sans raster ni fichier, comme les tests 
 | P2 | Un polygone par partie connexe |
 | P5 | Les migrants comptent pour l'émetteur direct, avec son identifiant à l'état `t` |
 | P6 | Propriété `colonizable: false` par strate, en plus des exclusions |
+| B | **Décision du 06/10** : la condition B1-2 porte sur la population **exportée** par le colonisateur hors de ses limites pendant le pas, et non plus sur le flux reçu par la maille, qui bloquait le front après la première couronne. Les conflits à rang égal se règlent par le volume exporté |
 | P7 | Remplacé par B1 : il n'y a plus de seuil de densité, mais saturation, flux et saturation du colonisateur |
 | P11 | Remplacé par B2 : appartenance à 50 % de surface, et colonisation des seules unités de rang inférieur et colonisables |
 | P0 | **Réglé le 06/10** : la fiche §3.5 est dans le dépôt (commit 108266f), relue et cohérente avec ce plan (§13) |

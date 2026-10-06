@@ -11,8 +11,11 @@ Colonisation rule (plan §3c, decision B1 of 06/10/2026), evaluated after the
 migration of a step, on the state at the start of the step:
 
 1. the candidate units of the cell are all at capacity;
-2. they received from the colonising polygon, during the step, at least the
-   minimum inflow (inhabitants, or a share of their capacity);
+2. the colonising polygon exported, during the step, beyond its own units,
+   at least the minimum inflow (inhabitants, or a share of the capacity of
+   the candidate units). Decision B of 06/10/2026: a saturated cell can no
+   longer receive anyone, so the pressure is what the polygon sends out, not
+   what the cell receives: the overflow passes over the full cell;
 3. the colonising polygon is saturated: the share of its habitable area at
    capacity reaches its ``saturation_share``;
 4. at least ``min_neighbors`` of the 8 neighbouring cells belong to the
@@ -22,8 +25,8 @@ migration of a step, on the state at the start of the step:
 
 A cell belongs to a polygon when that polygon covers at least
 ``membership_share`` of the area of the cell inside the study area (B2).
-Conflicts go to the highest rank, then to the polygon that sent the most
-migrants to the cell, then to the lowest identifier.
+Conflicts go to the highest rank, then to the polygon that exported the
+most during the step, then to the lowest identifier.
 """
 
 from __future__ import annotations
@@ -111,8 +114,8 @@ class Colonisation:
     """Cells colonised in this pass (cell ids)."""
     winners: np.ndarray
     """Colonising polygon of each cell in ``cells``."""
-    inflows: np.ndarray
-    """Inflow from the winner into the colonised units of each cell."""
+    exported: np.ndarray
+    """Population exported during the step by the winner of each cell."""
     saturation: np.ndarray
     """Share of the habitable area at capacity, per polygon (NaN without habitable area)."""
 
@@ -200,6 +203,15 @@ def saturation_shares(polygon_id: np.ndarray, area_km2: np.ndarray, full: np.nda
 # --- colonisation -----------------------------------------------------------------------------
 
 
+def exported_by_polygon(inflow: Inflow, polygon_id: np.ndarray, npolygons: int) -> np.ndarray:
+    """Population each polygon sent during the step to units outside itself (direct sender)."""
+    if inflow is None or len(inflow.keys) == 0:
+        return np.zeros(npolygons)
+    unit, label = np.divmod(inflow.keys, inflow.nlabels)
+    outside = (label < npolygons) & (np.asarray(polygon_id)[unit] != label)
+    return np.bincount(label[outside], weights=inflow.amounts[outside], minlength=npolygons)[:npolygons]
+
+
 def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, population: np.ndarray,
              capacity: np.ndarray, protected: np.ndarray, inflow: Inflow, min_inflow: np.ndarray,
              saturation_share: np.ndarray, rules: ColonisationRules = ColonisationRules()) -> Colonisation:
@@ -223,9 +235,9 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
     min_inflow = np.asarray(min_inflow, dtype=np.float64)
     saturation_share = np.asarray(saturation_share, dtype=np.float64)
 
-    def outcome(new_pid, cells=(), winners=(), inflows=()):
+    def outcome(new_pid, cells=(), winners=(), pressure=()):
         return Colonisation(new_pid, new_pid != pid, np.asarray(cells, dtype=np.int64),
-                            np.asarray(winners, dtype=np.int64), np.asarray(inflows, dtype=np.float64), saturation)
+                            np.asarray(winners, dtype=np.int64), np.asarray(pressure, dtype=np.float64), saturation)
 
     known = pid >= 0
     safe = np.where(known, pid, 0)
@@ -269,8 +281,8 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
     npairs = len(pair_cell)
     n_taken = np.bincount(pair_of, weights=taken, minlength=npairs)
     n_full = np.bincount(pair_of, weights=taken & full[unit], minlength=npairs)
-    received = np.where(taken, inflow.received(unit, colonising), 0.0)
-    pair_inflow = np.bincount(pair_of, weights=received, minlength=npairs)
+    exported = exported_by_polygon(inflow, pid, npoly)
+    pair_inflow = exported[pair_poly]
     pair_capacity = np.bincount(pair_of, weights=np.where(taken, capacity[unit], 0.0), minlength=npairs)
     if rules.min_inflow_unit == SHARE_OF_CAPACITY:
         needed = min_inflow[pair_poly] * pair_capacity
@@ -280,7 +292,7 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
     if not valid.any():
         return outcome(pid.copy())
 
-    # Conflicts: highest rank, then most migrants sent, then lowest identifier.
+    # Conflicts: highest rank, then most exported, then lowest identifier.
     candidates = np.flatnonzero(valid)
     order = np.lexsort((pair_poly[candidates], -pair_inflow[candidates], -ranks[pair_poly[candidates]],
                         pair_cell[candidates]))
@@ -306,7 +318,7 @@ class PolygonHistory:
     initial: np.ndarray
     final: np.ndarray
     events: List[dict] = field(default_factory=list)
-    """One entry per colonised cell: ``year``, ``cell``, ``row``, ``col``, ``polygon``, ``inflow``."""
+    """One entry per colonised cell: ``year``, ``cell``, ``row``, ``col``, ``polygon``, ``exported``."""
     membership: Dict[int, np.ndarray] = field(default_factory=dict)
     """Polygon of each cell (raster) at the start and at each output year."""
     reclassification: Optional[np.ndarray] = None

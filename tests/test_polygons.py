@@ -122,6 +122,22 @@ def test_saturation_share_counts_area_and_leaves_exclusions_out():
 # --- §8.1 at the unit level ---------------------------------------------------------------------
 
 
+def test_export_below_the_threshold_colonises_nothing():
+    units, pid, table = square_city()
+    population, capacity = state(units, pid, table)
+    inflow = inflow_to(units, table, [(2, 2)], 15.0)             # exported far away: 15 < 10 % of 156.25
+    assert len(run(units, pid, table, population, capacity, inflow).cells) == 0
+    inflow = inflow_to(units, table, [(2, 2)], 16.0)
+    assert colonised_cells(units, run(units, pid, table, population, capacity, inflow)) == {(8, 10), (12, 10), (10, 8)}
+
+
+def test_what_a_polygon_sends_to_its_own_units_is_not_exported():
+    units, pid, table = square_city()
+    population, capacity = state(units, pid, table)
+    inflow = inflow_to(units, table, [(10, 10)], 1000.0)         # inside the city
+    assert len(run(units, pid, table, population, capacity, inflow).cells) == 0
+
+
 def test_square_city_colonises_the_three_free_mid_sides():
     units, pid, table = square_city()
     population, capacity = state(units, pid, table)
@@ -157,7 +173,10 @@ def test_each_condition_alone_prevents_the_colonisation(breaking):
     elif breaking == "rank":
         table.rank[polygon_of(table, "U")] = 1
     result = run(units, pid, table, population, capacity, inflow, **options)
-    assert len(result.cells) == 0 and not result.changed.any()
+    if breaking == "candidate_not_full":                         # the other mid-sides are full: only this one waits
+        assert (8, 10) not in colonised_cells(units, result) and len(result.cells) == 2
+    else:
+        assert len(result.cells) == 0 and not result.changed.any()
 
 
 def test_corner_neighbours_and_diagonals_stay_rural():
@@ -165,14 +184,15 @@ def test_corner_neighbours_and_diagonals_stay_rural():
     population, capacity = state(units, pid, table)
     result = run(units, pid, table, population, capacity,
                  inflow_to(units, table, [(8, 9), (8, 11), (9, 8), (8, 8)], 40.0))
-    assert len(result.cells) == 0
+    assert colonised_cells(units, result) == {(8, 10), (12, 10), (10, 8)}           # the pressure reaches every mid-side, nothing else
 
 
 def test_exclusion_zone_is_never_colonised():
     units, pid, table = square_city()
     population, capacity = state(units, pid, table)
     result = run(units, pid, table, population, capacity, inflow_to(units, table, [(10, 12)], 100.0))
-    assert len(result.cells) == 0
+    assert (10, 12) not in colonised_cells(units, result)
+    assert colonised_cells(units, result) == {(8, 10), (12, 10), (10, 8)}
 
 
 def test_inflow_in_inhabitants():
@@ -180,7 +200,7 @@ def test_inflow_in_inhabitants():
     population, capacity = state(units, pid, table)
     inflow = inflow_to(units, table, [(8, 10)], 20.8)
     assert len(run(units, pid, table, population, capacity, inflow, min_inflow=20.0,
-                   min_inflow_unit="inhabitants").cells) == 1
+                   min_inflow_unit="inhabitants").cells) == 3
     assert len(run(units, pid, table, population, capacity, inflow, min_inflow=21.0,
                    min_inflow_unit="inhabitants").cells) == 0
 
@@ -200,10 +220,12 @@ def test_strata_that_cannot_be_colonised_stay_out():
     population, capacity = state(units, pid, table)
     result = run(units, pid, table, population, capacity, inflow_to(units, table, [(7, 10)], 50.0),
                  min_neighbors=0)
-    assert len(result.cells) == 0
+    assert len(result.cells) > 0                                 # rural cells around the city are taken
+    camp = cell_units(units, 7, 10)
+    assert (result.polygon_id[camp] == pid[camp]).all()          # the camp never
 
 
-def test_conflict_goes_to_the_higher_rank_then_to_the_larger_inflow():
+def test_conflict_goes_to_the_higher_rank_then_to_the_larger_export():
     # Two cities touch the same cell (row 5, column 5) with three neighbours each.
     west = cells_box(2, 4, 5, 7)
     east = cells_box(6, 4, 9, 7)
@@ -216,7 +238,7 @@ def test_conflict_goes_to_the_higher_rank_then_to_the_larger_inflow():
                                    len(table))
     result = run(units, pid, table, population, capacity, inflow)
     assert 5 * 11 + 5 in result.cells
-    assert result.polygon_id[target][0] == e                     # same rank: the larger inflow wins
+    assert result.polygon_id[target][0] == e                     # same rank: the larger export wins
     table.rank[w] = 3
     result = run(units, pid, table, population, capacity, inflow)
     assert result.polygon_id[target][0] == w                     # a higher rank wins first
@@ -225,9 +247,9 @@ def test_conflict_goes_to_the_higher_rank_then_to_the_larger_inflow():
 def test_one_ring_per_step():
     units, pid, table = square_city(exclusion=False)
     population, capacity = state(units, pid, table)
-    # Second ring (two cells away): nothing, even with a large inflow and every other condition met.
+    # A large export reaches the first ring only: the cells two rows away wait for the next step.
     result = run(units, pid, table, population, capacity, inflow_to(units, table, [(7, 10)], 100.0))
-    assert len(result.cells) == 0
+    assert colonised_cells(units, result) == {(8, 10), (12, 10), (10, 8), (10, 12)}
 
 
 # --- §8.2 cells cut by a slanted boundary (B2) ------------------------------------------------

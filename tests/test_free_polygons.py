@@ -154,9 +154,11 @@ def test_slanted_front_keeps_exclusions_and_communes(tmp_path):
             step.population_after_growth, rel=1e-9)
 
 
-@pytest.mark.xfail(strict=True, reason="B1 as specified: a saturated cell receives no more migrants, so the front "
-                                       "stops after the first ring (decision pending, see the bilan of step 3)")
 def test_front_keeps_moving_after_the_first_ring(tmp_path):
-    result = run(load_scenario(square_city_world(str(tmp_path), years=15)))
-    colonised_years = {int(e["year"]) for e in result.polygons.events}
-    assert len(result.polygons.events) > 5 and max(colonised_years) > 2030
+    """Decision B (06/10): the pressure is what the city exports, so the front moves on in waves,
+    each one once the city has filled the cells it gained (no unallocated population)."""
+    result = run(load_scenario(square_city_world(str(tmp_path), years=20)))
+    years = sorted({int(e["year"]) for e in result.polygons.events})
+    assert years[0] == 2025 and len(years) >= 4 and years[-1] > 2035
+    assert all(b - a >= 2 for a, b in zip(years, years[1:]))      # a pause while the new cells fill
+    assert sum(step.unallocated for step in result.steps) == 0

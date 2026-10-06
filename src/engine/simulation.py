@@ -533,9 +533,9 @@ class _Model:
         self.units.codes["class"][changed] = [labels.index(self.polygons.stratum[p]) for p in self.polygon_id[changed]]
         self.units.__dict__.pop("_combination_cache", None)        # parameters follow the new strata
         ncols = self.units.grid.ncols
-        for cell, polygon, received in zip(result.cells, result.winners, result.inflows):
+        for cell, polygon, exported in zip(result.cells, result.winners, result.exported):
             history.events.append({"year": float(year), "cell": int(cell), "row": int(cell // ncols),
-                                   "col": int(cell % ncols), "polygon": int(polygon), "inflow": float(received)})
+                                   "col": int(cell % ncols), "polygon": int(polygon), "exported": float(exported)})
         return len(result.cells)
 
     def measure_reclassification(self, history: PolygonHistory, population, rates, step) -> None:
