@@ -65,7 +65,7 @@ Les routes agissent à **deux endroits** du modèle, sans changer la vitesse com
 | B-a | Les routes agissent-elles sur la migration (1), sur la colonisation (2), ou les deux ? | Les deux, chacune réglable et désactivable. La migration seule suffit peut-être : à tester sur Muramvya |
 | B-b | En mode **planifié** aussi (la migration y suivrait les routes, dans les limites des polygones) ? | Non par défaut : le mode planifié reste identique à l'outil actuel. Option possible |
 | B-c | Source des routes | Couche fournie par l'utilisateur (n'importe quel format), ou téléchargée depuis OpenStreetMap (fait en 0.8.2 : champ `classe` nationale / provinciale / autre) |
-| B-d | Poids par classe de route, portée | Poids par défaut : nationale 1, provinciale 0,6, autre 0,3 ; portée de 500 m ; tout est modifiable dans l'onglet Strates. **06/10 : nationale portée à 2** après l'essai de Muramvya |
+| B-d | Poids par classe de route, portée | Poids par défaut : nationale 1, provinciale 0,6, autre 0,3 ; portée de 500 m ; tout est modifiable dans l'onglet Strates. **06/10 : nationale portée à 2 et provinciale à 1** après l'essai de Muramvya |
 | B-e | Autres facteurs d'attraction plus tard (pente, centres, services) | Le même mécanisme les acceptera : l'attractivité est un produit de facteurs. On commence par les routes seules |
 
 **Durée** : environ 2 à 3 jours, avec un cas test synthétique (une ville et une route droite : l'extension doit s'allonger le long de la route) et un essai sur Muramvya, si une couche de routes est disponible.

@@ -186,7 +186,7 @@ def test_road_settings_are_checked(tmp_path):
     data = json.load(open(path, encoding="utf-8"))
     roads = data["strata"]["roads"]
     scenario = scenario_from_dict(data, str(tmp_path))
-    assert scenario.strata.roads.weights == {"nationale": 2.0, "provinciale": 0.6, "autre": 0.3}
+    assert scenario.strata.roads.weights == {"nationale": 2.0, "provinciale": 1.0, "autre": 0.3}
     assert scenario.strata.roads.reach_m == 500 and scenario.strata.roads.min_neighbors == 2
     assert scenario.to_dict()["strata"]["roads"]["source"] == "routes.gpkg"
     for change, key in (({"reach_m": 0}, "strata.roads.reach_m"), ({"min_neighbors": 9}, "strata.roads.min_neighbors"),

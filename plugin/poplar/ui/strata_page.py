@@ -25,7 +25,7 @@ INFLOW, SATURATION = "colonization_min_inflow", "saturation_share"
 DEFAULTS = {INFLOW: 0.1, SATURATION: 0.8}
 NUCLEI = {"enabled": False, "stratum": None, "min_cells": 16, "enclave_km2": 5.0, "migration_share": 0.5}
 COLUMNS = ("class", "rank", "colonizable", "urban", "inflow", "saturation")
-ROAD_WEIGHTS = {"nationale": 2.0, "provinciale": 0.6, "autre": 0.3}
+ROAD_WEIGHTS = {"nationale": 2.0, "provinciale": 1.0, "autre": 0.3}
 ROAD_DEFAULTS = {"reach_m": 500.0, "migration": True, "colonization": True, "min_neighbors": 2, "threshold": 0.5,
                  "in_planned_mode": False}
 

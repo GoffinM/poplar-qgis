@@ -3,6 +3,11 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.9.4 – 06/10/2026 : provinciales à 1
+
+- Attraction des routes : poids par défaut des routes provinciales porté de 0,6 à 1 (nationales 2, autres 0,3). Une maille est « près d'une route » jusqu'à 350 m d'une provinciale.
+- Muramvya : le village du nord s'étend aussi le long de la provinciale vers l'est (compacité 0,48 → 0,33) ; voir `docs/essai_routes_muramvya.md`.
+
 ## 0.9.3 – 06/10/2026 : nationales à 2
 
 - Attraction des routes : poids par défaut des routes nationales porté de 1 à 2 (provinciales 0,6, autres 0,3 inchangés). Une maille est « près d'une route » jusqu'à 690 m d'une nationale. Les scénarios qui donnent leurs poids ne changent pas.

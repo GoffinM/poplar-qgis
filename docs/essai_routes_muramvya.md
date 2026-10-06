@@ -41,3 +41,18 @@ Le poids par défaut des nationales passe de 1 à 2 (provinciales 0,6 et autres 
 Avec 2, les extensions suivent la RN7 : le village du nord s'étend vers le nord et le sud le long de la nationale, au lieu de l'est (vers les provinciales) ; la ville gagne vers le sud-ouest le long de la RN7. La compacité change peu : la forme s'oriente plus qu'elle ne s'étire. Le fort étirement de la variante « × 3 » venait surtout des provinciales (1,8).
 
 Cas test synthétique : 9 × 5 mailles avec 2, contre 9 × 7 avec 1 et 7 × 7 sans route.
+
+## Décision du 06/10/2026 (suite) : provinciales à 1
+
+Défaut : nationale 2, **provinciale 1**, autre 0,3.
+
+| Variante | Mailles colonisées | Surface urbaine | Compacité | Extensions près d'une route principale | Mailles rurales au départ |
+|---|---|---|---|---|---|
+| Sans routes | 47 | 8,11 km² | 0,30 / 0,49 | – | – |
+| Nationale 2, provinciale 0,6 | 49 | 7,95 km² | 0,28 / 0,48 | 82 % | 69 % |
+| **Nationale 2, provinciale 1 (défaut)** | 61 | 8,50 km² | 0,28 / 0,33 | 85 % | 69 % |
+
+![Carte](essai_routes_muramvya_n2p1.png)
+
+Le village du nord s'étend maintenant aussi vers l'est le long de la provinciale (sa compacité passe de 0,48 à 0,33), et la ville le long de la RN7. La population totale est la même dans toutes les variantes ; seule sa place change.
+

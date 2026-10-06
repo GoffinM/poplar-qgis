@@ -4,8 +4,8 @@ A place near a road attracts migrants and is urbanised first. Its attractiveness
 
     a = 1 + max over the road classes of  weight × exp(− distance / reach)
 
-with the distance to the nearest road of each class (decision B-d: national 2 since 06/10/2026, provincial
-0.6, other 0.3, reach 500 m). It is 1 far from any road, 3 on a national road of weight 2. It acts on:
+with the distance to the nearest road of each class (decision B-d, raised on 06/10/2026: national 2,
+provincial 1, other 0.3, reach 500 m). It is 1 far from any road, 3 on a national road of weight 2. It acts on:
 
 1. the migration: the distance a migrant « feels » is the real distance divided by the attractiveness
    of the arrival unit (:func:`engine.migration.migrate`, ``attraction``);
