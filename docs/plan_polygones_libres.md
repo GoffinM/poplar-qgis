@@ -344,7 +344,7 @@ Une précision de S1 : la fiche dit que le TCAM est hérité. La parade « TCAM 
 | **D2** | Nouveaux noyaux : taille minimale **16 mailles (1 km²)** par défaut (fait) ; strate des noyaux **intermédiaire** (par exemple Urbain2, dmax 7 500), à choisir dans le scénario (`strata.new_nuclei.stratum`). La règle reste désactivée par défaut |
 | **D3** | Valeurs par défaut P14 inchangées (part saturée 80 %, flux 10 %), à recaler sur les taches bâties après D1 |
 
-## 15. Plan de D1 : préparation des taches bâties (proposé le 06/10, à valider)
+## 15. Plan de D1 : préparation des taches bâties (validé le 06/10 avec Q-a à Q-e ; réalisé : `patches.py`, `python -m engine patches` ; résultats dans `bilan_polygones_libres.md` §5)
 
 **Principe.** À partir de la population de départ du scénario (raster ou toits), au pas de 250 m et à l'année de base, on repère les taches denses et on écrit une **nouvelle couche de typologie**. Elle remplace les limites administratives comme polygones de départ ; les communes restent la couche administrative fixe, pour les statistiques et le recalage.
 

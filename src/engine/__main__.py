@@ -1,5 +1,5 @@
 """Command line: ``python -m engine run scenario.json [--language en]``, ``report``, ``grid``, ``excel``,
-``compare`` and ``download-roofs``."""
+``compare``, ``patches`` and ``download-roofs``."""
 
 from __future__ import annotations
 
@@ -33,6 +33,15 @@ def main(argv=None) -> int:
     compare_parser.add_argument("planned", help="run folder in planned mode")
     compare_parser.add_argument("free", help="run folder in free mode (same scenario)")
     compare_parser.add_argument("--output", help="folder of the comparison (the free run by default)")
+    patches_parser = commands.add_parser("patches", help="built-up patches as the starting polygons (free mode)")
+    patches_parser.add_argument("scenario")
+    patches_parser.add_argument("--density", type=float, default=1500.0, help="dense cells, hab/km2 (1500)")
+    patches_parser.add_argument("--min-population", type=float, default=5000.0, help="smallest patch (5000)")
+    patches_parser.add_argument("--secondary-population", type=float,
+                                help="smaller patches kept as a second level (for example 2000)")
+    patches_parser.add_argument("--urban-class", action="append", help="urban limits class (repeatable)")
+    patches_parser.add_argument("--inside-only", action="store_true", help="only patches inside the urban limits")
+    patches_parser.add_argument("--output", help="folder of the files (next to the scenario by default)")
     download_parser = commands.add_parser("download-roofs", help="download Google Open Buildings roofs of a zone")
     download_parser.add_argument("zone", help="polygons of the zone (the strata layer, for example)")
     download_parser.add_argument("output", help="GeoPackage to write")
@@ -51,6 +60,18 @@ def main(argv=None) -> int:
         return 0
     if args.command == "excel":
         return _excel(args)
+    if args.command == "patches":
+        from .patches import PatchRules, prepare
+
+        rules = PatchRules(args.density, args.min_population, args.secondary_population, args.urban_class,
+                           inside_only=args.inside_only)
+        try:
+            for path in prepare(args.scenario, rules, args.output).values():
+                print(path)
+        except ScenarioError as error:
+            print(str(error), file=sys.stderr)
+            return 1
+        return 0
     if args.command == "compare":
         from .comparison import NotComparable, write as write_comparison
 

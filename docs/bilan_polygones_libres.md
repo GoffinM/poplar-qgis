@@ -68,3 +68,31 @@ Le centre-ville sature, mais la commune urbaine a encore de la place autour de l
 | **D3** | Valeurs par défaut P14 (part saturée 80 %, flux 10 %) | Les garder tant que D1 n'est pas tranché : sur des polygones administratifs, aucune valeur ne donne de front plausible, et une valeur plus basse ne colonise que des résidus. Elles seront à recaler sur les taches bâties |
 
 Les vitesses de front ne peuvent pas être jugées sur Muramvya en l'état : elles sont presque nulles. Cela vient des polygones de départ (D1), pas de la règle de colonisation.
+
+## 5. D1 : Muramvya sur les taches bâties (06/10)
+
+`python -m engine patches scenario_muramvya.json` (1 500 hab/km², 5 000 habitants, lissage en deux passes) trouve deux taches :
+
+| Tache | Classe | Mailles | Surface | Habitants (2024) | Dans la commune urbaine |
+|---|---|---|---|---|---|
+| Ville de Muramvya | Urbain1 | 85 | 5,3 km² | 22 933 | 98 % |
+| Village dense | Urbain2 (Q-b) | 28 | 1,7 km² | 6 268 | 0 % |
+
+Le reste de la commune urbaine (14,3 km²) devient la strate **Transition**, avec la dmax rurale (2 500) et le TCAM urbain (Q-c). Les rangs sont Rural 1, Transition 2, Urbain2 3 et Urbain1 4 ; seules les taches comptent comme urbaines (`urban_rank` = 3).
+
+**Les deux modes sur la nouvelle typologie, 2024 → 2060.** Aucun non-accueilli dans tous les cas, et le bilan de masse est nul.
+
+| Réglage du mode libre | Mailles colonisées | Premières colonisations | Surface urbaine 2060 (planifié 7,06 km²) | Habitants hors du périmètre planifié en 2060 | Front de la ville (m/an) |
+|---|---|---|---|---|---|
+| Défaut : part saturée 80 %, flux 10 % | 0 | – | 7,06 | 0 | 0 |
+| Part saturée 50 % | 19 | 2056 | 8,06 | 2 527 | 7 (2055–2060) |
+| Part saturée 25 % | 47 | 2041 | 8,25 | 4 103 | 1 à 3 |
+| Défaut, dmax urbaine 6 000 au lieu de 10 000 | 28 | 2051 | 8,25 (en 2055) | 4 270 | 12 (2050–2055) |
+
+Considérer une maille comme saturée à 95 % ou à 90 % de sa capacité, au lieu d'une place libre, ne change presque rien : 50 à 53 mailles avec une part saturée de 25 %.
+
+**Lecture.** La ville part d'une densité médiane de 3 800 hab/km² (2030), pour une dmax de 10 000. Elle peut donc encore se **densifier** beaucoup, et elle le fait :
+- en 2060, sa densité médiane atteint 9 150 hab/km², mais seulement 54 % de sa surface est saturée ;
+- le débordement du centre remplit d'abord les bords de la tache, moins denses, avant de sortir.
+
+Le front ne part que si l'on demande moins de 80 % de saturation, ou si la dmax urbaine est plus proche des densités observées. Les vitesses restent faibles (1 à 12 m/an), et l'élasticité ne dépasse 1 (étalement) qu'en fin de période. **C'est à vous de juger la plausibilité de ces fronts (P14)**. Les leviers sont la part saturée demandée et la dmax urbaine ; tous deux sont des paramètres du scénario, sans rien à coder.
