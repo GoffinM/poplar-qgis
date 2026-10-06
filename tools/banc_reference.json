@@ -112,6 +112,54 @@
       }
     }
   },
+  "muramvya_libre": {
+    "title": "Muramvya 2024 → 2060 en strates libres (fiche §3.5), part saturée 25 %, comparé au mode planifié",
+    "figures": {
+      "status": {
+        "value": "success",
+        "label": "Statut du calcul"
+      },
+      "population_2060": {
+        "value": 320361.01,
+        "tolerance": 1,
+        "label": "Population 2060 (TCAM unique : la même qu'en mode planifié)"
+      },
+      "same_total_as_planned": {
+        "value": true,
+        "label": "Même total qu'en mode planifié"
+      },
+      "colonised_cells": {
+        "value": 16,
+        "tolerance": 0,
+        "label": "Mailles colonisées 2025–2060"
+      },
+      "urban_area_2060": {
+        "value": 20.8125,
+        "tolerance": 0.01,
+        "label": "Surface urbaine 2060, maille par maille (km²)"
+      },
+      "urban_area_planned": {
+        "value": 20.8125,
+        "tolerance": 0.01,
+        "label": "Surface urbaine du mode planifié (km²)"
+      },
+      "front_speed_max": {
+        "value": 0.8,
+        "tolerance": 0.05,
+        "label": "Vitesse de front maximale (m/an)"
+      },
+      "mass_balance_gap_max": {
+        "value": 0.0,
+        "tolerance": 1e-06,
+        "label": "Écart maximal du bilan de masse"
+      },
+      "unallocated": {
+        "value": 0.0,
+        "tolerance": 0.5,
+        "label": "Population non accueillie"
+      }
+    }
+  },
   "telechargement_google": {
     "title": "Téléchargement Google Open Buildings v3 (réseau)",
     "figures": {

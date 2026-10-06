@@ -424,3 +424,5 @@ class PolygonHistory:
     stats: List[dict] = field(default_factory=list)
     """Per polygon and output year: area, population, density, share at capacity, cells."""
     start_year: int = 0
+    reclassification_by_admin: List[dict] = field(default_factory=list)
+    """Cumulated reclassification effect per administrative unit, at the start and at each output year."""

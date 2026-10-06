@@ -1,4 +1,5 @@
-"""Command line: ``python -m engine run scenario.json [--language en]``, ``report`` and ``download-roofs``."""
+"""Command line: ``python -m engine run scenario.json [--language en]``, ``report``, ``grid``, ``excel``,
+``compare`` and ``download-roofs``."""
 
 from __future__ import annotations
 
@@ -28,6 +29,10 @@ def main(argv=None) -> int:
     excel_parser = commands.add_parser("excel", help="write calage.xlsx from the calibration.json of a run folder")
     excel_parser.add_argument("folder")
     excel_parser.add_argument("--language", choices=available_languages(), default="fr")
+    compare_parser = commands.add_parser("compare", help="compare a run in planned mode with one in free mode")
+    compare_parser.add_argument("planned", help="run folder in planned mode")
+    compare_parser.add_argument("free", help="run folder in free mode (same scenario)")
+    compare_parser.add_argument("--output", help="folder of the comparison (the free run by default)")
     download_parser = commands.add_parser("download-roofs", help="download Google Open Buildings roofs of a zone")
     download_parser.add_argument("zone", help="polygons of the zone (the strata layer, for example)")
     download_parser.add_argument("output", help="GeoPackage to write")
@@ -46,6 +51,16 @@ def main(argv=None) -> int:
         return 0
     if args.command == "excel":
         return _excel(args)
+    if args.command == "compare":
+        from .comparison import NotComparable, write as write_comparison
+
+        try:
+            for path in write_comparison(args.planned, args.free, args.output):
+                print(path)
+        except (NotComparable, OSError) as error:
+            print(str(error), file=sys.stderr)
+            return 1
+        return 0
     if args.command == "download-roofs":
         return _download_roofs(args)
     if args.command == "report":

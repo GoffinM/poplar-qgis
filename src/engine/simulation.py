@@ -33,7 +33,7 @@ from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
 from .polygons import (NO_POLYGON, NO_RANK, ColonisationRules, NucleusRules, PolygonHistory, Stratum,
                        cell_membership, colonise, initial_polygons, new_nuclei, part_layer)
-from . import polygon_outputs
+from . import plausibility, polygon_outputs
 from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
@@ -150,7 +150,13 @@ def run(
             history.ids[key] = model.polygon_id.copy()
             history.stats.extend(polygon_outputs.polygon_stats(
                 history, year, population, capacity_now, units.no_inflow | dated_no_inflow | evacuated,
-                model.polygon_id, scenario.migration.tolerance))
+                model.polygon_id, scenario.migration.tolerance, unallocated))
+            admin = units.values("admin") if "admin" in units.codes else [None] * len(units)
+            totals: Dict[str, float] = {}
+            for name, value in zip(admin, history.reclassification.tolist()):
+                totals[name or "–"] = totals.get(name or "–", 0.0) + value
+            history.reclassification_by_admin.extend({"year": float(year), "admin": name, "effect": value}
+                                                     for name, value in sorted(totals.items()))
             outputs.extend(polygon_outputs.write_year(out_dir, history, year, model.urban_rank))
         indicator_values = model.indicator_values(population, year)
         outputs.extend(write_year_rasters(out_dir, year, units, population, unallocated, capacity_now,
@@ -244,6 +250,11 @@ def run(
                                                        scenario.strata.smoothing_passes))
         except Exception as error:  # pragma: no cover
             warnings.append(message("polygon_outputs_failed", detail=str(error)))
+        try:
+            outputs.extend(plausibility.write(out_dir, plausibility.compute(history, steps, scenario.cell_size,
+                                                                            model.urban_rank)))
+        except Exception as error:  # pragma: no cover
+            warnings.append(message("plausibility_failed", detail=str(error)))
     summary_path = os.path.join(out_dir, "summary.csv")
     write_summary(summary_path, rows, language, model.column_units(scenario))
     outputs.append(summary_path)

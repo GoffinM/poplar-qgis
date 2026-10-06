@@ -177,6 +177,84 @@ def _messages_section(report: Dict[str, Any], language: str) -> str:
     return f"<h2>{_esc(_t('warnings', language))}</h2><ul>" + "".join(f"<li>{_esc(i)}</li>" for i in items) + "</ul>"
 
 
+LINE_COLOURS = [PETROL, OCHRE, "#7a4e8c", "#3f7fb3", "#a4452a", GREY]
+
+
+def _polygons_section(indicators: Dict[str, Any], language: str) -> str:
+    """Free strata mode: plausibility indicators (plausibilite.json)."""
+    n = lambda v, d=0: "–" if v is None else format_number(float(v), language, d)  # noqa: E731
+    horizons = indicators.get("horizons") or []
+    parts = [f"<h2>{_esc(_t('polygons', language))}</h2>",
+             f"<p class=\"legend\">{_esc(_t('polygons_intro', language, cap=n(indicators.get('speed_cap_m_per_year'))))}</p>"]
+    if not horizons:
+        return "".join(parts)
+    last = max(r["year_end"] for r in horizons)
+    final = [r for r in horizons if r["year_end"] == last]
+    urban_final = [r for r in final if r.get("urban")]
+    parts.append(_figures([
+        (_t("polygons_count", language), n(len({r["id"] for r in final}))),
+        (_t("polygons_urban_area", language), f"{n(sum(r['area_end_km2'] for r in urban_final), 2)} km²"),
+        (_t("polygons_colonised", language), n(indicators.get("colonised_cells", 0))),
+        (_t("polygons_nuclei", language), n(len(indicators.get("new_nuclei") or []))),
+    ]))
+    # Area of each urban polygon over time.
+    series: Dict[int, List[Tuple[float, float]]] = {}
+    for r in sorted(horizons, key=lambda r: r["year_end"]):
+        if r.get("urban"):
+            points = series.setdefault(r["id"], [(r["year_start"], r["area_start_km2"])])
+            points.append((r["year_end"], r["area_end_km2"]))
+    if series:
+        xs = [x for points in series.values() for x, _ in points]
+        ys = [y for points in series.values() for _, y in points]
+        chart = _Chart(x=(min(xs), max(xs)), y=(0, max(ys) * 1.1 or 1))
+        chart.axes(_t("year", language), _t("polygons_area", language), y_format=lambda v: n(v, 1),
+                   x_format=lambda v: f"{v:.0f}", whole_x=True)
+        for i, (polygon, points) in enumerate(sorted(series.items())):
+            chart.line([x for x, _ in points], [y for _, y in points], LINE_COLOURS[i % len(LINE_COLOURS)], 2.2)
+        parts.append(chart.svg(_t("polygons_area_chart", language)))
+        parts.append('<p class="legend">' + " · ".join(
+            f'<span style="color:{LINE_COLOURS[i % len(LINE_COLOURS)]}">■</span> {polygon}'
+            for i, polygon in enumerate(sorted(series))) + "</p>")
+    rows, classes = [], []
+    for r in sorted(horizons, key=lambda r: (r["id"], r["year_start"])):
+        if not r.get("urban"):
+            continue
+        rows.append((f"{r['year_start']} → {r['year_end']}", f"{r['id']} – {r['stratum']}",
+                     n(r["area_end_km2"], 2), n(r["front_speed_m_per_year"], 0),
+                     _t("reading_" + r["reading"], language),
+                     f"{n(r['density_p10'])} / {n(r['density_p50'])} / {n(r['density_p90'])}",
+                     n(None if r["saturated_share"] is None else 100 * r["saturated_share"], 0) + " %",
+                     n(r["compactness"], 2), _t("yes" if r["capped"] else "no", language)))
+        classes.append(["", "", "", "alert" if r["capped"] else "", "", "", "", "", "alert" if r["capped"] else ""])
+    if rows:
+        parts.append(_table([_t(c, language) for c in ("polygons_horizon", "polygons_id", "polygons_area",
+                                                       "polygons_front", "polygons_reading", "polygons_density",
+                                                       "polygons_saturated", "polygons_compactness",
+                                                       "polygons_capped")], rows, classes))
+    nuclei = indicators.get("new_nuclei") or []
+    if nuclei:
+        parts.append(f"<h3>{_esc(_t('polygons_nuclei', language))}</h3>")
+        parts.append(_table([_t("polygons_id", language), _t("year", language), _t("inhabitants", language),
+                             _t("polygons_to_check", language)],
+                            [(p["id"], p["year"], n(p["population"]), ", ".join(p["to_check"]) or "–") for p in nuclei]))
+    reclass = [r for r in indicators.get("reclassification") or [] if r["year"] == max(
+        x["year"] for x in indicators.get("reclassification") or [{"year": 0}])]
+    if reclass:
+        parts.append(f"<h3>{_esc(_t('polygons_reclass', language))}</h3>")
+        parts.append(_table([_t("polygons_admin", language), _t("polygons_effect", language)],
+                            [(r["admin"], n(r["effect"])) for r in reclass]))
+    balance = indicators.get("mass_balance") or []
+    if balance:
+        parts.append(f"<h3>{_esc(_t('polygons_balance', language))}</h3>")
+        parts.append(_table([_t("polygons_horizon", language), _t("before", language), _t("after_growth", language),
+                             _t("unallocated", language), _t("after_migration", language),
+                             _t("polygons_gap", language)],
+                            [(f"{b['year_start']} → {b['year_end']}", n(b["start"]), n(b["growth"]),
+                              n(b["unallocated"]), n(b["end"]), n(b["gap"], 3)) for b in balance],
+                            [["", "", "", "", "", "ok" if abs(b["gap"]) < 0.5 else "alert"] for b in balance]))
+    return "".join(parts)
+
+
 def _calibration_section(calibration: Dict[str, Any], language: str) -> str:
     n = lambda v, d=0: "–" if v is None else format_number(float(v), language, d)  # noqa: E731
     roofs = calibration.get("roofs") or {}
@@ -313,6 +391,9 @@ def build_html_report(directory: str, language: Optional[str] = None) -> str:
     parts.append(_population_section(report, language))
     if calibration:
         parts.append(_calibration_section(calibration, language))
+    indicators = _load(os.path.join(directory, "plausibilite.json"))
+    if indicators:
+        parts.append(_polygons_section(indicators, language))
     generated = dt.datetime.now().strftime("%Y-%m-%d %H:%M")
     parts.append(f"<footer>{_esc(_t('footer', language, date=generated, engine=report.get('engine_version', '?'), gdal=report.get('gdal_version', '?')))}</footer>")
     return (f'<!doctype html><html lang="{language}"><head><meta charset="utf-8">'

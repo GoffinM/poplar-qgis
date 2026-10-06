@@ -48,7 +48,9 @@
 
 ## 4 bis. Chantier prioritaire (06/10) : évolution des polygones dans le temps, mode libre
 
-- Plan proposé : `plan_polygones_libres.md` (version 2 du 06/10 : B1, B2, S1 ; fiche §3.5 ajoutée et cohérente, P0 réglé). Points ouverts : P3, P4, P8 à P10, P12 à P14, P16 à P19. **À valider avant tout code.**
+- Plan : `plan_polygones_libres.md`. Étapes 1 à 5 faites (moteur, sorties, indicateurs de plausibilité, comparaison des deux modes, cas Muramvya au banc).
+- Bilan et **décisions demandées** (D1 polygones de départ en taches bâties, D2 réglage des nouveaux noyaux, D3 valeurs par défaut) : `bilan_polygones_libres.md`.
+- Reste l'étape 6 (interface du plugin, maquette d'abord).
 
 ## 5. Catégories qui changent dans le temps : extension urbaine et changements planifiés (après le beta)
 

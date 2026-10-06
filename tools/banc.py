@@ -194,10 +194,48 @@ def case_overture(folder):
             "urban_m2_per_inhabitant": groups["Urbain1"]["area_per_person"]}, seconds
 
 
+FREE_STRATA = {"mode": "free", "classes": {"Rural": {"rank": 1}, "Urbain1": {"rank": 2}}}
+
+
+def case_free(folder):
+    """The example scenario in free strata mode (fiche §3.5), against the same scenario in planned mode.
+
+    The part at capacity asked of the urban polygons is lowered to 25 % (default 80 %): with the default,
+    Muramvya colonises nothing, its urban polygons being whole urban communes (bilan of step 5).
+    """
+    from engine.comparison import compare
+    from engine.plausibility import load
+    from engine.simulation import run
+
+    with open(os.path.join(MURAMVYA, "scenario_muramvya.json"), encoding="utf-8") as handle:
+        parameters = json.load(handle)["parameters"]
+    start = time.perf_counter()
+    free = run(_load("scenario_muramvya.json", os.path.join(folder, "libre"), strata=FREE_STRATA,
+                     parameters={**parameters, "saturation_share": 0.25}))
+    seconds = time.perf_counter() - start
+    planned = run(_load("scenario_muramvya.json", os.path.join(folder, "planifie")))
+    indicators = load(free.directory)
+    speeds = [h["front_speed_m_per_year"] for h in indicators["horizons"]
+              if h["urban"] and h["front_speed_m_per_year"] is not None]
+    last = compare(planned.directory, free.directory)[-1]
+    return {
+        "status": free.status,
+        "population_2060": free.final_population,
+        "same_total_as_planned": abs(free.final_population - planned.final_population) < 1e-6,
+        "colonised_cells": indicators["colonised_cells"],
+        "urban_area_2060": last["urban_area_free_km2"],
+        "urban_area_planned": last["urban_area_planned_km2"],
+        "front_speed_max": max(speeds) if speeds else 0.0,
+        "mass_balance_gap_max": max(abs(b["gap"]) for b in indicators["mass_balance"]),
+        "unallocated": last["unallocated_free"],
+    }, seconds
+
+
 CASES = {
     "muramvya_raster": case_raster,
     "muramvya_toits_classeurs": case_legacy_roofs,
     "muramvya_toits": case_roofs,
+    "muramvya_libre": case_free,
     "telechargement_google": case_download,
     "telechargement_overture": case_overture,
 }

@@ -50,8 +50,10 @@ def urban_rank(table, strata_urban_rank: Optional[int]) -> int:
 
 
 def polygon_stats(history: PolygonHistory, year: float, population: np.ndarray, capacity: np.ndarray,
-                  protected: np.ndarray, polygon_id: np.ndarray, tolerance: float) -> List[dict]:
-    """Area, population, density and share at capacity of each polygon (from the units)."""
+                  protected: np.ndarray, polygon_id: np.ndarray, tolerance: float,
+                  unallocated: Optional[np.ndarray] = None) -> List[dict]:
+    """Area, population, density, share at capacity, cell densities, outline length in cells and population
+    not placed, for each polygon (figures from the units, never from the drawn outlines)."""
     units = history.units
     pid = np.asarray(polygon_id)
     n = len(history.table)
@@ -62,18 +64,39 @@ def polygon_stats(history: PolygonHistory, year: float, population: np.ndarray, 
     full = at_capacity(population, capacity, tolerance)
     habitable_area = np.bincount(pid[habitable], weights=units.area_km2[habitable], minlength=n)
     full_area = np.bincount(pid[habitable & full], weights=units.area_km2[habitable & full], minlength=n)
-    membership = history.membership[int(round(year))].ravel()
+    raster = history.membership[int(round(year))]
+    membership = raster.ravel()
     cells = np.bincount(membership[membership >= 0], minlength=n)
+    left = np.zeros(n) if unallocated is None else np.bincount(pid[known], weights=unallocated[known], minlength=n)
+    cell_area = units.per_cell(units.area_km2).ravel()
+    cell_people = units.per_cell(population).ravel()
+    edges = _outline_edges(raster, n) * units.grid.cell_size
     rows = []
     for polygon in np.flatnonzero(area > 0):
+        inside = (membership == polygon) & (cell_area > 0)
+        densities = cell_people[inside] / cell_area[inside] if inside.any() else np.zeros(1)
+        p10, p50, p90 = (float(v) for v in np.percentile(densities, [10, 50, 90]))
         rows.append({
             "year": float(year), "id": int(polygon), "area_km2": float(area[polygon]),
             "population": float(people[polygon]),
             "density": float(people[polygon] / area[polygon]),
             "saturated_share": float(full_area[polygon] / habitable_area[polygon]) if habitable_area[polygon] else None,
-            "cells": int(cells[polygon]),
+            "cells": int(cells[polygon]), "density_p10": p10, "density_p50": p50, "density_p90": p90,
+            "perimeter_cells_m": float(edges[polygon]), "unallocated": float(left[polygon]),
         })
     return rows
+
+
+def _outline_edges(membership: np.ndarray, n: int) -> np.ndarray:
+    """Number of cell sides on the outline of each polygon (4 neighbours)."""
+    padded = np.pad(membership, 1, constant_values=NO_CELL)
+    centre = padded[1:-1, 1:-1]
+    counts = np.zeros(n)
+    for dr, dc in ((-1, 0), (1, 0), (0, -1), (0, 1)):
+        other = padded[1 + dr:padded.shape[0] - 1 + dr, 1 + dc:padded.shape[1] - 1 + dc]
+        border = (centre >= 0) & (other != centre)
+        counts += np.bincount(centre[border], minlength=n)[:n]
+    return counts
 
 
 def status_raster(history: PolygonHistory, year: float, urban_from: int) -> np.ndarray:
@@ -163,6 +186,8 @@ def _polygons_layer(datasource, srs, history, min_area, passes) -> None:
             if geometry is None:
                 continue
             row = stats.get((year, polygon), {})
+            if row:
+                row["perimeter_smooth_m"] = geometry.Boundary().Length()
             feature = ogr.Feature(layer.GetLayerDefn())
             feature.SetGeometry(geometry)
             feature.SetField("id", int(polygon))
