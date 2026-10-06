@@ -309,6 +309,102 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
     return outcome(new_pid, cells[pair_cell[winners]], pair_poly[winners], pair_inflow[winners])
 
 
+# --- new nuclei (P8/P17) ------------------------------------------------------------------------
+
+
+@dataclass
+class NucleusRules:
+    """Creation of new polygons away from any polygon of the same or a higher rank (off by default).
+
+    A cluster of at least ``min_cells`` touching cells (8 neighbours), all saturated, whose units belong to
+    colonisable strata of a lower rank than ``stratum`` and that touch no polygon of that rank or higher,
+    becomes a new polygon of ``stratum``. It is flagged « to check » when an artificial constraint may
+    explain it: an enclave of habitable land smaller than ``enclave_km2``, or units fed mostly by the
+    migration of the step (inflow / population at least ``migration_share``).
+    """
+
+    enabled: bool = False
+    stratum: Optional[str] = None
+    min_cells: int = 4
+    enclave_km2: float = 5.0
+    migration_share: float = 0.5
+
+
+@dataclass
+class Nucleus:
+    polygon: int
+    cells: np.ndarray
+    population: float
+    flags: List[str]
+
+
+def new_nuclei(units: Units, polygon_id: np.ndarray, table: PolygonTable, population: np.ndarray,
+               capacity: np.ndarray, protected: np.ndarray, inflow: Optional[Inflow], rules: NucleusRules,
+               strata: Dict[str, Stratum], year: float, tolerance: float = 1.0,
+               membership_share: float = 0.5) -> Tuple[np.ndarray, List[Nucleus]]:
+    """New polygons born in this step, if the rule is on; returns the new identifiers of the units."""
+    from scipy import ndimage
+
+    pid = np.asarray(polygon_id, dtype=np.int32)
+    if not rules.enabled or not rules.stratum or rules.stratum not in strata:
+        return pid, []
+    level = strata[rules.stratum].rank
+    if level == NO_RANK:
+        return pid, []
+    grid = units.grid
+    ranks = table.ranks()
+    colonizable = table.colonizables()
+    known = pid >= 0
+    safe = np.where(known, pid, 0)
+    unit_rank = np.where(known, ranks[safe], NO_RANK)
+    candidate = known & ~np.asarray(protected, bool) & colonizable[safe] & (unit_rank != NO_RANK) & (unit_rank < level)
+    full = at_capacity(population, capacity, tolerance)
+    ncells = grid.ncells
+    n_candidates = np.bincount(units.cell_id[candidate], minlength=ncells)
+    n_full = np.bincount(units.cell_id[candidate & full], minlength=ncells)
+    eligible = (n_candidates > 0) & (n_full == n_candidates)
+    membership = cell_membership(units, pid, membership_share).ravel()
+    higher = np.zeros(ncells, dtype=bool)
+    member = membership >= 0
+    higher[member] = ranks[membership[member]] >= level
+    near = ndimage.binary_dilation(higher.reshape(grid.nrows, grid.ncols), structure=np.ones((3, 3), bool))
+    eligible &= ~near.ravel()
+    labels, count = ndimage.label(eligible.reshape(grid.nrows, grid.ncols), structure=np.ones((3, 3), bool))
+    if count == 0:
+        return pid, []
+    sizes = np.bincount(labels.ravel(), minlength=count + 1)
+    big = np.flatnonzero(sizes >= max(1, rules.min_cells))
+    big = big[big > 0]
+    if len(big) == 0:
+        return pid, []
+    habitable = np.zeros(ncells, dtype=bool)
+    habitable[units.cell_id[~np.asarray(protected, bool)]] = True
+    land, _ = ndimage.label(habitable.reshape(grid.nrows, grid.ncols), structure=np.ones((3, 3), bool))
+    land_area = np.bincount(land.ravel(), weights=units.per_cell(units.area_km2).ravel(), minlength=land.max() + 1)
+    received = np.zeros(len(pid))
+    if inflow is not None and len(inflow.keys):
+        unit, _ = np.divmod(inflow.keys, inflow.nlabels)
+        np.add.at(received, unit, inflow.amounts)
+    new_pid = pid.copy()
+    found = []
+    flat = labels.ravel()
+    for label in big:
+        cells = np.flatnonzero(flat == label)
+        members = np.isin(units.cell_id, cells) & candidate
+        parents = pid[members]
+        parent = int(np.bincount(parents).argmax()) if len(parents) else NO_POLYGON
+        polygon = table.add(rules.stratum, strata, parent=parent, created=year)
+        new_pid[members] = polygon
+        flags = []
+        if land_area[land.ravel()[cells[0]]] < rules.enclave_km2:
+            flags.append("enclave")
+        people = float(population[members].sum())
+        if people > 0 and received[members].sum() / people >= rules.migration_share:
+            flags.append("migration")
+        found.append(Nucleus(polygon, cells, people, flags))
+    return new_pid, found
+
+
 @dataclass
 class PolygonHistory:
     """What the free mode did during a run: the state, its changes, and views for the outputs."""
@@ -323,3 +419,8 @@ class PolygonHistory:
     """Polygon of each cell (raster) at the start and at each output year."""
     reclassification: Optional[np.ndarray] = None
     """Population added per unit by the change of growth rate of colonised units (plan §4, S1)."""
+    ids: Dict[int, np.ndarray] = field(default_factory=dict)
+    """Polygon of each unit at the start and at each output year."""
+    stats: List[dict] = field(default_factory=list)
+    """Per polygon and output year: area, population, density, share at capacity, cells."""
+    start_year: int = 0

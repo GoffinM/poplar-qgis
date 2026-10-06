@@ -36,7 +36,12 @@ SHORT = {
     "population": "pop", "density": "den", "capacity": "cap", "unallocated": "nrl",
     "water_domestic": "wdom", "water_consumption_mean": "wcon", "water_production_mean": "wpro",
     "water_production_peak_day": "wpjr", "water_peak_hour": "wphr",
+    "polygon_id": "poly", "statut": "stat",
 }
+WHOLE = {"population", "polygon_id", "statut", "annee_colonisation"}
+"""Quantities written as whole numbers."""
+SINGLE = {"annee_colonisation": "an_colon"}
+"""Rasters written once per run (no year in their name)."""
 ORDER = list(SHORT)
 _RASTER = re.compile(r"^(?P<quantity>[a-z_]+)_(?P<year>\d{4}(?:\.\d+)?)\.tif$")
 BATCH = 20_000
@@ -50,7 +55,11 @@ def outputs_in(directory: str) -> Dict[str, List[str]]:
         if match:
             found.setdefault(match.group("quantity"), []).append(match.group("year"))
     ordered = sorted(found, key=lambda q: (ORDER.index(q) if q in ORDER else len(ORDER), q))
-    return {q: sorted(found[q], key=float) for q in ordered}
+    result = {q: sorted(found[q], key=float) for q in ordered}
+    for quantity in SINGLE:
+        if os.path.isfile(os.path.join(directory, f"{quantity}.tif")):
+            result[quantity] = [""]
+    return result
 
 
 def _largest_part(units: Units, layer: str) -> Dict[int, str]:
@@ -65,7 +74,13 @@ def _largest_part(units: Units, layer: str) -> Dict[int, str]:
 
 
 def _short_name(quantity: str, year: str) -> str:
+    if quantity in SINGLE:
+        return SINGLE[quantity]
     return (SHORT.get(quantity, quantity[:4]) + year.replace(".", "_"))[:10]
+
+
+def _raster_name(quantity: str, year: str) -> str:
+    return f"{quantity}_{year}.tif" if year else f"{quantity}.tif"
 
 
 @dataclass
@@ -133,7 +148,7 @@ def write_grid_layer(directory: str, units, fmt: str = GPKG, density_unit: str =
     columns: List[Tuple[str, str, str, np.ndarray]] = []            # (quantity, year, unit, values of the cells)
     for quantity, years in outputs.items():
         for year in years:
-            values = read_raster(os.path.join(directory, f"{quantity}_{year}.tif")).values[rows, cols]
+            values = read_raster(os.path.join(directory, _raster_name(quantity, year))).values[rows, cols]
             unit = density_unit if quantity == "density" else (units_of or {}).get(quantity, "")
             columns.append((quantity, year, unit, values))
     written = []
@@ -159,9 +174,9 @@ def _write(path, kind, grid, rows, cols, area, classes, admins, columns) -> None
                   ("area_km2", ogr.OFTReal), ("class", ogr.OFTString), ("admin", ogr.OFTString)]
         names = []
         for quantity, year, _, _ in columns:
-            name = f"{quantity}_{year}" if kind == GPKG else _short_name(quantity, year)
+            name = (f"{quantity}_{year}" if year else quantity) if kind == GPKG else _short_name(quantity, year)
             names.append(name)
-            fields.append((name, ogr.OFTInteger if quantity == "population" else ogr.OFTReal))
+            fields.append((name, ogr.OFTInteger if quantity in WHOLE else ogr.OFTReal))
         for name, field_type in fields:
             definition = ogr.FieldDefn(name, field_type)
             if field_type == ogr.OFTString:
@@ -174,7 +189,7 @@ def _write(path, kind, grid, rows, cols, area, classes, admins, columns) -> None
         data = []
         for name, (quantity, _, _, values) in zip(names, columns):
             as_list = values.tolist()
-            if quantity == "population":
+            if quantity in WHOLE:
                 as_list = [None if v != v else int(round(v)) for v in as_list]
             data.append((index[name], as_list))
         row_list, col_list, area_list = rows.tolist(), cols.tolist(), area.tolist()

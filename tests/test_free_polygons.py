@@ -162,3 +162,101 @@ def test_front_keeps_moving_after_the_first_ring(tmp_path):
     assert years[0] == 2025 and len(years) >= 4 and years[-1] > 2035
     assert all(b - a >= 2 for a, b in zip(years, years[1:]))      # a pause while the new cells fill
     assert sum(step.unallocated for step in result.steps) == 0
+
+
+# --- Outputs (step 4, plan §5) ---------------------------------------------------------------------
+
+
+def _layer(path, name):
+    from osgeo import ogr
+
+    datasource = ogr.Open(path)
+    layer = datasource.GetLayerByName(name)
+    return datasource, layer
+
+
+def test_outputs_of_the_free_mode(tmp_path):
+    from osgeo import ogr
+
+    result = run(load_scenario(square_city_world(str(tmp_path), years=2)))
+    out = result.directory
+    for name in ("polygon_id_2025.tif", "polygon_id_2025.qml", "statut_2025.tif", "annee_colonisation.tif",
+                 "polygones.gpkg", "polygones_legende.csv", "mailles.gpkg"):
+        assert os.path.isfile(os.path.join(out, name)), name
+    city = result.polygons.table.stratum.index("U")
+    ids = read_raster(os.path.join(out, "polygon_id_2025.tif")).values
+    assert ids[8, 10] == city and ids[10, 10] == city and ids[8, 9] != city
+    status = read_raster(os.path.join(out, "statut_2025.tif")).values
+    assert status[10, 10] == 1 and status[8, 10] == 2 and status[8, 9] == 0 and status[10, 12] == 9
+    years = read_raster(os.path.join(out, "annee_colonisation.tif")).values
+    assert years[8, 10] == 2025 and years[10, 10] == 0 and years[0, 0] == 0
+
+    datasource, layer = _layer(os.path.join(out, "polygones.gpkg"), "polygones")
+    features = {(f.GetField("annee"), f.GetField("strate")): f.Clone() for f in layer}
+    city_2025 = features[(2025, "U")]
+    assert city_2025.GetField("mailles") == 12
+    assert city_2025.GetField("surface_km2") == pytest.approx(12 * 0.0625)
+    assert city_2025.GetField("population") > 12 * 156
+    smoothed = city_2025.GetGeometryRef()
+    assert smoothed.GetArea() / 1e6 == pytest.approx(12 * 0.0625, rel=0.15)      # display only, close to the cells
+    rural = features[(2025, "R")].GetGeometryRef()
+    assert smoothed.Intersection(rural).GetArea() < 1.0                           # a common border, no overlap
+
+    _, extensions = _layer(os.path.join(out, "polygones.gpkg"), "extensions")
+    gained = [(f.GetField("strate"), f.GetField("annee_debut"), f.GetField("annee_fin"), f.GetField("mailles"))
+              for f in extensions]
+    assert ("U", 2024, 2025, 3) in gained
+    _, genealogy = _layer(os.path.join(out, "polygones.gpkg"), "genealogie")
+    rows = [(f.GetField("id"), f.GetField("annee"), f.GetField("evenement"), f.GetField("mailles")) for f in genealogy]
+    assert (city, 2024, "initial", 9) in rows
+    assert (city, 2025, "extension", 3) in rows
+    datasource = None
+
+    cells, layer_fields = _layer(os.path.join(out, "mailles.gpkg"), "mailles")
+    names = [layer_fields.GetLayerDefn().GetFieldDefn(i).GetName()
+             for i in range(layer_fields.GetLayerDefn().GetFieldCount())]
+    assert {"polygon_id_2025", "statut_2025", "annee_colonisation"} <= set(names)
+    assert layer_fields.GetLayerDefn().GetFieldDefn(names.index("polygon_id_2025")).GetType() == ogr.OFTInteger
+
+
+def test_new_nuclei_are_off_by_default_and_said_so(tmp_path):
+    result = run(load_scenario(square_city_world(str(tmp_path), years=3)))
+    assert all(event.get("event") == "extension" for event in result.polygons.events)
+    assert "strata_nuclei_off" in [w.code for w in result.warnings]
+
+
+def test_new_nucleus_rule_needs_a_known_stratum(tmp_path):
+    from engine.scenario import ScenarioError
+
+    path = square_city_world(str(tmp_path))
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    data["strata"]["new_nuclei"] = {"enabled": True, "stratum": "Ville"}
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(data, handle)
+    with pytest.raises(ScenarioError):
+        load_scenario(path)
+
+
+def test_a_saturated_cluster_far_from_the_city_becomes_a_new_nucleus(tmp_path):
+    """Rural cells already full on a 3 x 3 block in a corner; the rule creates a new urban polygon there."""
+    density = np.full((21, 21), 1000.0)
+    density[9:12, 9:12] = 10000.0
+    density[1:4, 1:4] = 2500.0                                  # at the rural maximum density
+    city = box(9, 9, 12, 12, CELL)
+    rural = box(0, 0, 21, 21, CELL).Difference(city)
+    strata = {**FREE, "new_nuclei": {"enabled": True, "stratum": "U", "min_cells": 4}}
+    path = make_world(str(tmp_path), density, cell=CELL, zones=[(city, "U"), (rural, "R")],
+                      parameters={**PARAMETERS, "growth_rate": {"U": 5.0, "R": 1.0}}, strata=strata,
+                      time={"base_year": 2024, "end_year": 2026, "time_step": 1, "first_migration_year": 2025},
+                      migration={"k": 3, "tolerance": 1, "policy": "unallocated"})
+    result = run(load_scenario(path))
+    nuclei = [e for e in result.polygons.events if e["event"] == "nouveau_noyau"]
+    assert nuclei and {(e["row"], e["col"]) for e in nuclei} <= {(r, c) for r in range(0, 5) for c in range(0, 5)}
+    polygon = nuclei[0]["polygon"]
+    table = result.polygons.table
+    assert table.stratum[polygon] == "U" and table.created[polygon] == 2025
+    assert table.parent[polygon] == table.stratum.index("R")
+    status = read_raster(os.path.join(result.directory, "statut_2025.tif")).values
+    assert status[2, 2] == 3
+    assert "strata_nuclei_on" in [w.code for w in result.warnings]

@@ -292,5 +292,8 @@
   "strata_cell_size": "Strates libres : la maille est de {size} m, et non de 250 m (maille de référence). Le plafond de vitesse des fronts ({size} m/an) et la règle des voisines en dépendent.",
   "strata_reclassification": "Strates libres : les TCAM diffèrent entre strates et aucun recalage par commune n'est activé. Les totaux peuvent s'écarter des projections par effet de reclassement (voir les indicateurs de plausibilité).",
   "strata_colonised": "{year} : {cells} maille(s) colonisée(s).",
-  "conservation_failed": "Arrêt en {year} : la population n'est pas conservée ({difference} habitants d'écart). C'est une erreur du moteur, à signaler."
+  "conservation_failed": "Arrêt en {year} : la population n'est pas conservée ({difference} habitants d'écart). C'est une erreur du moteur, à signaler.",
+  "strata_nuclei_on": "Strates libres : règle des nouveaux noyaux activée (strate « {stratum} », au moins {cells} mailles contiguës saturées).",
+  "strata_nuclei_off": "Strates libres : règle des nouveaux noyaux désactivée (réglage par défaut) ; seules les extensions des polygones existants sont possibles.",
+  "polygon_outputs_failed": "Les couches des polygones (polygones.gpkg) n'ont pas pu être écrites : {detail}"
 }

@@ -292,5 +292,8 @@
   "strata_cell_size": "Free strata: the cell size is {size} m, not 250 m (the reference). The speed cap of the fronts ({size} m/year) and the neighbour rule depend on it.",
   "strata_reclassification": "Free strata: the growth rates differ between strata and no recalibration by administrative unit is on. Totals may drift away from the projections through reclassification (see the plausibility indicators).",
   "strata_colonised": "{year}: {cells} cell(s) colonised.",
-  "conservation_failed": "Stopped in {year}: the population is not conserved (difference of {difference} inhabitants). This is an engine error, to be reported."
+  "conservation_failed": "Stopped in {year}: the population is not conserved (difference of {difference} inhabitants). This is an engine error, to be reported.",
+  "strata_nuclei_on": "Free strata: rule of the new nuclei on (stratum \"{stratum}\", at least {cells} touching saturated cells).",
+  "strata_nuclei_off": "Free strata: rule of the new nuclei off (the default); only the existing polygons can grow.",
+  "polygon_outputs_failed": "The polygon layers (polygones.gpkg) could not be written: {detail}"
 }

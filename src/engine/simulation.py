@@ -31,8 +31,9 @@ from .html_report import write_html_report
 from .outputs import summary_rows, write_summary, write_year_rasters
 from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
-from .polygons import (NO_POLYGON, NO_RANK, ColonisationRules, PolygonHistory, Stratum, cell_membership, colonise,
-                       initial_polygons, part_layer)
+from .polygons import (NO_POLYGON, NO_RANK, ColonisationRules, NucleusRules, PolygonHistory, Stratum,
+                       cell_membership, colonise, initial_polygons, new_nuclei, part_layer)
+from . import polygon_outputs
 from ._gdal import srs_from_epsg, srs_from_wkt
 from .crs import choose_crs, native_pixel_m, population_to_density, reproject_density
 from .raster_io import read_raster
@@ -144,8 +145,13 @@ def run(
 
     def write(year: float) -> None:
         if history is not None:
-            history.membership[int(round(year))] = cell_membership(units, model.polygon_id,
-                                                                   scenario.strata.cell_membership_share)
+            key = int(round(year))
+            history.membership[key] = cell_membership(units, model.polygon_id, scenario.strata.cell_membership_share)
+            history.ids[key] = model.polygon_id.copy()
+            history.stats.extend(polygon_outputs.polygon_stats(
+                history, year, population, capacity_now, units.no_inflow | dated_no_inflow | evacuated,
+                model.polygon_id, scenario.migration.tolerance))
+            outputs.extend(polygon_outputs.write_year(out_dir, history, year, model.urban_rank))
         indicator_values = model.indicator_values(population, year)
         outputs.extend(write_year_rasters(out_dir, year, units, population, unallocated, capacity_now,
                                           scenario.density_unit, indicator_values))
@@ -230,6 +236,14 @@ def run(
         if progress is not None:
             progress((index + 1) / len(timeline))
 
+    if history is not None:
+        history.final = model.polygon_id.copy()
+        try:  # display layers of the polygons: a failure is a warning, the results are in the rasters
+            outputs.extend(polygon_outputs.write_final(out_dir, history, scenario.cell_size,
+                                                       scenario.strata.min_patch_area_km2,
+                                                       scenario.strata.smoothing_passes))
+        except Exception as error:  # pragma: no cover
+            warnings.append(message("polygon_outputs_failed", detail=str(error)))
     summary_path = os.path.join(out_dir, "summary.csv")
     write_summary(summary_path, rows, language, model.column_units(scenario))
     outputs.append(summary_path)
@@ -240,8 +254,6 @@ def run(
                                         model.column_units(scenario)))
     except Exception as error:  # pragma: no cover
         warnings.append(message("grid_layer_failed", detail=str(error)))
-    if history is not None:
-        history.final = model.polygon_id.copy()
     result = RunResult(status, steps, warnings, outputs, out_dir, float(population.sum()), float(base_start), events,
                        failure, failure_year, history)
     _write_run_report(scenario, result, model, clock.time() - started)
@@ -500,12 +512,20 @@ class _Model:
         codes[known] = [labels.index(self.polygons.stratum[p]) for p in self.polygon_id[known]]
         self.initial_class = codes.copy()
         self.warnings.append(message("strata_free_mode", polygons=len(self.polygons), neighbors=strata.min_neighbors))
+        self.stratum_rules = rules
+        self.nucleus_rules = NucleusRules(**strata.new_nuclei)
+        self.urban_rank = polygon_outputs.urban_rank(self.polygons, strata.urban_rank)
+        if self.nucleus_rules.enabled:
+            self.warnings.append(message("strata_nuclei_on", stratum=self.nucleus_rules.stratum,
+                                         cells=self.nucleus_rules.min_cells))
+        else:
+            self.warnings.append(message("strata_nuclei_off"))
         if abs(scenario.cell_size - 250.0) > 1e-6:
             self.warnings.append(message("strata_cell_size", size=f"{scenario.cell_size:g}"))
 
     def start_history(self, year: float) -> PolygonHistory:
         return PolygonHistory(self.units, self.polygons, self.polygon_id.copy(), self.polygon_id.copy(),
-                              reclassification=np.zeros(len(self.units)))
+                              reclassification=np.zeros(len(self.units)), start_year=int(round(year)))
 
     def colonization_values(self, year: float) -> Tuple[np.ndarray, np.ndarray]:
         """Minimum inflow and saturation share of each polygon, from its stratum."""
@@ -525,18 +545,32 @@ class _Model:
                                   float(self.settings_tolerance), self.strata.min_inflow_unit)
         result = colonise(self.units, self.polygon_id, self.polygons, population, capacity, protected, inflow,
                           min_inflow, saturation_share, rules)
-        if len(result.cells) == 0:
-            return 0
-        self.polygon_id = result.polygon_id
-        changed = np.flatnonzero(result.changed)
-        labels = self.units.labels["class"]
-        self.units.codes["class"][changed] = [labels.index(self.polygons.stratum[p]) for p in self.polygon_id[changed]]
-        self.units.__dict__.pop("_combination_cache", None)        # parameters follow the new strata
+        before = self.polygon_id
         ncols = self.units.grid.ncols
+        cell_population = np.bincount(self.units.cell_id, weights=np.where(result.changed, population, 0.0),
+                                      minlength=self.units.grid.ncells)
         for cell, polygon, exported in zip(result.cells, result.winners, result.exported):
             history.events.append({"year": float(year), "cell": int(cell), "row": int(cell // ncols),
-                                   "col": int(cell % ncols), "polygon": int(polygon), "exported": float(exported)})
-        return len(result.cells)
+                                   "col": int(cell % ncols), "polygon": int(polygon), "event": "extension",
+                                   "exported": float(exported), "population": float(cell_population[cell])})
+        pid, nuclei = new_nuclei(self.units, result.polygon_id, self.polygons, population, capacity, protected,
+                                 inflow, self.nucleus_rules, self.stratum_rules, year, float(self.settings_tolerance),
+                                 self.strata.cell_membership_share)
+        for nucleus in nuclei:
+            for cell in nucleus.cells:
+                cell = int(cell)
+                history.events.append({"year": float(year), "cell": cell, "row": cell // ncols, "col": cell % ncols,
+                                       "polygon": nucleus.polygon, "event": "nouveau_noyau",
+                                       "population": float(population[self.units.cell_id == cell].sum()),
+                                       "flags": nucleus.flags})
+        changed = np.flatnonzero(pid != before)
+        if len(changed) == 0:
+            return 0
+        self.polygon_id = pid
+        labels = self.units.labels["class"]
+        self.units.codes["class"][changed] = [labels.index(self.polygons.stratum[p]) for p in pid[changed]]
+        self.units.__dict__.pop("_combination_cache", None)        # parameters follow the new strata
+        return len(result.cells) + sum(len(n.cells) for n in nuclei)
 
     def measure_reclassification(self, history: PolygonHistory, population, rates, step) -> None:
         """Population that the change of growth rate of colonised units adds in this step (S1)."""

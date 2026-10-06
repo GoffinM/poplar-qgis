@@ -119,6 +119,13 @@ class StrataSettings:
     cell_membership_share: float = 0.5
     min_inflow_unit: str = "share_of_capacity"
     classes: Dict[str, StratumSettings] = field(default_factory=dict)
+    urban_rank: Optional[int] = None
+    """Rank from which a polygon is urban, for the status rasters (default: the second lowest rank)."""
+    min_patch_area_km2: Optional[float] = None
+    """Smallest part drawn in the smoothed polygons (default: one cell); display only (P18)."""
+    smoothing_passes: int = 2
+    new_nuclei: Dict[str, Any] = field(default_factory=dict)
+    """Rule of the new nuclei (P8/P17), off by default: enabled, stratum, min_cells, enclave_km2, migration_share."""
 
     @property
     def free(self) -> bool:
@@ -334,7 +341,10 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
             strata = StrataSettings(
                 mode=str(strata_data.get("mode", PLANNED)), min_neighbors=strata_data.get("min_neighbors", 3),
                 cell_membership_share=strata_data.get("cell_membership_share", 0.5),
-                min_inflow_unit=str(strata_data.get("min_inflow_unit", "share_of_capacity")), classes=classes)
+                min_inflow_unit=str(strata_data.get("min_inflow_unit", "share_of_capacity")), classes=classes,
+                urban_rank=strata_data.get("urban_rank"), min_patch_area_km2=strata_data.get("min_patch_area_km2"),
+                smoothing_passes=strata_data.get("smoothing_passes", 2),
+                new_nuclei=dict(strata_data.get("new_nuclei") or {}))
 
     if errors or time is None or study_area is None or typology is None:
         raise ScenarioError(errors or [message("scenario_missing_key", key="time")])
@@ -467,6 +477,14 @@ def _validate_strata(strata: StrataSettings) -> List[Message]:
         if rules.rank is not None and (not isinstance(rules.rank, int) or isinstance(rules.rank, bool)
                                        or rules.rank < 0):
             invalid(f"classes.{name}.rank", rules.rank, "0, 1, 2…")
+    if not isinstance(strata.smoothing_passes, int) or not 0 <= strata.smoothing_passes <= 5:
+        invalid("smoothing_passes", strata.smoothing_passes, "0…5")
+    nuclei = strata.new_nuclei
+    unknown = set(nuclei) - {"enabled", "stratum", "min_cells", "enclave_km2", "migration_share"}
+    if unknown:
+        invalid("new_nuclei", ", ".join(sorted(unknown)), "enabled, stratum, min_cells, enclave_km2, migration_share")
+    if nuclei.get("enabled") and nuclei.get("stratum") not in strata.classes:
+        invalid("new_nuclei.stratum", nuclei.get("stratum"), " | ".join(strata.classes) or "a class of strata.classes")
     if strata.free and not any(rules.rank is not None for rules in strata.classes.values()):
         errors.append(message("scenario_missing_key", key="strata.classes.<class>.rank"))
     return errors

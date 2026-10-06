@@ -312,3 +312,62 @@ def test_part_layer_cuts_cells_like_the_typology():
     assert np.array_equal(with_part.cell_id, without.cell_id)
     assert np.allclose(with_part.area_km2, without.area_km2)
     assert PART_LAYER in with_part.codes
+
+
+# --- New nuclei (P8/P17) ----------------------------------------------------------------------------
+
+
+def test_new_nucleus_with_its_flags():
+    from engine.polygons import NucleusRules, new_nuclei
+
+    units, pid, table = square_city()
+    population, capacity = state(units, pid, table, rural_fill=100.0)
+    block = np.concatenate([cell_units(units, r, c) for r in range(1, 3) for c in range(1, 3)])
+    population[block] = capacity[block]                           # a full 2 x 2 block far from the city
+    rules = NucleusRules(enabled=True, stratum="U", min_cells=4, enclave_km2=50.0)
+    new_pid, found = new_nuclei(units, pid, table, population, capacity, units.no_inflow, None, rules, STRATA, 2030)
+    assert len(found) == 1 and len(found[0].cells) == 4
+    assert (new_pid[block] == found[0].polygon).all() and table.stratum[found[0].polygon] == "U"
+    assert found[0].flags == ["enclave"]                          # 21 x 21 cells = 27.6 km2 < 50 km2
+    rules = NucleusRules(enabled=True, stratum="U", min_cells=5)
+    assert new_nuclei(units, pid, table, population, capacity, units.no_inflow, None, rules, STRATA, 2030)[1] == []
+
+
+def test_no_nucleus_next_to_the_city_nor_when_the_rule_is_off():
+    from engine.polygons import NucleusRules, new_nuclei
+
+    units, pid, table = square_city()
+    population, capacity = state(units, pid, table)                # everything full, city included
+    found = new_nuclei(units, pid, table, population, capacity, units.no_inflow, None,
+                       NucleusRules(enabled=True, stratum="U", min_cells=4), STRATA, 2030)[1]
+    cells = [divmod(int(x), 21) for n in found for x in n.cells]
+    assert cells and all(not (8 <= r <= 12 and 8 <= c <= 12) for r, c in cells)      # never next to the city
+    assert new_nuclei(units, pid, table, population, capacity, units.no_inflow, None, NucleusRules(), STRATA,
+                      2030)[1] == []
+
+
+# --- Smoothing and contacts (plan §5) ---------------------------------------------------------------
+
+
+def test_chaikin_keeps_fixed_vertices_and_straight_fixed_edges():
+    from engine.polygon_outputs import _chaikin
+
+    square = [(0.0, 0.0), (4.0, 0.0), (4.0, 4.0), (0.0, 4.0)]
+    points, flags = _chaikin(square, [True, True, False, False])
+    assert (0.0, 0.0) in points and (4.0, 0.0) in points
+    assert all(not (0 < x < 4 and y == 0.0) for x, y in points)    # the fixed edge stays straight
+    assert len(points) == 2 + 4 and flags.count(True) == 2
+
+
+def test_contact_between_two_polygons_of_the_same_rank():
+    from engine.polygon_outputs import _contacts
+    from engine.polygons import PolygonHistory, PolygonTable
+
+    table = PolygonTable()
+    for name in ("U", "U", "R"):
+        table.add(name, STRATA)
+    apart = np.array([[0, 2, 1], [2, 2, 2]])
+    touching = np.array([[0, 1, 1], [2, 2, 2]])
+    history = PolygonHistory(None, table, None, None, membership={2024: apart, 2030: touching}, start_year=2024)
+    rows = _contacts(history)
+    assert [(r["id"], r["autre_id"], r["annee"]) for r in rows] == [(0, 1, 2030)]
