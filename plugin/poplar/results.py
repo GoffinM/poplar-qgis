@@ -12,7 +12,11 @@ from qgis.PyQt.QtGui import QColor
 from .i18n import tr
 
 QUANTITIES = ["population", "density", "capacity", "unallocated", "water_domestic", "water_consumption_mean",
-              "water_production_mean", "water_production_peak_day", "water_peak_hour"]
+              "water_production_mean", "water_production_peak_day", "water_peak_hour", "statut", "polygon_id"]
+STATUS = [(0, "#e5ece9", "status.0"), (1, "#1f6f6a", "status.1"), (2, "#c98a36", "status.2"),
+          (3, "#a4452a", "status.3"), (9, "#9aaeab", "status.9")]
+"""Codes of the urban status rasters (fiche §3.4) and their colours."""
+RANK_COLOURS = ["#dfe7e4", "#f1dfbd", "#e0a85a", "#c98a36", "#1f6f6a", "#14504c", "#0c3431"]
 RAMPS = {
     "population": ("#fbf3d6", "#7c2f2a"),
     "density": ("#fbf3d6", "#7c2f2a"),
@@ -53,7 +57,12 @@ def load_rasters(directory, quantities, years, group_name, visible=None):
             layer = QgsRasterLayer(path, f"{quantity} {year}")
             if not layer.isValid():
                 continue
-            style_layer(layer, quantity)
+            if quantity == "polygon_id":
+                layer.loadNamedStyle(os.path.splitext(path)[0] + ".qml")    # written by the run
+            elif quantity == "statut":
+                style_status(layer)
+            else:
+                style_layer(layer, quantity)
             project.addMapLayer(layer, False)
             node = group.insertLayer(0, layer)
             if visible is not None:
@@ -159,3 +168,70 @@ def style_layer(layer, quantity, classes=6):
     renderer.setClassificationMax(high)
     layer.setRenderer(renderer)
     layer.triggerRepaint()
+
+
+def style_status(layer):
+    """Paletted colours of the urban status (0 not urban … 9 exclusion)."""
+    from qgis.core import QgsPalettedRasterRenderer
+
+    classes = [QgsPalettedRasterRenderer.Class(code, QColor(colour), tr(label)) for code, colour, label in STATUS]
+    layer.setRenderer(QgsPalettedRasterRenderer(layer.dataProvider(), 1, classes))
+    layer.triggerRepaint()
+
+
+def load_polygon_layers(directory, group_name, year):
+    """Free strata mode: smoothed polygons of ``year`` (ticked), extensions and year of colonisation (not ticked).
+
+    Returns the layers added (none when the run was in planned mode).
+    """
+    import csv
+
+    from qgis.core import (QgsCategorizedSymbolRenderer, QgsFillSymbol, QgsRendererCategory, QgsVectorLayer)
+
+    path = os.path.join(directory, "polygones.gpkg")
+    if not os.path.exists(path):
+        return []
+    ranks = {}
+    legend = os.path.join(directory, "polygones_legende.csv")
+    if os.path.exists(legend):
+        with open(legend, encoding="utf-8-sig") as handle:
+            for row in csv.DictReader(handle, delimiter=";"):
+                ranks[row["strate"]] = int(row["rang"])
+    project = QgsProject.instance()
+    root = project.layerTreeRoot()
+    group = root.findGroup(group_name) or root.insertGroup(0, group_name)
+    added = []
+    polygons = QgsVectorLayer(f"{path}|layername=polygones", tr("results.polygons_layer", year=year), "ogr")
+    if polygons.isValid():
+        polygons.setSubsetString(f'"annee" = {int(float(year))}')
+        order = sorted(set(ranks.values()))
+        categories = []
+        for stratum, rank in sorted(ranks.items(), key=lambda item: item[1]):
+            colour = RANK_COLOURS[min(order.index(rank), len(RANK_COLOURS) - 1)] if rank in order else "#dfe7e4"
+            symbol = QgsFillSymbol.createSimple({"color": colour, "outline_color": "60,60,60,160",
+                                                 "outline_width": "0.2"})
+            categories.append(QgsRendererCategory(stratum, symbol, stratum))
+        if categories:
+            polygons.setRenderer(QgsCategorizedSymbolRenderer("strate", categories))
+        project.addMapLayer(polygons, False)
+        group.insertLayer(0, polygons)
+        added.append(polygons)
+    extensions = QgsVectorLayer(f"{path}|layername=extensions", tr("results.extensions_layer"), "ogr")
+    if extensions.isValid():
+        extensions.renderer().setSymbol(QgsFillSymbol.createSimple(
+            {"color": "201,138,54,140", "outline_color": "164,69,42,200", "outline_width": "0.3"}))
+        project.addMapLayer(extensions, False)
+        group.insertLayer(1, extensions).setItemVisibilityChecked(False)
+        added.append(extensions)
+    years = os.path.join(directory, "annee_colonisation.tif")
+    if os.path.exists(years):
+        layer = QgsRasterLayer(years, tr("results.colonisation_year_layer"))
+        if layer.isValid():
+            from qgis.core import QgsRasterRange
+
+            layer.dataProvider().setUserNoDataValue(1, [QgsRasterRange(0, 0)])     # 0: never colonised
+            style_layer(layer, "annee_colonisation")
+            project.addMapLayer(layer, False)
+            group.insertLayer(2, layer).setItemVisibilityChecked(False)
+            added.append(layer)
+    return added

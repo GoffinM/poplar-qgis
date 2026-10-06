@@ -3,6 +3,17 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.8.0 – 06/10/2026 : polygones qui évoluent dans le temps (mode libre)
+
+- **Onglet Strates** (fiche §3.5) : mode **Planifié** (par défaut, résultats identiques à l'outil actuel) ou **Libre**. En mode libre, un polygone saturé déborde sur ses voisines, qui prennent son identité et ses paramètres ; la vitesse des fronts est un résultat.
+  - Règles : maille saturée, export minimal du colonisateur, part saturée du colonisateur, 3 voisines sur 8, rang supérieur ; exclusions et strates non colonisables protégées ; une couronne au plus par an ; pas interne annuel.
+  - Rangs, colonisable, flux minimal et part saturée par strate ; nouveaux noyaux (désactivés par défaut, 16 mailles minimum, diagnostic « à vérifier »).
+- **Taches bâties** : bouton **Préparer les taches bâties…** (carte, tableau, seuils) qui remplace la typologie administrative par les taches denses (1 500 hab/km², 5 000 habitants) et une strate Transition ; retour possible à la typologie d'origine. En ligne de commande : `python -m engine patches`.
+- **Sorties du mode libre** : `polygon_id_AAAA.tif`, `statut_AAAA.tif`, `annee_colonisation.tif`, `polygones.gpkg` (polygones lissés, extensions, généalogie), champs de `mailles.gpkg`, `plausibilite.csv` (vitesse des fronts, étalement ou densification, compacité, nouveaux noyaux, effet de reclassement, bilan de masse) et section du rapport.
+- **Comparaison des deux modes** : bouton **Comparer avec un calcul planifié…** (onglet Résultats) et `python -m engine compare`.
+- Contrôle de conservation de la population à chaque pas, dans les deux modes.
+- Banc de non-régression : cas `muramvya_libre`. Aide : page « Strates ». Liste de vérification : section 2 bis.
+
 ## 0.7.2 – 30/09/2026
 
 - **Overture deux fois plus rapide** : les bâtiments sont traités par paquets de 5 000, au lieu d'un par un. Pour Muramvya, on passe ici de 25 s à 12,5 s, avec exactement les mêmes bâtiments.

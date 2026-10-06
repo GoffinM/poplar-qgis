@@ -170,10 +170,7 @@ def prepare(scenario_path: str, rules: PatchRules = PatchRules(), output: Option
     folder = output or os.path.dirname(os.path.abspath(scenario_path))
     os.makedirs(folder, exist_ok=True)
     gpkg = os.path.join(folder, GPKG)
-    crs = units.grid.crs_wkt
-    study = union_all(f.geometry for f in _features(scenario, scenario.study_area, crs))
-    typology = _features(scenario, scenario.typology, crs)
-    _write_typology(gpkg, units.grid, study, typology, scenario.typology.field, result, rules)
+    write_typology(gpkg, scenario, units, result, rules)
     with open(scenario_path, encoding="utf-8") as handle:
         data = json.load(handle)
     copy = scenario_copy(data, os.path.relpath(gpkg, os.path.dirname(os.path.abspath(scenario_path)))
@@ -192,6 +189,15 @@ def prepare(scenario_path: str, rules: PatchRules = PatchRules(), output: Option
                    "outside_urban_limits": [p.id for p in result.patches if p.inside_share < 0.5]},
                   handle, ensure_ascii=False, indent=2)
     return {"typology": gpkg, "scenario": copy_path, "report": report_path}
+
+
+def write_typology(path: str, scenario, units, result: PatchResult, rules: PatchRules) -> str:
+    """Write ``typologie_taches.gpkg`` (layer ``typologie``) for the patches found on these units."""
+    crs = units.grid.crs_wkt
+    study = union_all(f.geometry for f in _features(scenario, scenario.study_area, crs))
+    typology = _features(scenario, scenario.typology, crs)
+    _write_typology(path, units.grid, study, typology, scenario.typology.field, result, rules)
+    return path
 
 
 def _features(scenario, spec, crs):
@@ -249,15 +255,34 @@ def _write_typology(path, grid, study, typology, field_name, result: PatchResult
 
 def scenario_copy(data: Dict[str, Any], typology_source: str, scenario, result: PatchResult,
                   rules: PatchRules) -> Dict[str, Any]:
-    """The scenario on the patch typology, in free mode, with ranks and the parameters of the new classes."""
-    copy = json.loads(json.dumps(data))
-    old = (scenario.path(scenario.typology.source), scenario.typology.layer, scenario.typology.where,
-           scenario.typology.field)
-    copy["typology"] = {"source": typology_source, "layer": LAYER, "field": scenario.typology.field}
+    """The scenario on the patch typology, in free mode: a copy with its own name and results folder."""
+    copy = apply_patches(data, typology_source, scenario, result, rules, mode="free")
     copy["name"] = f"{data.get('name', '')} – taches bâties".strip(" –")
     output = dict(copy.get("output") or {})
     output["directory"] = (output.get("directory") or "outputs") + "_taches"
     copy["output"] = output
+    return copy
+
+
+ORIGINAL = "patches_original"
+"""Key of ``strata`` that keeps what the patches replaced, so that the window can go back to it."""
+
+
+def apply_patches(data: Dict[str, Any], typology_source: str, scenario, result: PatchResult, rules: PatchRules,
+                  mode: Optional[str] = None) -> Dict[str, Any]:
+    """The scenario on the patch typology: ranks, urban rank and the parameters of the new classes (Q-c).
+
+    What is replaced (typology, parameters, indicators, strata) is kept in ``strata.patches_original``:
+    :func:`revert_patches` goes back to it.
+    """
+    copy = json.loads(json.dumps(data))
+    previous = (copy.get("strata") or {}).get(ORIGINAL)
+    original = previous or {"typology": copy.get("typology"), "parameters": copy.get("parameters"),
+                            "indicators": copy.get("indicators"),
+                            "strata": {k: v for k, v in (copy.get("strata") or {}).items() if k != ORIGINAL}}
+    old = (scenario.path(scenario.typology.source), scenario.typology.layer, scenario.typology.where,
+           scenario.typology.field)
+    copy["typology"] = {"source": typology_source, "layer": LAYER, "field": scenario.typology.field}
     urban = result.urban_classes[0]
     classes = sorted({c for c in np.unique(result.classes) if c})
     rural = [c for c in classes if c not in (urban, rules.secondary_class, rules.transition_class)]
@@ -270,7 +295,10 @@ def scenario_copy(data: Dict[str, Any], typology_source: str, scenario, result: 
         ranks[name] = rules_of
     for name, rank in ((rules.transition_class, 2), (rules.secondary_class, 3), (urban, 4)):
         ranks[name] = {**dict(ranks.get(name) or {}), "rank": rank}
-    strata.update({"mode": "free", "classes": ranks, "urban_rank": 3})   # the patches are urban, not the transition
+    strata.update({"classes": ranks, "urban_rank": 3})    # the patches are urban, not the transition
+    if mode is not None:
+        strata["mode"] = mode
+    strata[ORIGINAL] = json.loads(json.dumps(original))
     copy["strata"] = strata
 
     def fill(values: Dict[str, Any], name: str) -> None:
@@ -306,6 +334,28 @@ def scenario_copy(data: Dict[str, Any], typology_source: str, scenario, result: 
                 fill(spec["values"], name)
             else:
                 fill(spec, name)
+    return copy
+
+
+def revert_patches(data: Dict[str, Any]) -> Dict[str, Any]:
+    """The scenario as it was before :func:`apply_patches` (the mode chosen since is kept)."""
+    copy = json.loads(json.dumps(data))
+    strata = dict(copy.get("strata") or {})
+    original = strata.pop(ORIGINAL, None)
+    if original is None:
+        return copy
+    for key in ("typology", "parameters", "indicators"):
+        if original.get(key) is None:
+            copy.pop(key, None)
+        else:
+            copy[key] = original[key]
+    restored = dict(original.get("strata") or {})
+    if strata.get("mode"):
+        restored["mode"] = strata["mode"]
+    if restored:
+        copy["strata"] = restored
+    else:
+        copy.pop("strata", None)
     return copy
 
 

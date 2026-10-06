@@ -132,3 +132,22 @@ def test_patches_command(tmp_path, capsys):
     path = town_world(str(tmp_path))
     assert main(["patches", path, "--density", "3000"]) == 0
     assert "typologie_taches.gpkg" in capsys.readouterr().out
+
+
+def test_patches_applied_then_reverted(tmp_path):
+    from engine.patches import apply_patches, revert_patches
+
+    path = town_world(str(tmp_path))
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    model, result = patches_of(path)
+    applied = apply_patches(data, "typologie_taches.gpkg", load_scenario(path), result, PatchRules())
+    assert applied["typology"]["source"] == "typologie_taches.gpkg"
+    assert applied["parameters"]["dmax"]["Transition"] == 2500 and "mode" not in applied["strata"]
+    load_scenario(path)                                                      # still a valid scenario file
+    again = apply_patches(applied, "typologie_taches.gpkg", load_scenario(path), result, PatchRules())
+    assert again["strata"]["patches_original"]["typology"] == data["typology"]   # the first original is kept
+    applied["strata"]["mode"] = "free"
+    reverted = revert_patches(applied)
+    assert reverted["typology"] == data["typology"] and reverted["parameters"] == data["parameters"]
+    assert reverted["strata"] == {"mode": "free"}

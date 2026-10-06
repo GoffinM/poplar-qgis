@@ -950,14 +950,14 @@ def test_help_and_about(iface):
     from poplar.ui.help_dialog import HelpDialog
 
     help_dialog = HelpDialog()
-    assert help_dialog.toc.count() == 6
+    assert help_dialog.toc.count() == 7
     help_dialog.show_page("non_convergence")
     assert "Non-convergence" in help_dialog.browser.toPlainText()
     help_dialog.search.setText("rendement")
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
-    assert visible and len(visible) < 6
-    assert version() == "0.7.2"
+    assert visible and len(visible) < 7
+    assert version() == "0.8.0"
     AboutDialog()
 
 
@@ -979,3 +979,121 @@ def test_a_shapefile_opened_through_its_shx_is_read_from_its_shp(iface):
 
     layer = QgsVectorLayer(os.path.join(MURAMVYA, "commune_muramvya.shx"), "communes", "ogr")
     assert engine_source(layer)["source"].endswith("commune_muramvya.shp")
+
+
+# --- Strata tab (free mode, fiche §3.5, docs/maquette_strates.html) ----------------------------------
+
+
+def _strata_row(page, name):
+    return next(row for row in range(page.table.rowCount()) if page.table.item(row, 0).text() == name)
+
+
+def test_planned_scenario_stays_as_it_was(iface, scenario_copy):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("strata")
+    assert page.mode() == "planned" and not page.strata_box.isEnabled()
+    assert sorted(page._rows_names()) == ["Rural", "Urbain1"]               # from the typology layer
+    data = dialog.collect()
+    assert "strata" not in data
+    assert "colonization_min_inflow" not in data["parameters"] and "saturation_share" not in data["parameters"]
+
+
+def test_strata_tab_reads_and_writes_the_free_mode(iface, scenario_copy):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("strata")
+    next(b for b in page.modes.buttons() if b.property("mode") == "free").setChecked(True)
+    page._mode_changed()
+    assert page.strata_box.isEnabled() and page.warning.isVisibleTo(page)
+    for name, rank, inflow, saturation in (("Rural", 1, 10, 80), ("Urbain1", 2, 20, 50)):
+        row = _strata_row(page, name)
+        page.table.cellWidget(row, 1).setValue(rank)
+        page.table.cellWidget(row, 4).setValue(inflow)
+        page.table.cellWidget(row, 5).setValue(saturation)
+    page.neighbours.setValue(4)
+    page.nuclei.setChecked(True)
+    data = dialog.collect()
+    strata = data["strata"]
+    assert strata["mode"] == "free" and strata["classes"] == {"Rural": {"rank": 1}, "Urbain1": {"rank": 2}}
+    assert strata["min_neighbors"] == 4 and strata["new_nuclei"]["enabled"] and strata["new_nuclei"]["min_cells"] == 16
+    assert data["parameters"]["colonization_min_inflow"] == {"Rural": 0.1, "Urbain1": 0.2}
+    assert data["parameters"]["saturation_share"] == {"Rural": 0.8, "Urbain1": 0.5}
+    assert page.table.item(_strata_row(page, "Urbain1"), 3).text() == "oui"   # urban: the second rank
+    from poplar.engine.scenario import scenario_from_dict
+
+    assert scenario_from_dict(data, dialog.base_dir()).strata.free
+    dialog.reload(data)                                                      # shown again as stored
+    assert dialog.collect()["strata"] == strata
+    assert dialog.collect()["parameters"]["saturation_share"] == {"Rural": 0.8, "Urbain1": 0.5}
+
+
+def test_built_up_patches_prepared_used_and_undone(iface, scenario_copy, monkeypatch):
+    from qgis.PyQt.QtWidgets import QMessageBox
+
+    from poplar.ui.main_dialog import MainDialog
+    from poplar.ui.patches_dialog import PatchesDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    original = dialog.collect()
+    patches = PatchesDialog(dialog, background=False)
+    assert patches.model is not None and patches.use.isEnabled()
+    assert sorted(p.stratum for p in patches.result.patches) == ["Urbain1", "Urbain2"]   # 1 500 hab/km²
+    patches.density.setValue(2500)
+    assert [p.stratum for p in patches.result.patches] == ["Urbain1"]
+    assert patches.table.rowCount() == 1 and not patches.map.pixmap().isNull()
+    patches.density.setValue(1500)
+    path = patches.apply(confirm=False)
+    assert path == os.path.join(os.path.dirname(scenario_copy), "typologie_taches.gpkg") and os.path.isfile(path)
+    data = dialog.collect()
+    assert os.path.normpath(data["typology"]["source"]) == path and data["typology"]["field"] == "Type"
+    assert data["parameters"]["dmax"]["values"]["Transition"] == 2500
+    assert os.path.normpath(data["parameters"]["dmax"]["zones"][0]["source"]) == path
+    page = dialog.page("strata")
+    assert {name: page.table.cellWidget(_strata_row(page, name), 1).value()
+            for name in ("Rural", "Transition", "Urbain2", "Urbain1")} == {
+        "Rural": 1, "Transition": 2, "Urbain2": 3, "Urbain1": 4}
+    assert page.revert.isVisibleTo(page) and data["strata"]["urban_rank"] == 3
+    monkeypatch.setattr(QMessageBox, "question", lambda *args: QMessageBox.StandardButton.Yes)
+    page._revert()
+    back = dialog.collect()
+    assert back["typology"] == original["typology"] and back["parameters"]["dmax"] == original["parameters"]["dmax"]
+    assert "patches_original" not in (back.get("strata") or {})
+
+
+def test_free_run_loads_the_polygons_and_compares_with_a_planned_run(iface, scenario_copy):
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    planned_run = _run_in_dialog(dialog)
+    page = dialog.page("strata")
+    next(b for b in page.modes.buttons() if b.property("mode") == "free").setChecked(True)
+    page._mode_changed()
+    for name, rank in (("Rural", 1), ("Urbain1", 2)):
+        page.table.cellWidget(_strata_row(page, name), 1).setValue(rank)
+    free_run = _run_in_dialog(dialog)
+    assert os.path.isfile(os.path.join(free_run, "polygones.gpkg"))
+    group = QgsProject.instance().layerTreeRoot().findGroup(dialog._results_group(free_run))
+    names = {n.name(): n.itemVisibilityChecked() for n in group.findLayers()}
+    from poplar.i18n import tr
+
+    assert names[tr("results.polygons_layer", year="2030")] is True
+    assert names[tr("results.extensions_layer")] is False
+    assert names["statut 2030"] is False and names["polygon_id 2030"] is False
+    results = dialog.page("results")
+    dialog.selected_run = free_run
+    results.refresh()
+    assert results.compare.isEnabled()
+    assert [r.directory for r in results.planned_runs()] == [planned_run]
+    paths = results._compare(choose=lambda titles: titles[0])
+    assert paths and all(os.path.isfile(p) for p in paths)
+    dialog.selected_run = planned_run
+    results.refresh()
+    assert not results.compare.isEnabled()
+    QgsProject.instance().clear()

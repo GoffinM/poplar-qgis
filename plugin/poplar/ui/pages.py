@@ -663,6 +663,17 @@ class RunPage(Page):
 
 # --- Results ------------------------------------------------------------------------
 
+def run_mode(directory) -> str:
+    """« planned » or « free »: the mode of a run, from the copy of its scenario."""
+    import json
+
+    try:
+        with open(os.path.join(directory, "scenario_used.json"), encoding="utf-8") as handle:
+            return (json.load(handle).get("strata") or {}).get("mode", "planned")
+    except (OSError, ValueError):
+        return "planned"
+
+
 class ResultsPage(Page):
     key = "results"
 
@@ -710,7 +721,10 @@ class ResultsPage(Page):
         table.clicked.connect(lambda: self._open("summary.csv"))
         folder = QPushButton(tr("results.open_folder"))
         folder.clicked.connect(lambda: self._open(""))
-        for button in (load, table, folder):
+        self.compare = QPushButton(tr("results.compare"))
+        self.compare.setToolTip(tip("results.compare"))
+        self.compare.clicked.connect(self._compare)
+        for button in (load, table, folder, self.compare):
             buttons.addWidget(button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
@@ -721,7 +735,8 @@ class ResultsPage(Page):
         directory = self.dialog.results_directory()
         self.run_list.clear()
         for run in reversed(runs.list_runs(self.dialog.output_directory())):
-            text = f"{run_title(run)} · {tr(f'cleanup.status.{run.status}')}" + (" ★" if run.kept else "")
+            text = (f"{run_title(run)} · {tr('results.mode.' + run_mode(run.directory))} · "
+                    f"{tr(f'cleanup.status.{run.status}')}" + (" ★" if run.kept else ""))
             self.run_list.addItem(text, run.directory)
         set_combo_value(self.run_list, directory)
         run = runs.read_run(directory) if directory else None
@@ -733,6 +748,7 @@ class ResultsPage(Page):
         for widget in (self.kept, self.label):
             widget.blockSignals(False)
         self.folder.setText(tr("results.folder", folder=directory or "—"))
+        self.compare.setEnabled(bool(directory) and run_mode(directory) == "free")
         outputs = available_outputs(directory)
         self.quantities.clear()
         self.years.clear()
@@ -780,6 +796,41 @@ class ResultsPage(Page):
         quantities = self._checked(self.quantities, Qt.ItemDataRole.UserRole)
         years = self._checked(self.years)
         self.dialog.load_results(quantities, years)
+
+    def planned_runs(self):
+        """Runs in planned mode of the same results folder (the same scenario run in the other mode)."""
+        return [run for run in reversed(runs.list_runs(self.dialog.output_directory()))
+                if run_mode(run.directory) == "planned" and run.status != "failed"]
+
+    def _compare(self, checked=False, choose=None):
+        """Comparison of the run shown (free mode) with a run in planned mode (decision Q11)."""
+        from ..engine.comparison import NotComparable, write as write_comparison
+        from .cleanup_dialog import run_title
+
+        free = self.dialog.results_directory()
+        planned = self.planned_runs()
+        if not planned:
+            self.dialog.iface.messageBar().pushWarning("Poplar", tr("results.compare.none"))
+            return None
+        chosen = planned[0]
+        if len(planned) > 1:
+            titles = [run_title(run) for run in planned]
+            if choose is not None:
+                title = choose(titles)
+            else:
+                title, ok = QInputDialog.getItem(self, tr("results.compare"), tr("results.compare.choose"), titles, 0,
+                                                 False)
+                if not ok:
+                    return None
+            chosen = planned[titles.index(title)]
+        try:
+            paths = write_comparison(chosen.directory, free)
+        except (NotComparable, OSError) as error:
+            self.dialog.iface.messageBar().pushWarning("Poplar", tr("results.compare.failed", error=error))
+            return None
+        if choose is None:
+            QDesktopServices.openUrl(QUrl.fromLocalFile(paths[1]))
+        return paths
 
     def _open(self, name):
         path = os.path.join(self.dialog.results_directory() or "", name)

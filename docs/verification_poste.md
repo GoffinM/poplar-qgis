@@ -1,6 +1,6 @@
 # Recette du plugin sur votre poste
 
-Version 0.7.1. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
+Version 0.8.0. Une seule liste, dans l'ordre des onglets. Passée entièrement une fois, elle sert de **recette de référence** ; aux versions suivantes, seules les lignes marquées dans `CHANGELOG.md` sont à repasser.
 
 - Durée : environ 45 minutes. Les sections marquées « facultatif » ajoutent 15 minutes.
 - Environnement : QGIS 3.40 LTR sous Windows, puis QGIS 4 si vous l'avez.
@@ -8,18 +8,18 @@ Version 0.7.1. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 
 ## 0. Préparer
 
-1. **Plugin** : téléchargez `poplar-0.7.2.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.7.2.zip
+1. **Plugin** : téléchargez `poplar-0.8.0.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.8.0.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis décompressez l'archive. Le dossier `data/test/muramvya/` contient les scénarios et les données.
 3. Si une version précédente de Poplar est installée : **Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**.
 
-⚠️ Installez seulement `poplar-0.7.2.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
+⚠️ Installez seulement `poplar-0.8.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.7.2.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
+| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.8.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
 | I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
-| I.3 | Bouton **À propos** | Version 0.7.2 ; crédits « Michel – SHER (contributions : Keyvan, Marine, Assoumpta, Sophie) » |
+| I.3 | Bouton **À propos** | Version 0.8.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine, Assoumpta, Sophie) » |
 
 ## 1. Scénario
 
@@ -41,6 +41,22 @@ Version 0.7.1. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | D.3 | Exclusions : ajoutez une couche de **lignes** (une route) sans tampon, puis **Lancer › Vérifier le scénario** | Le contrôle demande un tampon ; avec 50 m, il passe |
 | D.4 | Projections : un fichier xlsx avec une colonne par année | L'aperçu indique « Une colonne par année · … unités · années » ; testez aussi un .xls |
 | D.5 | Posez un filtre sur la couche des communes (clic droit › Filtrer…), puis lancez | Le calcul ne porte que sur les entités filtrées ; retirez ensuite le filtre |
+
+## 2 bis. Strates (nouveau en 0.8.0)
+
+| # | Action | Résultat attendu |
+|---|---|---|
+| ST.1 | Onglet **Strates** avec le scénario de Muramvya | Mode **Planifié** coché ; les cadres Strates, Règles, Nouveaux noyaux et Polygones de sortie sont grisés ; le tableau montre Rural et Urbain1 |
+| ST.2 | Cochez **Libre** | Bandeau ocre (calcul plus long, pas annuel, maille de 250 m) ; les cadres deviennent actifs |
+| ST.3 | **Préparer les taches bâties…** | Après quelques secondes : « Population de départ : 170 565 habitants » ; la carte montre la ville (Urbain1) et un village dense au nord (Urbain2) ; 2 taches, 7,1 km², 29 201 habitants |
+| ST.4 | Seuil à 2 500, puis à 1 500 hab/km² | La carte et le tableau suivent (1 tache à 2 500) |
+| ST.5 | **Utiliser ces taches** › Oui | `typologie_taches.gpkg` écrit à côté du scénario ; onglet Données : typologie remplacée ; onglet Strates : Rural 1, Transition 2, Urbain2 3, Urbain1 4, Urbain2 et Urbain1 « Urbaine » ; onglet Paramètres : densité maximale de Transition = 2 500 |
+| ST.6 | **Revenir à la typologie d'origine** › Oui | Commune d'origine et paramètres d'origine revenus ; le bouton disparaît |
+| ST.7 | Remettez les taches (ST.3 à ST.5), mode **Planifié**, **Lancer** ; puis mode **Libre**, **Lancer** | Deux calculs ; dans Résultats, la liste indique « planifié » et « libre » |
+| ST.8 | Résultats, calcul libre | Couches chargées : « Polygones 2060 » cochée ; extensions, statut, polygone de chaque maille et année de colonisation décochés |
+| ST.9 | **Comparer avec un calcul planifié…** | `comparaison_modes.html` s'ouvre : surfaces urbaines, population hors du périmètre planifié, non accueillis, vitesse des fronts |
+| ST.10 | Onglet Rapport, calcul libre | Section « Polygones (strates libres) : indicateurs de plausibilité » avec le bilan de masse (écart nul) |
+| ST.11 | Bouton **?** sur l'onglet Strates | Page d'aide « Strates : polygones planifiés ou libres » |
 
 ## 3. Paramètres
 

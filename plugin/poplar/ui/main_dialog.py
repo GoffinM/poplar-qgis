@@ -16,7 +16,7 @@ from ..compat import with_password
 from ..engine import runs
 from ..engine.scenario import ScenarioError, is_connection, scenario_from_dict
 from ..i18n import current_language, tip, tr
-from ..results import load_grid_layer, load_rasters, release_grid_layer
+from ..results import load_grid_layer, load_polygon_layers, load_rasters, release_grid_layer
 from ..task import RunTask
 from .cleanup_dialog import CleanupDialog, run_title
 from .nonconvergence_dialog import NonConvergenceDialog
@@ -24,11 +24,12 @@ from .style import state_icon, stylesheet, tokens
 from .pages import (
     CalibrationPage, DataPage, IndicatorsPage, ParametersPage, ReportPage, ResultsPage, RunPage, ScenarioPage,
 )
+from .strata_page import StrataPage
 
 INFORMATION = {"crs_used", "raster_reprojected", "start_from_projection", "roofs_calibrated"}
 """Report lines that describe the run; every other warning is shown in the message bar."""
 ICONS = os.path.join(os.path.dirname(os.path.dirname(__file__)), "icons")
-HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario",
+HELP_PAGES = {"scenario": "parametres_et_scenario", "data": "parametres_et_scenario", "strata": "strates",
               "parameters": "parametres_et_scenario", "indicators": "resultats_et_indicateurs",
               "calibration": "calage", "run": "non_convergence", "results": "resultats_et_indicateurs",
               "report": "resultats_et_indicateurs"}
@@ -115,7 +116,7 @@ class MainDialog(QDialog):
         self.tabs.setObjectName("tabs")
         self.tabs.setFixedWidth(180)
         self.stack = QStackedWidget()
-        self.pages = [ScenarioPage(self), DataPage(self), ParametersPage(self), IndicatorsPage(self),
+        self.pages = [ScenarioPage(self), DataPage(self), StrataPage(self), ParametersPage(self), IndicatorsPage(self),
                       CalibrationPage(self), RunPage(self), ResultsPage(self), ReportPage(self)]
         for page in self.pages:
             item = QListWidgetItem(state_icon("empty", self.colours), tr(f"tab.{page.key}"))
@@ -197,6 +198,7 @@ class MainDialog(QDialog):
                      or (data.get("base_population") or {}).get("source") == "buildings") else "warn",
             "parameters": "ok" if all(w.store() for w in parameters.values()) and
                           not any(w.unused_keys() for w in parameters.values()) else "warn",
+            "strata": "ok" if (data.get("strata") or {}).get("mode") == "free" else "empty",
             "indicators": "ok" if data.get("indicators") else "empty",
             "calibration": ("ok" if (data.get("calibration") or {}).get("census") else "warn")
             if data.get("calibration") else "empty",
@@ -250,6 +252,13 @@ class MainDialog(QDialog):
             self.data = json.load(handle)
         self.path = path
         self.selected_run = None
+        for page in self.pages:
+            page.load(self.data)
+        self._update_title()
+
+    def reload(self, data):
+        """Show a scenario changed outside the tabs (built-up patches applied or undone)."""
+        self.data = data
         for page in self.pages:
             page.load(self.data)
         self._update_title()
@@ -418,6 +427,10 @@ class MainDialog(QDialog):
         directory = self.results_directory()
         group = self._results_group(directory)
         layers = load_rasters(directory, quantities, years, group, visible)
+        if years and os.path.exists(os.path.join(directory, "polygones.gpkg")):    # free strata mode
+            layers += load_rasters(directory, [q for q in ("statut", "polygon_id") if q not in quantities],
+                                   years[-1:], group, [])
+            layers += load_polygon_layers(directory, group, years[-1])
         grid = load_grid_layer(directory, group)
         if grid is not None and grid not in layers:
             layers.append(grid)
