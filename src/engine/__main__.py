@@ -1,5 +1,5 @@
 """Command line: ``python -m engine run scenario.json [--language en]``, ``report``, ``grid``, ``excel``,
-``compare``, ``patches`` and ``download-roofs``."""
+``compare``, ``patches``, ``demand``, ``download-roofs`` and ``download-roads``."""
 
 from __future__ import annotations
 
@@ -42,6 +42,10 @@ def main(argv=None) -> int:
     patches_parser.add_argument("--urban-class", action="append", help="urban limits class (repeatable)")
     patches_parser.add_argument("--inside-only", action="store_true", help="only patches inside the urban limits")
     patches_parser.add_argument("--output", help="folder of the files (next to the scenario by default)")
+    demand_parser = commands.add_parser("demand", help="compute the demand (indicators) of a run folder again")
+    demand_parser.add_argument("folder", help="run folder")
+    demand_parser.add_argument("--scenario", help="scenario whose indicator parameters apply (the run's by default)")
+    demand_parser.add_argument("--language", choices=available_languages())
     download_parser = commands.add_parser("download-roofs", help="download Google Open Buildings roofs of a zone")
     download_parser.add_argument("zone", help="polygons of the zone (the strata layer, for example)")
     download_parser.add_argument("output", help="GeoPackage to write")
@@ -82,6 +86,8 @@ def main(argv=None) -> int:
             print(str(error), file=sys.stderr)
             return 1
         return 0
+    if args.command == "demand":
+        return _demand(args)
     if args.command == "download-roofs":
         return _download_roofs(args)
     if args.command == "report":
@@ -135,6 +141,27 @@ def _excel(args) -> int:
         calibration, name = scenario.get("calibration") or {}, scenario.get("name") or ""
     print(write_calibration_workbook(report, os.path.join(args.folder, "calage.xlsx"), args.language, calibration,
                                      name))
+    return 0
+
+
+def _demand(args) -> int:
+    from .demand import _scenario_of, recompute_demand
+    from .grid_layer import GridMismatch
+
+    try:
+        scenario = load_scenario(args.scenario) if args.scenario else _scenario_of(args.folder)
+        if args.language:
+            scenario.language = args.language
+        result = recompute_demand(args.folder, scenario,
+                                  progress=lambda fraction: print(f"\r{fraction:6.1%}", end="", flush=True))
+    except (ScenarioError, GridMismatch, ValueError, OSError) as error:
+        print(f"\n{error}", file=sys.stderr)
+        return 1
+    print()
+    if result.approximated:
+        print("run without populations per unit: population of each cell shared pro rata of the area")
+    for path in result.files:
+        print(path)
     return 0
 
 

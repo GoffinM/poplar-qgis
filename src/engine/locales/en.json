@@ -323,5 +323,7 @@
   "html_reading_densification": "densification",
   "html_reading_stable": "stable",
   "html_reading_recul": "retreat",
-  "html_reading_naissance": "birth"
+  "html_reading_naissance": "birth",
+  "populations_not_saved": "The population of each unit (populations.npz) could not be kept: the demand cannot be computed again exactly. {detail}",
+  "demand_approximated": "Run older than version 0.8.2: the population of each cell was shared between its units pro rata of their area (exact for whole cells, but for rounding: the rasters give the population to the inhabitant)."
 }

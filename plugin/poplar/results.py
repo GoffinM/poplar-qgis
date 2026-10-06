@@ -9,6 +9,7 @@ from qgis.core import (
 )
 from qgis.PyQt.QtGui import QColor
 
+from .engine.demand import latest_demand
 from .i18n import tr
 
 QUANTITIES = ["population", "density", "capacity", "unallocated", "water_domestic", "water_consumption_mean",
@@ -27,8 +28,11 @@ WATER_RAMP = ("#e6f1f8", "#154f7a")
 PATTERN = re.compile(r"^(?P<quantity>[a-z_]+)_(?P<year>\d{4}(?:\.\d+)?)\.tif$")
 
 
-def available_outputs(directory):
-    """{quantity: [years]} for the rasters found in an output directory."""
+def available_outputs(directory, demand=True):
+    """{quantity: [years]} for the rasters found in an output directory.
+
+    With ``demand``, the demand computed again last (sub-folder ``demande_…``) replaces that of the run.
+    """
     found = {}
     if not directory or not os.path.isdir(directory):
         return found
@@ -36,10 +40,19 @@ def available_outputs(directory):
         match = PATTERN.match(name)
         if match and match.group("quantity") in QUANTITIES:
             found.setdefault(match.group("quantity"), []).append(match.group("year"))
+    later = latest_demand(directory) if demand else None
+    if later:
+        found = {q: years for q, years in found.items() if not is_demand(q)}
+        found.update(available_outputs(later, demand=False))
     return {q: sorted(years, key=float) for q, years in found.items()}
 
 
-def load_rasters(directory, quantities, years, group_name, visible=None):
+def is_demand(quantity):
+    """Rasters of the indicators (water…), the ones a demand computed again replaces."""
+    return quantity.startswith("water_")
+
+
+def load_rasters(directory, quantities, years, group_name, visible=None, suffix=""):
     """Add the chosen rasters to a layer group (created or reused) and style them.
 
     The latest year ends up on top. With ``visible`` (a list of years), only those
@@ -54,7 +67,7 @@ def load_rasters(directory, quantities, years, group_name, visible=None):
             path = os.path.join(directory, f"{quantity}_{year}.tif")
             if not os.path.exists(path):
                 continue
-            layer = QgsRasterLayer(path, f"{quantity} {year}")
+            layer = QgsRasterLayer(path, f"{quantity} {year}{suffix}")
             if not layer.isValid():
                 continue
             if quantity == "polygon_id":

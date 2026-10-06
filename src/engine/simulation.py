@@ -28,7 +28,8 @@ from .nonconvergence import (
 )
 from .grid_layer import cells_of, save_cells, write_grid_layer
 from .html_report import write_html_report
-from .outputs import summary_rows, write_summary, write_year_rasters
+from .outputs import summary_rows, write_summary, write_year_rasters, year_label
+from .demand import save_populations
 from .runs import finish_run, new_run_directory
 from .parameters import DEFAULT_KEY, KEY_SEPARATOR, TimeSeries, to_hab_per_km2, unit_means, unit_values
 from .polygons import (NO_POLYGON, NO_RANK, ColonisationRules, NucleusRules, PolygonHistory, Stratum,
@@ -143,7 +144,11 @@ def run(
 
     history = model.start_history(t0) if free else None
 
+    kept_populations: Dict[str, Dict[str, np.ndarray]] = {}
+
     def write(year: float) -> None:
+        kept_populations[year_label(year)] = {"population": population.copy(), "unallocated": unallocated.copy(),
+                                              "classes": units.codes["class"].copy()}
         if history is not None:
             key = int(round(year))
             history.membership[key] = cell_membership(units, model.polygon_id, scenario.strata.cell_membership_share)
@@ -255,6 +260,10 @@ def run(
                                                                             model.urban_rank)))
         except Exception as error:  # pragma: no cover
             warnings.append(message("plausibility_failed", detail=str(error)))
+    try:  # population of each unit at the output years: the demand can be computed again (engine.demand)
+        outputs.append(save_populations(out_dir, units, kept_populations))
+    except Exception as error:  # pragma: no cover
+        warnings.append(message("populations_not_saved", detail=str(error)))
     summary_path = os.path.join(out_dir, "summary.csv")
     write_summary(summary_path, rows, language, model.column_units(scenario))
     outputs.append(summary_path)
@@ -296,8 +305,12 @@ class _Model:
     """Data prepared once for a run: units, base population, parameters, indicators."""
 
     @classmethod
-    def load(cls, scenario: Scenario, units_only: bool = False) -> "_Model":
-        """Everything a run needs; with ``units_only``, only the grid and its cells cut by the layers."""
+    def load(cls, scenario: Scenario, units_only: bool = False, population: bool = True) -> "_Model":
+        """Everything a run needs; with ``units_only``, only the grid and its cells cut by the layers.
+
+        ``population=False`` skips the starting population (raster or roofs): enough to compute the demand
+        of a finished run again (engine.demand).
+        """
         self = cls()
         self.warnings: List[Message] = []
         from_roofs = scenario.population_source == "buildings"
@@ -426,7 +439,8 @@ class _Model:
             return self
         self.calibration_report = None
         self.calibration_groups = {}
-        if not from_roofs:
+        self.p0 = None
+        if not from_roofs and population:
             self.p0, _ = base_population_from_density(self.units, self.raster, "hab/km2", scenario.boundary_mode)
 
         self.tables = scenario.parameter_tables()
@@ -434,7 +448,7 @@ class _Model:
             self.tables[name].layers = names
             self.warnings.extend(_unused_keys(self.tables[name], self.units))
         self.density_unit = scenario.density_unit
-        if from_roofs:
+        if from_roofs and population:
             self.p0 = self._population_from_roofs(scenario, calibration, crs, study, strata_groups, strata_census)
         for name in ("growth_rate", "dmax"):
             try:

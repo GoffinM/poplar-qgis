@@ -323,5 +323,7 @@
   "html_reading_densification": "densification",
   "html_reading_stable": "stable",
   "html_reading_recul": "recul",
-  "html_reading_naissance": "naissance"
+  "html_reading_naissance": "naissance",
+  "populations_not_saved": "La population par unité (populations.npz) n'a pas pu être gardée : la demande ne pourra pas être recalculée exactement. {detail}",
+  "demand_approximated": "Calcul antérieur à la version 0.8.2 : la population de chaque maille a été répartie entre ses unités au prorata de leur surface (exact pour les mailles entières, à l'arrondi près : les rasters donnent la population à l'habitant près)."
 }

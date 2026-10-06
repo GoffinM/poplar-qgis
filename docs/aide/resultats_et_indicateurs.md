@@ -17,6 +17,8 @@ Les noms de fichiers sont **fixes et en anglais**, quelle que soit la langue. `A
 | `calibration.json` | Détail du calage, si la population de départ vient des toits |
 | `mailles.gpkg` | **Une couche de toutes les mailles** de la zone d'étude (vides comprises), avec tous les résultats de chaque année de sortie (voir plus bas). Elle est chargée dans le groupe des résultats, décochée |
 | `mailles_base.npz` | Les mailles de la zone d'étude et leurs attributs fixes, pour générer la couche des mailles à la demande |
+| `populations.npz` | La population de chaque morceau de maille aux années de sortie, avec les non relocalisés et la classe de chaque morceau : elle sert à **recalculer la demande** sans relancer le calcul (voir plus bas) |
+| `demande_AAAAMMJJ_HHMM/` | Demande recalculée (rasters `water_…`, `summary.csv`, couche des mailles, `demande_parametres.json`), un sous-dossier par recalcul |
 | `mailles.shp` et `mailles_champs.csv` | La même couche en Shapefile, si elle est demandée. Les noms de champs sont coupés à 10 caractères (`pop2030`, `den2030`…) ; le tableau `mailles_champs.csv` donne le nom complet et l'unité de chacun |
 | `calage.xlsx` | Classeur Excel du calage : synthèse, classes, distribution, hypothèses et sources, avec des graphiques Excel (voir l'aide « Calage ») |
 | `report.html` | **Rapport complet autonome** : chiffres clés, évolution de la population, avertissements, calage avec ses graphiques. Il s'ouvre dans un navigateur et s'imprime en PDF ; bouton « Ouvrir le rapport complet » de l'onglet Rapport, ou `python -m engine report <dossier>` |
@@ -90,6 +92,23 @@ Chaque paramètre a **son propre onglet**, lié à la couche dont il dépend, co
 | `water_production_mean` | consommation moyenne / rendement (m³/j) |
 | `water_production_peak_day` | production moyenne × coefficient de pointe journalière (m³/j) |
 | `water_peak_hour` | consommation moyenne × pointe journalière × pointe horaire / 24 (m³/h) : le rendement ne s'applique pas à la pointe horaire |
+
+## Recalculer la demande sans relancer le calcul
+
+Changer une dotation, un rendement ou un coefficient de pointe ne demande pas de relancer le modèle de population : la population de chaque morceau de maille est gardée dans `populations.npz`.
+
+1. Choisissez le calcul dans l'onglet **Résultats** (par défaut, le dernier).
+2. Modifiez les paramètres de l'onglet **Indicateurs**.
+3. Cliquez sur **Recalculer la demande** (onglet Indicateurs, ou onglet Résultats). Le calcul tourne en tâche de fond : quelques secondes, le temps de redécouper la grille.
+
+- Les résultats vont dans un **sous-dossier daté** du calcul, `demande_AAAAMMJJ_HHMM` : rien n'est écrasé, et plusieurs jeux de paramètres se comparent. Le fichier `demande_parametres.json` garde les paramètres utilisés et la date.
+- La dernière demande recalculée est celle que l'onglet Résultats charge ; le nom des couches se termine par le nom du sous-dossier.
+- On peut aussi **ajouter** la demande en eau à un calcul lancé sans indicateur.
+- En mode libre, une maille colonisée garde les paramètres de son nouveau polygone (la dotation urbaine, par exemple) à chaque année de sortie.
+- Les couches du scénario doivent donner **la même grille** que le calcul. Si une couche a changé ou a été déplacée depuis, le recalcul s'arrête et l'explique : relancez alors le calcul complet.
+- Les calculs faits avant la version 0.8.2 n'ont pas `populations.npz` : la population de chaque maille est répartie entre ses morceaux au prorata de leur surface. C'est exact pour les mailles entières, à l'habitant près (les rasters donnent des nombres entiers). Un avertissement le rappelle.
+
+En ligne de commande : `python -m engine demand <dossier du calcul> [--scenario scénario.json]` (par défaut, le scénario du calcul).
 
 ## Autres usages
 

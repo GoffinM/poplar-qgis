@@ -79,6 +79,9 @@ Version 0.8.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | N.3 | Rendement : une autre couche de polygones et un autre champ | Lignes remplies avec les valeurs de ce champ |
 | N.4 | Dotation : cochez puis décochez **Croiser** | Valeurs gardées, aucun avertissement |
 | N.5 | Dotation : videz « Hors zones (défaut) » et une ligne de zone, puis lancez | Le calcul s'arrête sur un message qui nomme la dotation incomplète ; remettez la valeur |
+| N.6 | Après un calcul : doublez la dotation, puis **Recalculer la demande** (nouveau en 0.8.2) | En quelques secondes, couches `water_… · demande_AAAAMMJJ_HHMM` ajoutées ; la consommation domestique a doublé, la population est inchangée ; le cadre de l'onglet indique la date du recalcul |
+| N.7 | Onglet Résultats : chargez `water_domestic` | La couche vient du sous-dossier `demande_…` (nom terminé par le sous-dossier) |
+| N.8 | Déplacez ou modifiez la couche des communes, puis **Recalculer la demande** | Message : les couches ne donnent plus la grille du calcul ; rien n'est écrit |
 
 ## 5. Calage
 

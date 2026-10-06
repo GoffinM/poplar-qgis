@@ -57,3 +57,28 @@ class GridLayerTask(QgsTask):
 
     def finished(self, ok):
         self.done.emit(self.paths, self.error)
+
+
+class DemandTask(QgsTask):
+    """Computes the demand (indicators) of a finished run again, without running the model (plan A)."""
+
+    done = pyqtSignal(object, object)  # (DemandResult or None, error or None)
+
+    def __init__(self, directory, scenario, description):
+        super().__init__(description, QgsTask.Flag.CanCancel)
+        self.directory, self.scenario = directory, scenario
+        self.result = None
+        self.error = None
+
+    def run(self):
+        from .engine.demand import recompute_demand
+
+        try:
+            self.result = recompute_demand(self.directory, self.scenario,
+                                           progress=lambda fraction: self.setProgress(100.0 * fraction))
+        except Exception as error:  # reported to the user; no traceback kept (it would hold files open)
+            self.error = error.with_traceback(None)
+        return self.error is None
+
+    def finished(self, ok):
+        self.done.emit(self.result, self.error)

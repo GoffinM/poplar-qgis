@@ -14,9 +14,10 @@ from qgis.PyQt.QtWidgets import (
 
 from ..compat import with_password
 from ..engine import runs
+from ..engine.demand import latest_demand
 from ..engine.scenario import ScenarioError, is_connection, scenario_from_dict
 from ..i18n import current_language, tip, tr
-from ..results import load_grid_layer, load_polygon_layers, load_rasters, release_grid_layer
+from ..results import QUANTITIES, is_demand, load_grid_layer, load_polygon_layers, load_rasters, release_grid_layer
 from ..task import RunTask
 from .cleanup_dialog import CleanupDialog, run_title
 from .nonconvergence_dialog import NonConvergenceDialog
@@ -74,6 +75,7 @@ class MainDialog(QDialog):
         self.path = None
         self.data = default_scenario()
         self.task = None
+        self.demand_task = None
         self.selected_run = None
         """Run folder shown by the Results and Report tabs (None: the latest one)."""
         self.session_runs = []
@@ -424,10 +426,74 @@ class MainDialog(QDialog):
         self.iface.messageBar().pushSuccess("Poplar", tr("grid.done", run=run_title(run) if run else directory,
                                                          count=layer.featureCount() if layer else 0))
 
+    # --- demand computed again (plan_demande_et_routes.md, A) ------------------------
+
+    def recompute_demand(self, background=True):
+        """Indicators of the run shown, computed again with the parameters of the window (Indicators tab)."""
+        from ..task import DemandTask
+
+        directory = self.results_directory()
+        bar = self.iface.messageBar()
+        if not directory or not os.path.isfile(os.path.join(directory, "scenario_used.json")):
+            bar.pushWarning("Poplar", tr("demand.no_run"))
+            return None
+        if self.demand_task is not None:
+            return None
+        try:
+            scenario = self.scenario()                  # with this session's database passwords
+        except ScenarioError as error:
+            text = "\n".join(m.render(current_language()) for m in error.messages)
+            bar.pushWarning("Poplar", tr("demand.scenario_error", error=text))
+            return None
+        if not scenario.indicators:
+            bar.pushWarning("Poplar", tr("demand.no_indicator"))
+            return None
+        task = DemandTask(directory, scenario, tr("demand.task", run=self._run_name(directory)))
+        task.done.connect(lambda result, error: self._demand_done(directory, result, error))
+        self.demand_task = task
+        if background:
+            QgsApplication.taskManager().addTask(task)
+        else:
+            task.finished(task.run())
+        return task
+
+    def _run_name(self, directory):
+        run = runs.read_run(directory)
+        return run_title(run) if run else os.path.basename(directory)
+
+    def _demand_done(self, directory, result, error):
+        self.demand_task = None
+        bar = self.iface.messageBar()
+        if error is not None:
+            from ..engine.grid_layer import GridMismatch
+
+            key = "demand.mismatch" if isinstance(error, GridMismatch) else "demand.failed"
+            bar.pushWarning("Poplar", tr(key, error=error))
+            return
+        names = os.listdir(result.directory)
+        quantities = [q for q in QUANTITIES if is_demand(q) and f"{q}_{result.years[-1]}.tif" in names]
+        layers = load_rasters(result.directory, quantities, result.years[-1:], self._results_group(directory), [],
+                              suffix=f" · {os.path.basename(result.directory)}")
+        if layers:                                     # the production to deliver shown, the others ticked off
+            from qgis.core import QgsProject
+
+            shown = next((l for l in layers if l.name().startswith("water_production_mean")), layers[0])
+            QgsProject.instance().layerTreeRoot().findLayer(shown.id()).setItemVisibilityChecked(True)
+        bar.pushSuccess("Poplar", tr("demand.done", run=self._run_name(directory),
+                                     folder=os.path.basename(result.directory)))
+        if result.approximated:
+            bar.pushWarning("Poplar", tr("demand.approximated"))
+        self.page("results").refresh()
+        self.page("indicators").refresh()
+
     def load_results(self, quantities, years, visible=None):
         directory = self.results_directory()
         group = self._results_group(directory)
-        layers = load_rasters(directory, quantities, years, group, visible)
+        demand = latest_demand(directory)               # the demand computed again last replaces the run's
+        moved = [q for q in quantities if is_demand(q)] if demand else []
+        layers = load_rasters(directory, [q for q in quantities if q not in moved], years, group, visible)
+        if moved:
+            layers += load_rasters(demand, moved, years, group, visible, suffix=f" · {os.path.basename(demand)}")
         if years and os.path.exists(os.path.join(directory, "polygones.gpkg")):    # free strata mode
             layers += load_rasters(directory, [q for q in ("statut", "polygon_id") if q not in quantities],
                                    years[-1:], group, [])

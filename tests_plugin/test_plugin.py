@@ -1104,3 +1104,46 @@ def test_free_mode_notes_are_information_not_warnings():
 
     assert {"strata_free_mode", "strata_nuclei_off"} <= INFORMATION
     assert "strata_reclassification" not in INFORMATION and "strata_cell_size" not in INFORMATION
+
+
+def test_demand_computed_again_on_the_run_shown(iface, scenario_copy):
+    from poplar.i18n import tr
+    from poplar.engine.raster_io import read_raster
+    from poplar.results import available_outputs
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(scenario_copy)
+    page = dialog.page("indicators")
+    dialog.recompute_demand(background=False)                           # no run yet: said, nothing done
+    assert any(tr("demand.no_run") in str(m) for m in iface.bar.messages)
+    page.refresh()
+    assert not page.demand_button.isEnabled()
+    directory = _run_in_dialog(dialog)
+    page.refresh()
+    assert page.demand_button.isEnabled() and dialog._run_name(directory) in page.demand_state.text()
+    before = read_raster(os.path.join(directory, "water_domestic_2030.tif")).values
+
+    page.tables["water_per_capita"].table.item(0, 1).setText("40")       # allowance doubled
+    assert dialog.recompute_demand(background=False) is not None
+    folder = next(n for n in os.listdir(directory) if n.startswith("demande_"))
+    after = read_raster(os.path.join(directory, folder, "water_domestic_2030.tif")).values
+    np.testing.assert_allclose(np.nan_to_num(after), 2 * np.nan_to_num(before), rtol=1e-5)
+    np.testing.assert_allclose(read_raster(os.path.join(directory, "water_domestic_2030.tif")).values, before)
+    names = {l.name(): l for l in QgsProject.instance().mapLayers().values()}
+    assert f"water_production_mean 2030 · {folder}" in names
+    assert any(tr("demand.done", run=dialog._run_name(directory), folder=folder) in str(m) for m in iface.bar.messages)
+    assert folder in page.demand_state.text()
+    assert folder in dialog.page("results").folder.text()
+    page.enabled.setChecked(False)                                     # no indicator: nothing to compute
+    dialog.recompute_demand(background=False)
+    assert any(tr("demand.no_indicator") in str(m) for m in iface.bar.messages[-1:])
+
+    # The Results tab now loads the demand computed again.
+    assert available_outputs(directory)["water_domestic"][-1] == "2030"
+    QgsProject.instance().clear()
+    dialog.load_results(["population", "water_domestic"], ["2030"])
+    names = {l.name() for l in QgsProject.instance().mapLayers().values()}
+    assert "population 2030" in names and f"water_domestic 2030 · {folder}" in names
+
+    QgsProject.instance().clear()

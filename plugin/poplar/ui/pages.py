@@ -582,7 +582,27 @@ class IndicatorsPage(Page):
         other.setWordWrap(True)
         other.setEnabled(False)
         layout.addWidget(other)
+        box = QGroupBox(tr("demand.box"))
+        inner = QHBoxLayout(box)
+        self.demand_state = QLabel()
+        self.demand_state.setWordWrap(True)
+        inner.addWidget(self.demand_state, 1)
+        self.demand_button = QPushButton(tr("demand.recompute"))
+        self.demand_button.setToolTip(tip("demand.recompute"))
+        self.demand_button.clicked.connect(lambda: dialog.recompute_demand())
+        inner.addWidget(self.demand_button, 0, Qt.AlignmentFlag.AlignTop)
+        layout.addWidget(box)
         layout.addStretch(1)
+
+    def refresh(self):
+        """Which run the button acts on, and when its demand was last computed again."""
+        directory = self.dialog.results_directory()
+        has_run = bool(directory) and os.path.isfile(os.path.join(directory, "scenario_used.json"))
+        self.demand_button.setEnabled(has_run)
+        if not has_run:
+            self.demand_state.setText(tr("demand.state.none"))
+            return
+        self.demand_state.setText(demand_state(directory, self.dialog._run_name(directory)))
 
     def load(self, data):
         water = next((i for i in data.get("indicators", []) if i.get("type") == "water"), None)
@@ -663,6 +683,23 @@ class RunPage(Page):
 
 # --- Results ------------------------------------------------------------------------
 
+def demand_state(directory, name):
+    """« Run shown: …; demand computed again on … » (Indicators and Results tabs)."""
+    import datetime
+
+    from ..engine.demand import latest_demand
+
+    later = latest_demand(directory)
+    if later is None:
+        return tr("demand.state.run", run=name)
+    stamp = os.path.basename(later)[len("demande_"):len("demande_") + 13]
+    try:
+        when = datetime.datetime.strptime(stamp, "%Y%m%d_%H%M").strftime("%d/%m/%Y %H:%M")
+    except ValueError:
+        when = stamp
+    return tr("demand.state.recomputed", run=name, date=when, folder=os.path.basename(later))
+
+
 def run_mode(directory) -> str:
     """« planned » or « free »: the mode of a run, from the copy of its scenario."""
     import json
@@ -724,7 +761,10 @@ class ResultsPage(Page):
         self.compare = QPushButton(tr("results.compare"))
         self.compare.setToolTip(tip("results.compare"))
         self.compare.clicked.connect(self._compare)
-        for button in (load, table, folder, self.compare):
+        self.demand = QPushButton(tr("demand.recompute"))
+        self.demand.setToolTip(tip("demand.recompute"))
+        self.demand.clicked.connect(lambda: dialog.recompute_demand())
+        for button in (load, table, folder, self.compare, self.demand):
             buttons.addWidget(button)
         buttons.addStretch(1)
         layout.addLayout(buttons)
@@ -747,8 +787,15 @@ class ResultsPage(Page):
         self.label.setText(run.label if run else "")
         for widget in (self.kept, self.label):
             widget.blockSignals(False)
-        self.folder.setText(tr("results.folder", folder=directory or "—"))
+        text = tr("results.folder", folder=directory or "—")
+        if run is not None:
+            from ..engine.demand import latest_demand
+
+            if latest_demand(directory):
+                text += "<br>" + demand_state(directory, self.dialog._run_name(directory))
+        self.folder.setText(text)
         self.compare.setEnabled(bool(directory) and run_mode(directory) == "free")
+        self.demand.setEnabled(run is not None)
         outputs = available_outputs(directory)
         self.quantities.clear()
         self.years.clear()
