@@ -118,6 +118,50 @@ Objectif : identifier dans les résultats les cellules **urbaines dès l'état i
 
 **Mise en œuvre :** avec `scipy.ndimage` (dilatation et étiquetage des taches), le calcul est vectorisé et peu coûteux. Un raster sur 8 bits prend peu de place (environ 280 Mo pour 280 millions de cellules), donc on peut le traiter sur toute l'emprise d'un coup, sans découpage en blocs.
 
+> Le repérage urbain/non urbain décrit ci-dessus est le cas simple (deux strates) du mécanisme général de la section 3.5.
+
+### 3.5 Strates dynamiques : évolution des polygones dans le temps (prioritaire)
+
+> **Spécification détaillée :** `docs/plan_polygones_libres.md`. En cas d'écart, **le plan prévaut** sur cette section, qui fixe les principes.
+
+**Principe :** quand un polygone est saturé, la migration déborde sur les mailles voisines. Celles-ci prennent alors **l'identité et toutes les propriétés du polygone colonisateur** (strate, TCAM, densité max, paramètres de colonisation). Le polygone s'étend ainsi d'année en année. La boucle de rétroaction (le polygone fixe les paramètres, la dynamique fait évoluer le polygone) est le cœur du mode Libre.
+
+**Mode d'évolution : option du scénario, deux modes**
+
+| Mode | Comportement | Cas d'usage |
+|---|---|---|
+| **Planifié** (par défaut) | Les polygones fournis en entrée **ne changent jamais**. Un polygone urbain reste urbain même s'il n'est pas entièrement occupé. La croissance et la migration se font dans ces limites. Les résultats sont identiques à ceux de l'outil actuel | Urbanisme planifié ou strict, périmètre d'urbanisation fixé, schéma directeur |
+| **Libre** | Les polygones évoluent par **colonisation**. Seules les zones d'exclusion et les strates non colonisables restent hors d'atteinte | Croissance spontanée ou informelle, scénario tendanciel |
+
+**Population excédentaire (mode Planifié) :** l'excédent n'est **jamais perdu en silence**. Il est redistribué vers les cellules qui ont de la capacité, ou comptabilisé comme **population non accueillie** (carte et tableau par horizon). Cet indicateur montre où la planification devient insuffisante.
+
+**Comparaison de scénarios :** le même jeu de données en mode Planifié puis en mode Libre mesure la pression d'urbanisation hors du périmètre planifié.
+
+**Principes de conception (mode Libre)**
+
+| Sujet | Décision |
+|---|---|
+| État du modèle | Un identifiant de polygone (`polygon_id`) par unité de calcul. Coloniser, c'est changer cet identifiant, ce qui transmet automatiquement toutes les propriétés |
+| Rattachement administratif | Couche communale **séparée et fixe**, pour les statistiques et le recalage. Elle ne bouge jamais |
+| Hiérarchie | Une strate ne colonise que des strates de rang strictement inférieur. Exclusions et strates non colonisables jamais colonisées |
+| Déclencheur | Saturation de la maille candidate **et** flux de migrants reçu du colonisateur **et** saturation du colonisateur **et** contiguïté (au moins N voisins sur 8, 3 par défaut). Détail : plan, §3 |
+| Résolution et vitesse | Maille de référence de **250 m**. **Une couronne de mailles au maximum par pas**, avec un **pas de calcul interne annuel** quel que soit le pas des sorties |
+| Vitesse du front | **Ce n'est pas un paramètre.** Elle résulte de la densité et du taux de croissance, qui pilotent l'évolution. Elle est calculée et publiée comme indicateur |
+| Identité dans le temps | Un polygone qui s'étend **garde son identifiant**. Les nouveaux noyaux reçoivent un nouvel identifiant. Une table de généalogie trace les événements |
+| Polygones de sortie | Vectorisés et **lissés** aux années de sortie, avec les attributs du polygone d'origine. **La grille reste la référence du calcul** : le lissage ne sert qu'à l'affichage et n'est jamais réinjecté |
+
+**Contrôle des résultats : plausibilité, pas validation**
+
+Les zones d'étude n'ont pas d'historique d'urbanisation exploitable. On ne cherche donc pas une validation scientifique : on vérifie la **plausibilité** des résultats avec des indicateurs publiés par polygone et par horizon :
+
+- vitesse du front (m/an) ;
+- croissance de la surface comparée à celle de la population (étalement ou densification) ;
+- distribution des densités ;
+- compacité des formes ;
+- nombre de nouveaux noyaux ;
+- population non accueillie ;
+- bilan de masse (doit être nul).
+
 ---
 
 ## 4. Architecture cible
@@ -135,7 +179,9 @@ Plugin QGIS
     ├── parametres.py    lecture GPKG, interpolation, conversion en raster
     ├── croissance.py    application du TCAM
     ├── migration.py     débordement au-delà de dmax, conservation de la population
+    ├── strates.py       identifiant de polygone, colonisation, héritage des paramètres
     ├── urbanisation.py  statut urbain, extension / nouveau noyau, tache urbaine
+    ├── polygones.py     vectorisation, lissage, généalogie, indicateurs de plausibilité
     ├── tuiles.py        traitement par blocs avec recouvrement
     └── ia/              connecteurs BYOK (Anthropic, OpenAI, Gemini, compatibles OpenAI)
 ```
@@ -154,6 +200,7 @@ Hypothèse : un ingénieur pilote le développement avec un agent de code (Claud
 | 3 | Migration et traitement par blocs (performance) | 1,5–2 j |
 | 4 | Module de calage intégré (niveau A) | 1–1,5 j |
 | 4 bis | Repérage de l'extension urbaine (statut, année d'urbanisation, tache urbaine, statistiques) | 1–1,5 j |
+| 4 ter | **Strates dynamiques (mode Libre)** : voir `docs/plan_polygones_libres.md` pour le phasage et la durée détaillés | 8–10 j + 1,5 j interface |
 | 5 | Plugin QGIS : interface, Processing, tâche de fond | 1,5–2 j |
 | 6 | Assistant IA BYOK (niveau B) | 1,5–2 j |
 | 7 | Non-régression par rapport aux résultats actuels, calage, installateur, documentation | 1,5–2 j |
@@ -175,6 +222,9 @@ Pour comparaison, un développement classique prendrait environ 3 à 4 mois. Les
 | Q6 | Quelle résolution cible sur quelle emprise pour BUR71 (pour dimensionner le traitement par blocs) ? |
 | Q7 | Quelle est la politique interne sur l'envoi de données vers des API d'IA externes (pour le niveau B) ? |
 | Q8 | Quelle définition de l'urbain pour BUR71 : seuil de densité (hab/ha), taille minimale de tache, référence à une définition nationale (par ex. celle de l'institut de statistique du Burundi) ? |
+| Q9 | Quelles strates dans les polygones de départ, dans quel ordre hiérarchique, et lesquelles sont non colonisables ? |
+| Q10 | Quel niveau de lissage pour les polygones de sortie, et quelle surface minimale de tache ? |
+| Q11 | Mode par défaut pour BUR71 (Planifié ou Libre) ? En mode Planifié, redistribution ou population non accueillie pour l'excédent ? |
 
 ---
 
