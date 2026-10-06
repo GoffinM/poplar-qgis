@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Proposé le 30/09/2026 ; questions Q1 à Q10 tranchées le 30/09 (§9). À lancer après les retours du beta testing |
+| **Statut** | **Mode Libre remplacé par `plan_polygones_libres.md` (06/10/2026)**. Proposé le 30/09/2026 ; questions Q1 à Q10 tranchées le 30/09 (§9). À lancer après les retours du beta testing |
 | **Demandes** | (i) extension progressive des taches urbaines sous l'effet de la migration ; (iii) changements d'affectation planifiés, par exemple un camp qui ferme et devient village ou centre secondaire |
 | **Références** | Fiche diagnostic §3.4 (extension urbaine) ; note de suivi §3.5 (strates dynamiques) ; décisions du 30/09 (`reste_a_faire.md` §5) ; règle A4 de l'état des lieux |
 | **Durée estimée** | 7 à 9 jours, en six étapes testées séparément (généalogie dès la première version) |

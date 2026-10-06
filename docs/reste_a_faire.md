@@ -46,6 +46,10 @@
 - Aide en **anglais** (seul le français existe), bilan de la phase 6, README.
 - Fiche À propos : **organisme, licence, contact** à confirmer.
 
+## 4 bis. Chantier prioritaire (06/10) : évolution des polygones dans le temps, mode libre
+
+- Plan proposé : `plan_polygones_libres.md` (architecture `polygon_id`, ordre des opérations, sorties, indicateurs de plausibilité, cas test synthétique, points P0 à P12). **À valider avant tout code.**
+
 ## 5. Catégories qui changent dans le temps : extension urbaine et changements planifiés (après le beta)
 
 Retours des collègues et décisions du 30/09/2026. Les notes de suivi §3.4 et §3.5 restent la référence détaillée.
