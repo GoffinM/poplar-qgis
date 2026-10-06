@@ -26,8 +26,8 @@ from ..engine.downloads.open_buildings import download_open_buildings, estimate
 from ..engine.downloads.zone import DownloadZone, EmptyZone, ZoneLayer
 from ..engine.library import slug
 from ..engine.roofs import download_origin
-from ..i18n import tr
-from .widgets import add_row, choice_combo, find_or_add_layer, layer_combo, source_of
+from ..i18n import tip, tr
+from .widgets import add_row, choice_combo, find_or_add_layer, layer_combo, set_combo_value, source_of
 
 CACHE_SETTING = "poplar/download_cache"
 
@@ -225,6 +225,10 @@ class DownloadRoofsDialog(QDialog):
         self.start_button.setObjectName("primary")
         self.cancel_button = self.buttons.addButton(tr("download.cancel"), QDialogButtonBox.ButtonRole.ActionRole)
         self.cancel_button.setEnabled(False)
+        self.use_button = self.buttons.addButton(tr("download.use_existing"), QDialogButtonBox.ButtonRole.ActionRole)
+        self.use_button.setToolTip(tip("download.use_existing"))
+        self.use_button.setVisible(False)
+        self.use_button.clicked.connect(lambda: self.use_existing())
         self.close_button = self.buttons.addButton(QDialogButtonBox.StandardButton.Close)
         self.start_button.clicked.connect(lambda: self.start())
         self.cancel_button.clicked.connect(self.cancel)
@@ -265,7 +269,56 @@ class DownloadRoofsDialog(QDialog):
         else:
             self._say("")
         self._downloaded(bool(origin))
+        self.use_button.setVisible(bool(origin) and self.task is None)
         return origin
+
+    def use_existing(self):
+        """Roofs already downloaded to this file: added to the project and chosen, nothing downloaded again."""
+        output = self.output.filePath()
+        origin = download_origin(output)
+        if not origin:
+            return None
+        layer = find_or_add_layer(output, origin.get("layer") or "roofs")
+        if layer is None:
+            self._say(tr("download.unreadable", file=os.path.basename(output)), "warn")
+            return None
+        layer.setName(os.path.splitext(os.path.basename(output))[0])
+        self.report, self.layer = origin, layer
+        self.downloaded.emit(layer)
+        self.accept()
+        return layer
+
+    def settings(self):
+        """What was asked (source, kind, margin, confidence, limit), kept in the scenario to download it again."""
+        values = {"source": self.source.currentData(), "kind": self.kind.currentData(),
+                  "margin_km": self.margin.value()}
+        if self.confidence_on.isChecked():
+            values["min_confidence"] = self.confidence.value()
+        limit = source_of(self.limit_layer.currentLayer()) if self.limit_layer.currentLayer() is not None else None
+        if limit and not limit.get("unsupported"):
+            values["limit"] = {k: v for k, v in limit.items() if k in ("source", "layer", "where")}
+        return values
+
+    def preset(self, values, output=None):
+        """Same settings as a former download (``settings()`` kept in the scenario), and the same file."""
+        values = values or {}
+        if values.get("source") in FILE_PREFIX:
+            set_combo_value(self.source, values["source"])
+        if values.get("kind"):
+            set_combo_value(self.kind, values["kind"])
+        if values.get("margin_km") is not None:
+            self.margin.setValue(float(values["margin_km"]))
+        self.confidence_on.setChecked(values.get("min_confidence") is not None)
+        if values.get("min_confidence") is not None:
+            self.confidence.setValue(float(values["min_confidence"]))
+        limit = values.get("limit") or {}
+        if limit.get("source"):
+            layer = find_or_add_layer(limit["source"], limit.get("layer"), where=limit.get("where"))
+            if layer is not None:
+                self.limit_layer.setLayer(layer)
+        if output:
+            self.output.setFilePath(output)
+        self._show_existing()
 
     def _downloaded(self, done):
         """Once the roofs are there, « Close » is the highlighted button and « Download again » a plain one."""
@@ -350,6 +403,7 @@ class DownloadRoofsDialog(QDialog):
             self._say(tr("download.cancelling"), "warn")       # stops at the next check, within seconds
 
     def _running(self, running):
+        self.use_button.setVisible(False)
         self.progress.setVisible(running)
         self.progress.setValue(0)
         self.start_button.setEnabled(not running)

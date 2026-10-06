@@ -118,6 +118,8 @@ Version 0.8.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 | T.9 bis | Relancez, puis **Annuler** pendant la lecture | « Annulation en cours… » puis « Téléchargement annulé » en quelques secondes ; un nouveau téléchargement peut être lancé |
 | T.10 | Table attributaire de la couche | Champs `source` (google, microsoft, osm), `year`, `confidence` (Google seulement) |
 | T.11 | **Calculer le calage** | Rural 16,9 m² par habitant ; urbain environ 12,5 m² |
+| T.12 | Retirez la couche des toits du projet, puis **Télécharger les toits…** avec le même fichier (nouveau en 0.9.5) | « Déjà téléchargés le … » et bouton **Utiliser ces toits** : la couche revient, sans téléchargement |
+| T.13 | Enregistrez le scénario, fermez, renommez le dossier `toits`, rouvrez le scénario | Onglet Calage : bandeau « Toits introuvables » ; recensement et groupes toujours là. **Retélécharger…** : même source, même marge, même fichier ; **Télécharger** : la couche revient (tuiles reprises du cache) |
 
 ### Toits dans une base PostGIS (facultatif)
 

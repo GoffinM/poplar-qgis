@@ -154,6 +154,10 @@ class CalibrationPage(QWidget):
         self._building = False
         self.csv_source = None       # Google Open Buildings CSV tile of an older scenario, read directly
         self.download_dialog = None
+        self.missing_roofs = None    # roofs named by the scenario but not found: kept as they are (never lost)
+        self.missing_strata = None   # the same for the strata layer, with its census
+        self.download_settings = None  # how the roofs were downloaded (to download them again)
+        self.loaded_calibration = None
         layout = QVBoxLayout(self)
 
         self.use_roofs = QCheckBox(tr("calibration.use_roofs"))
@@ -174,6 +178,20 @@ class CalibrationPage(QWidget):
         self.roof_origin.setWordWrap(True)
         self.roof_origin.setVisible(False)
         form.addRow("", self.roof_origin)
+        self.missing_row = QWidget()
+        row = QHBoxLayout(self.missing_row)
+        row.setContentsMargins(0, 0, 0, 0)
+        self.missing_label = QLabel()
+        self.missing_label.setObjectName("chip")
+        self.missing_label.setProperty("state", "warn")
+        self.missing_label.setWordWrap(True)
+        self.redownload = QPushButton(tr("calibration.redownload"))
+        self.redownload.setToolTip(tip("calibration.redownload"))
+        self.redownload.clicked.connect(lambda: self.download_again())
+        row.addWidget(self.missing_label, 1)
+        row.addWidget(self.redownload, 0, Qt.AlignmentFlag.AlignTop)
+        self.missing_row.setVisible(False)
+        form.addRow("", self.missing_row)
         self.area_field = QgsFieldComboBox()
         self.area_field.setAllowEmptyFieldName(True)
         add_row(form, "calibration.area_field", self.area_field)
@@ -411,6 +429,7 @@ class CalibrationPage(QWidget):
             combo.setField("")
         self._show_roof_origin(layer)
         if layer is not None and not self._building:
+            self._set_missing(None)
             names = {f.name().lower(): f.name() for f in layer.fields()}
             for candidate in self.AREA_NAMES:
                 if candidate in names:
@@ -443,9 +462,29 @@ class CalibrationPage(QWidget):
             dialog.exec()
         return dialog
 
+    def download_again(self, show=True):
+        """Roofs named by the scenario but missing: the download window, with the same settings and file."""
+        dialog = self.download_roofs(show=False)
+        if dialog.task is None and self.missing_roofs:
+            dialog.preset(self.download_settings or _guess_settings(self.missing_roofs["source"]),
+                          self.missing_roofs["source"])
+        if show:
+            dialog.exec()
+        return dialog
+
+    def _set_missing(self, buildings):
+        self.missing_roofs = buildings
+        if buildings:
+            name = os.path.basename(buildings["source"])
+            self.missing_label.setText(tr("calibration.roofs_missing", file=name, path=buildings["source"]))
+            self.redownload.setVisible(bool(self.download_settings) or _guess_settings(buildings["source"]) != {})
+        self.missing_row.setVisible(bool(buildings))
+
     def _roofs_downloaded(self, layer):
         if layer is None:
             return
+        if self.download_dialog is not None:
+            self.download_settings = self.download_dialog.settings()
         self.roof_layer.setLayer(layer)            # area and confidence fields are found by their names
         origin = self._show_roof_origin(layer)
         if origin and origin.get("imagery_year"):
@@ -479,6 +518,8 @@ class CalibrationPage(QWidget):
 
     def _strata_layer_changed(self, layer):
         """New strata layer: no group nor census field until chosen (never the first field by default)."""
+        if layer is not None and not self._building:
+            self.missing_strata = None
         for combo in (self.group_field, self.census_field):
             combo.setLayer(layer)
             combo.setField("")
@@ -546,6 +587,9 @@ class CalibrationPage(QWidget):
         source = buildings.get("source") or ""
         self.csv_source = None
         self.roof_layer.setLayer(None)
+        self.download_settings = buildings.get("download")
+        self.loaded_calibration = calibration
+        missing = None
         if source.lower().endswith((".csv", ".gz")) and (source.lower().endswith(".gz") or
                                                           is_open_buildings(self.dialog.absolute(source))):
             self.csv_source = self.dialog.absolute(source)            # kept as it is (no field of its own)
@@ -553,6 +597,8 @@ class CalibrationPage(QWidget):
             layer = find_or_add_layer(self.dialog.absolute(source), buildings.get("layer"), where=buildings.get("where"))
             if layer is not None:
                 self.roof_layer.setLayer(layer)
+            else:                                   # kept as it is: the calibration is never lost
+                missing = {**buildings, "source": self.dialog.absolute(source)}
         for combo in (self.area_field, self.usage_field, self.confidence_field):
             combo.setLayer(self.roof_layer.currentLayer())
         self.area_field.setField(buildings.get("area_field") or "")
@@ -564,12 +610,15 @@ class CalibrationPage(QWidget):
         self.roof_year.setValue(int(buildings.get("year") or 1899))
         strata = calibration.get("strata") or {}
         self.strata_layer.setLayer(None)
+        self.missing_strata = None
         if strata.get("source"):
             layer = find_or_add_layer(self.dialog.absolute(strata["source"]), strata.get("layer"), where=strata.get("where"))
             if layer is not None:
                 self.strata_layer.setLayer(layer)
                 self.strata_field.setLayer(layer)
                 self.strata_field.setField(strata.get("field") or "")
+            else:
+                self.missing_strata = {**strata, "source": self.dialog.absolute(strata["source"])}
         for combo in (self.group_field, self.census_field):
             combo.setLayer(self.strata_layer.currentLayer())
         self.group_field.setField(strata.get("group_field") or "")
@@ -598,6 +647,7 @@ class CalibrationPage(QWidget):
         self.status.setText(tr("calibration.not_computed") if source else "")
         self._building = False
         self._show_roof_origin(self.roof_layer.currentLayer())
+        self._set_missing(missing)
 
     def store(self, data):
         buildings = {}
@@ -605,6 +655,8 @@ class CalibrationPage(QWidget):
             buildings = {"source": self.csv_source}
         elif self.roof_layer.currentLayer() is not None:
             buildings = source_of(self.roof_layer.currentLayer())
+        elif self.missing_roofs:
+            buildings = dict(self.missing_roofs)    # file not found: the scenario keeps what it said
         if not buildings:
             data.pop("calibration", None)
             if (data.get("base_population") or {}).get("source") == "buildings":
@@ -621,8 +673,16 @@ class CalibrationPage(QWidget):
                 buildings["confidence_field"] = self.confidence_field.currentField()
         if self.roof_year.value() > 1899:
             buildings["year"] = self.roof_year.value()
+        if self.download_settings:
+            buildings["download"] = self.download_settings
+        else:
+            buildings.pop("download", None)
         calibration = {"buildings": buildings, "recalibrate": self.recalibrate.isChecked()}
         strata = source_of(self.strata_layer.currentLayer())
+        if strata is None and self.missing_strata:  # strata layer not found: kept, with its census
+            calibration["strata"] = dict(self.missing_strata)
+            if (self.loaded_calibration or {}).get("census"):
+                calibration["census"] = dict(self.loaded_calibration["census"])
         if strata and self.strata_field.currentField():
             strata["field"] = self.strata_field.currentField()
             for key, combo in (("group_field", self.group_field), ("census_field", self.census_field)):
@@ -630,7 +690,7 @@ class CalibrationPage(QWidget):
                     strata[key] = combo.currentField()
             calibration["strata"] = strata
         census = self.census_values()
-        if census:
+        if census and not (strata is None and self.missing_strata):
             calibration["census"] = census
         if self.census_year.value() > 1899:
             calibration["census_year"] = self.census_year.value()
@@ -941,3 +1001,14 @@ class CalibrationPage(QWidget):
         if self.current in self.settings and self.current in self.groups:
             self._show_settings(self.settings[self.current])
             self._redraw()
+
+
+def _guess_settings(path):
+    """Download settings of roofs downloaded before they were kept in the scenario: from the file name."""
+    from .download_dialog import FILE_PREFIX
+
+    name = os.path.basename(path or "")
+    for source, prefix in FILE_PREFIX.items():
+        if name.startswith(prefix):
+            return {"source": source}
+    return {}

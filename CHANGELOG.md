@@ -3,6 +3,12 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.9.5 – 06/10/2026 : toits déjà téléchargés ou introuvables
+
+- Fenêtre de téléchargement des toits : quand le fichier existe déjà, bouton **Utiliser ces toits** (ajouté au projet et choisi, sans téléchargement).
+- Onglet Calage : un fichier de toits (ou une couche de strates) cité par le scénario mais absent n'efface plus le calage. Avant, recensement, groupes et choix « population à partir des toits » disparaissaient à l'enregistrement suivant. Un bandeau le signale, avec **Retélécharger…** (mêmes réglages et même fichier).
+- Les réglages de chaque téléchargement de toits sont gardés dans le scénario (`calibration.buildings.download`).
+
 ## 0.9.4 – 06/10/2026 : provinciales à 1
 
 - Attraction des routes : poids par défaut des routes provinciales porté de 0,6 à 1 (nationales 2, autres 0,3). Une maille est « près d'une route » jusqu'à 350 m d'une provinciale.

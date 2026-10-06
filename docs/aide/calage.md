@@ -35,6 +35,8 @@ Le bouton **Télécharger les toits…** va chercher les toits de **Google Open 
 - **Licence** : CC BY 4.0 ou ODbL v1.0. Citez « Google Open Buildings v3 » dans les rapports.
 - Contrôle sur Muramvya : les toits des anciens classeurs sont ceux de Google Open Buildings v3. On en retrouve 38 936 sur 38 942 à l'identique.
 - Le téléchargement passe par le proxy des réglages de QGIS (**Préférences › Options › Réseau**) s'il y en a un.
+- **Toits déjà téléchargés** : si le fichier choisi existe déjà, la fenêtre l'indique et propose **Utiliser ces toits**, qui l'ajoute au projet et le choisit comme couche des toits, sans rien télécharger.
+- **Toits introuvables** : si le scénario cite un fichier de toits absent (scénario ouvert sur un autre poste, dossier déplacé), l'onglet Calage l'indique et **garde tous les réglages du calage** (recensement, groupes, population de départ calculée à partir des toits). Le bouton **Retélécharger…** rouvre la fenêtre avec la même source, le même format, le même seuil de confiance, la même marge, la même limite et le même fichier : ces réglages sont gardés dans le scénario à chaque téléchargement. Sur le même ordinateur, les tuiles Google sont reprises du cache.
 
 #### Source Overture Maps
 

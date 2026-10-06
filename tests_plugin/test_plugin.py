@@ -957,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 7
-    assert version() == "0.9.4"
+    assert version() == "0.9.5"
     AboutDialog()
 
 
@@ -1228,4 +1228,55 @@ def test_roads_set_in_the_strata_tab_and_used_by_a_free_run(iface, scenario_copy
     assert not any("Attraction" in str(m) for m in iface.bar.messages[-2:])   # information, not a warning
     page.roads_on.setChecked(False)
     assert "roads" not in dialog.collect()["strata"]
+    QgsProject.instance().clear()
+
+
+def test_roofs_already_downloaded_or_missing_are_never_lost(iface, scenario_copy, tmp_path):
+    from poplar.i18n import tr
+    from poplar.ui.main_dialog import MainDialog
+
+    dialog = MainDialog(iface, lambda page: None)
+    dialog.load_file(_with_calibration(scenario_copy))
+    page = dialog.page("calibration")
+    window = page.download_roofs(show=False)
+    window.fetcher = _FakeTiles()
+    window.cache_dir.setFilePath(str(tmp_path / "cache"))
+    window.output.setFilePath(str(tmp_path / "toits" / "google_open_buildings_muramvya.gpkg"))
+    window.margin.setValue(2.5)
+    assert window.start(background=False)
+    output = window.report["output"]
+    data = dialog.collect()
+    assert data["calibration"]["buildings"]["download"] == {"source": "google", "kind": "points", "margin_km": 2.5}
+
+    # 1. On disk but no longer in the project: « Use these roofs », nothing downloaded.
+    QgsProject.instance().removeMapLayer(page.roof_layer.currentLayer().id())
+    calls = len(window.fetcher.calls)
+    window = page.download_roofs(show=False)
+    window.fetcher = _FakeTiles()
+    window.output.setFilePath(output)
+    assert window.use_button.isVisibleTo(window)
+    layer = window.use_existing()
+    assert layer is not None and page.roof_layer.currentLayer() is layer
+    assert window.fetcher.calls == [] and calls > 0
+
+    # 2. Named by the scenario but gone: the calibration is kept, « Download again » uses the same settings.
+    QgsProject.instance().removeMapLayer(layer.id())
+    for name in os.listdir(os.path.dirname(output)):
+        os.remove(os.path.join(os.path.dirname(output), name))
+    dialog.reload(data)
+    assert page.roof_layer.currentLayer() is None and page.missing_row.isVisibleTo(page)
+    assert "google_open_buildings_muramvya.gpkg" in page.missing_label.text()
+    kept = dialog.collect()
+    assert kept["calibration"]["buildings"]["source"] == output
+    assert kept["calibration"]["census"] == data["calibration"]["census"]
+    assert kept["base_population"]["source"] == data["base_population"]["source"]
+    window = page.download_again(show=False)
+    assert window.output.filePath() == output and window.margin.value() == 2.5
+    assert window.source.currentData() == "google" and not window.use_button.isVisibleTo(window)
+    window.fetcher = _FakeTiles()
+    window.cache_dir.setFilePath(str(tmp_path / "cache"))
+    assert window.start(background=False, ask=False)
+    assert page.roof_layer.currentLayer() is not None and not page.missing_row.isVisibleTo(page)
+    assert all("19c1" not in c for c in window.fetcher.calls)          # the tile with roofs: from the cache
+    assert tr("calibration.redownload") == page.redownload.text()
     QgsProject.instance().clear()
