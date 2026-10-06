@@ -316,7 +316,7 @@ def colonise(units: Units, polygon_id: np.ndarray, table: PolygonTable, populati
 class NucleusRules:
     """Creation of new polygons away from any polygon of the same or a higher rank (off by default).
 
-    A cluster of at least ``min_cells`` touching cells (8 neighbours), all saturated, whose units belong to
+    A cluster of at least ``min_cells`` touching cells (8 neighbours, 16 by default), all saturated, whose units belong to
     colonisable strata of a lower rank than ``stratum`` and that touch no polygon of that rank or higher,
     becomes a new polygon of ``stratum``. It is flagged « to check » when an artificial constraint may
     explain it: an enclave of habitable land smaller than ``enclave_km2``, or units fed mostly by the
@@ -325,7 +325,8 @@ class NucleusRules:
 
     enabled: bool = False
     stratum: Optional[str] = None
-    min_cells: int = 4
+    min_cells: int = 16
+    """16 cells of 250 m = 1 km² (decision D2 of 06/10/2026)."""
     enclave_km2: float = 5.0
     migration_share: float = 0.5
 

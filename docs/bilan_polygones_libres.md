@@ -5,7 +5,7 @@
 | **Date** | 06/10/2026 |
 | **Plan** | `plan_polygones_libres.md` (décisions B1, B2, S1, B ; P3 à P19) |
 | **Banc** | Cas `muramvya_libre` ajouté à `tools/banc.py` |
-| **Statut** | Moteur et sorties terminés ; **trois décisions demandées** (§4) avant l'interface (étape 6) |
+| **Statut** | Moteur et sorties terminés. Décisions D1, D2 et D3 **acceptées le 06/10** ; D2 appliquée ; plan de D1 dans `plan_polygones_libres.md` §15, à valider ; l'interface (étape 6) attend D1 |
 
 ## 1. Ce qui est fait
 

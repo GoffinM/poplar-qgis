@@ -371,3 +371,9 @@ def test_contact_between_two_polygons_of_the_same_rank():
     history = PolygonHistory(None, table, None, None, membership={2024: apart, 2030: touching}, start_year=2024)
     rows = _contacts(history)
     assert [(r["id"], r["autre_id"], r["annee"]) for r in rows] == [(0, 1, 2030)]
+
+
+def test_nuclei_need_one_square_kilometre_by_default():
+    from engine.polygons import NucleusRules
+
+    assert NucleusRules().min_cells == 16 and not NucleusRules().enabled          # decision D2

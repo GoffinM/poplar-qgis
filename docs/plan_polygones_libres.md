@@ -335,3 +335,57 @@ Chaque étape passe tous les tests, y compris le banc en mode figé, avant la su
 
 Une précision de S1 : la fiche dit que le TCAM est hérité. La parade « TCAM lié aux communes » (§4, point 3) reste un choix de l'utilisateur, au moment de régler ses paramètres. Le TCAM n'est alors plus une propriété de la strate : il reste attaché au lieu, et rien ne le fait voyager avec le polygone.
 
+
+## 14. Décisions du 06/10 après le bilan Muramvya (`bilan_polygones_libres.md`)
+
+| # | Décision |
+|---|---|
+| **D1** | Le mode libre peut partir des **taches bâties** (fiche §3.4) plutôt que des limites administratives : étape de préparation facultative, plan ci-dessous (§15), **à valider avant le code**. L'interface (étape 6) attend D1 |
+| **D2** | Nouveaux noyaux : taille minimale **16 mailles (1 km²)** par défaut (fait) ; strate des noyaux **intermédiaire** (par exemple Urbain2, dmax 7 500), à choisir dans le scénario (`strata.new_nuclei.stratum`). La règle reste désactivée par défaut |
+| **D3** | Valeurs par défaut P14 inchangées (part saturée 80 %, flux 10 %), à recaler sur les taches bâties après D1 |
+
+## 15. Plan de D1 : préparation des taches bâties (proposé le 06/10, à valider)
+
+**Principe.** À partir de la population de départ du scénario (raster ou toits), au pas de 250 m et à l'année de base, on repère les taches denses et on écrit une **nouvelle couche de typologie**. Elle remplace les limites administratives comme polygones de départ ; les communes restent la couche administrative fixe, pour les statistiques et le recalage.
+
+**Méthode** (inspirée de la méthode « Degree of Urbanisation » de l'ONU et d'Eurostat, adaptée aux mailles de 250 m) :
+
+1. Densité de chaque maille = population de départ ÷ surface utile.
+2. **Mailles denses** : densité au moins égale à `density_threshold`.
+3. **Lissage des taches** : on bouche les trous entourés de mailles denses, et une maille qui a au moins 5 voisines denses sur 8 devient dense (règle majoritaire d'Eurostat), en deux passes au plus.
+4. **Taches** : mailles denses contiguës par les côtés (4 voisins). Une tache est gardée si sa population atteint `min_population`.
+5. **Classes écrites** :
+   - les taches deviennent la strate urbaine (par exemple Urbain1) ; une option ajoute un second niveau pour les petites taches (Urbain2) ;
+   - **le reste de la commune urbaine** devient une strate **« Transition »** ;
+   - le reste ne change pas (Rural).
+6. **Rangs proposés** : Rural 1, Transition 2, Urbain2 3, Urbain1 4.
+
+**Sorties.**
+- `typologie_taches.gpkg` : polygones par classe, à ouvrir et à retoucher dans QGIS si besoin.
+- Une copie du scénario qui pointe vers cette couche. Elle contient les rangs, et les paramètres des nouvelles classes sont pré-remplis (point Q-c).
+- Un court rapport : nombre de taches, surfaces, populations, taches hors de la commune urbaine.
+
+Le tout est accessible en ligne de commande (`python -m engine patches scenario.json`), puis par un bouton de l'interface à l'étape 6.
+
+**Muramvya, essai du 06/10** (commune urbaine : 333 mailles, 32 752 habitants) :
+
+| Seuil | Population minimale | Taches | Surface | Habitants | Hors de la commune urbaine |
+|---|---|---|---|---|---|
+| 1 500 hab/km² | 5 000 | 2 (21 760 et 6 088 hab.) | 5,7 km² | 27 848 | 27 mailles (un village dense) |
+| 2 500 hab/km² | 5 000 | 1 | 2,9 km² | 18 655 | 0 |
+| 3 000 hab/km² | 2 000 | 3 | 3,2 km² | 23 570 | 10 mailles |
+| 5 000 hab/km² | 5 000 | 1 | 1,6 km² | 14 293 | 0 |
+
+**Questions à trancher :**
+
+| # | Question | Ma proposition |
+|---|---|---|
+| Q-a | Seuil de densité et population minimale d'une tache | **1 500 hab/km² et 5 000 habitants** (repère « centre urbain » de DEGURBA pour la densité ; population minimale abaissée pour les petites villes du Burundi) ; second niveau Urbain2 pour les taches de 2 000 à 5 000 habitants, en option |
+| Q-b | Une tache dense **hors de la commune urbaine** (le village dense de 6 088 habitants à Muramvya) : urbaine ou rurale ? | Urbaine (strate Urbain2), et signalée dans le rapport : c'est une agglomération de fait. L'option inverse (taches limitées à la commune urbaine) reste possible |
+| Q-c | Paramètres de la strate **Transition** (le reste de la commune urbaine) | **dmax rurale** (2 500), pour que la ville la remplisse puis la colonise : c'est elle qui portera le front. Pour le **TCAM, celui de la classe urbaine d'origine**. Les deux sont pré-remplis dans la copie du scénario et modifiables |
+| Q-d | Couche écrite une fois (proposé), ou taches recalculées à chaque calcul ? | Couche écrite une fois : visible, modifiable, et la même pour les deux modes, donc comparable |
+| Q-e | Lissage des taches | Trous bouchés et règle majoritaire 5/8, en deux passes au plus |
+
+**Effet sur le mode planifié.** Lancé sur la nouvelle typologie, le mode planifié prend les taches comme périmètre urbain : c'est un autre scénario, pas une régression. Le banc garde les scénarios d'origine. La comparaison des deux modes (Q11) se fait sur la même typologie.
+
+**Durée** : environ 1,5 jour (module `patches.py`, commande, tests synthétiques, essai Muramvya en deux modes, bilan des fronts).
