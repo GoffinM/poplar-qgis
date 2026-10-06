@@ -15,6 +15,15 @@ Cancelled = Callable[[], bool]
 CHUNK = 1 << 20
 
 
+def _user_agent() -> str:
+    from .. import __version__
+
+    return f"Poplar/{__version__} (QGIS plugin, population growth and migration)"
+
+
+USER_AGENT = _user_agent()
+
+
 class DownloadCancelled(Exception):
     """The user stopped the download."""
 
@@ -34,11 +43,14 @@ class UrllibFetcher:
     browsers do); the plugin passes the proxy set in the QGIS options, if any.
     """
 
-    def __init__(self, timeout: float = 60.0, proxy: Optional[str] = None):
+    def __init__(self, timeout: float = 60.0, proxy: Optional[str] = None, user_agent: Optional[str] = None):
         self.timeout = timeout
         self.proxy = proxy
         handlers = [urllib.request.ProxyHandler({"http": proxy, "https": proxy})] if proxy else []
         self._opener = urllib.request.build_opener(*handlers)
+        # Public services ask clients to say who they are (OpenStreetMap usage policy); the anonymous
+        # « Python-urllib » may be refused.
+        self._opener.addheaders = [("User-Agent", user_agent or USER_AGENT)]
 
     def text(self, url: str) -> str:
         """A small text document (a listing), read at once."""

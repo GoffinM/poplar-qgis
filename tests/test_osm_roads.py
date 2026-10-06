@@ -146,3 +146,11 @@ def test_command_line(tmp_path, monkeypatch, capsys):
     output = str(tmp_path / "routes.gpkg")
     assert main(["download-roads", zone, output, "--crs", "EPSG:32735"]) == 0
     assert "3" in capsys.readouterr().out and len(_read(output)) == 3
+
+
+def test_requests_say_who_they_are():
+    from engine import __version__
+    from engine.downloads.fetch import UrllibFetcher
+
+    agent = dict(UrllibFetcher()._opener.addheaders)["User-Agent"]
+    assert agent.startswith(f"Poplar/{__version__}") and "Python-urllib" not in agent

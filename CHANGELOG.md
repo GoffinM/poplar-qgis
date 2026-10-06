@@ -3,6 +3,12 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.9.2 – 06/10/2026 : essai réel des routes
+
+- Téléchargements : les requêtes s'identifient (« User-Agent » Poplar), comme le demande la politique d'usage d'OpenStreetMap ; un client Python anonyme peut être refusé.
+- Version interne du moteur alignée sur celle du plugin (elle était restée à 0.8.1 dans le banc et les rapports).
+- Essai réel à Muramvya avec les routes OpenStreetMap : `docs/essai_routes_muramvya.md`.
+
 ## 0.9.1 – 06/10/2026 : polygones lissés
 
 - **Lissage des polygones** du mode libre (`polygones.gpkg`) : escaliers des mailles coupés au milieu des côtés puis arrondis (3 passes par défaut au lieu de 2). Seuls les points triples restent fixes, de sorte que les polygones voisins restent jointifs. Le contour suit la vraie limite de la zone d'étude. Jusqu'ici, les sommets partagés avec le polygone rural étaient figés, si bien que la ville n'était presque pas lissée.
