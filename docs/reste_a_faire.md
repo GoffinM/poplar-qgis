@@ -52,6 +52,7 @@
 - Bilan et **décisions demandées** (D1 polygones de départ en taches bâties, D2 réglage des nouveaux noyaux, D3 valeurs par défaut) : `bilan_polygones_libres.md`.
 - D1 fait (taches bâties : `python -m engine patches`, bilan §5). Plausibilité des fronts sur Muramvya à juger (P14).
 - Étape 6 faite (version 0.8.0) : onglet Strates, taches bâties, résultats et comparaison dans le plugin.
+- **Suite (06/10)** : (A) recalculer la demande seule sur un calcul déjà fait, puis (B) attraction des routes pour des fronts non circulaires (P14). Plan : `plan_demande_et_routes.md`, à valider.
 
 ## 5. Catégories qui changent dans le temps : extension urbaine et changements planifiés (après le beta)
 
