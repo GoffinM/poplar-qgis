@@ -10,8 +10,9 @@ Once, at the end of the run:
 
 - ``annee_colonisation.tif``: year a cell (or its residue) last changed polygon, 0 if never;
 - ``polygones.gpkg``: layer ``polygones`` (one feature per polygon and output year, smoothed for display
-  only: the figures come from the calculation units, never from the outline), layer ``extensions`` (cells
-  gained between two output years) and table ``genealogie``;
+  only: the figures come from the calculation units, never from the outline), layer ``extensions`` (gained
+  between two output years: difference of the smoothed outlines, figures from the cells) and table
+  ``genealogie``; the rasters stay cell by cell, the exact view of the calculation;
 - ``polygones_legende.csv``: identifier, stratum, rank, parent and year of creation of each polygon.
 """
 
@@ -29,6 +30,7 @@ from .outputs import year_label
 from .polygons import NO_CELL, NO_POLYGON, NO_RANK, PolygonHistory, at_capacity, cell_membership
 from .raster_io import write_raster
 from .units import Units
+from .vector_io import polygonal_part
 
 NOT_URBAN, URBAN_START, EXTENSION, NEW_NUCLEUS, EXCLUSION = 0, 1, 2, 3, 9
 STATUS_NODATA = 255.0
@@ -153,7 +155,7 @@ def write_year(directory: str, history: PolygonHistory, year: float, urban_from:
 
 
 def write_final(directory: str, history: PolygonHistory, cell_size: float, min_patch_km2: Optional[float] = None,
-                passes: int = 2) -> List[str]:
+                passes: int = 3) -> List[str]:
     """``annee_colonisation.tif``, ``polygones.gpkg`` and the legend."""
     units = history.units
     grid = units.grid
@@ -173,14 +175,14 @@ def write_final(directory: str, history: PolygonHistory, cell_size: float, min_p
             driver.DeleteDataSource(gpkg)
         datasource = driver.CreateDataSource(gpkg)
         srs = srs_from_wkt(grid.crs_wkt)
-        _polygons_layer(datasource, srs, history, min_area, passes)
-        _extensions_layer(datasource, srs, history)
+        smoothed = _polygons_layer(datasource, srs, history, min_area, passes)
+        _extensions_layer(datasource, srs, history, smoothed)
         _genealogy_table(datasource, history)
         datasource = None
     return [year_path, gpkg, legend]
 
 
-def _polygons_layer(datasource, srs, history, min_area, passes) -> None:
+def _polygons_layer(datasource, srs, history, min_area, passes) -> Dict[Tuple[int, int], ogr.Geometry]:
     table = history.table
     layer = datasource.CreateLayer("polygones", srs, ogr.wkbMultiPolygon, ["SPATIAL_INDEX=YES"])
     for name, kind in (("id", ogr.OFTInteger), ("strate", ogr.OFTString), ("rang", ogr.OFTInteger),
@@ -190,13 +192,15 @@ def _polygons_layer(datasource, srs, history, min_area, passes) -> None:
         layer.CreateField(ogr.FieldDefn(name, kind))
     stats = {(int(round(row["year"])), row["id"]): row for row in history.stats}
     grid = history.units.grid
+    smoothed: Dict[Tuple[int, int], ogr.Geometry] = {}
     layer.StartTransaction()
     for year in sorted(history.membership):
         membership = history.membership[year]
         for polygon, geometry in _vectorise(membership, grid).items():
-            geometry = _smooth(geometry, membership, polygon, grid, passes, min_area)
+            geometry = _smooth(geometry, membership, polygon, grid, passes, min_area, history.study)
             if geometry is None:
                 continue
+            smoothed[(year, polygon)] = geometry
             row = stats.get((year, polygon), {})
             if row:
                 row["perimeter_smooth_m"] = geometry.Boundary().Length()
@@ -217,9 +221,12 @@ def _polygons_layer(datasource, srs, history, min_area, passes) -> None:
                 feature.SetField("mailles", int(row["cells"]))
             layer.CreateFeature(feature)
     layer.CommitTransaction()
+    return smoothed
 
 
-def _extensions_layer(datasource, srs, history) -> None:
+def _extensions_layer(datasource, srs, history, smoothed=None) -> None:
+    """Cells gained by each polygon between two output years, drawn as the difference of its smoothed outlines
+    (the raw cells when that difference is empty); area and number of cells come from the grid."""
     layer = datasource.CreateLayer("extensions", srs, ogr.wkbMultiPolygon, ["SPATIAL_INDEX=YES"])
     for name, kind in (("id", ogr.OFTInteger), ("strate", ogr.OFTString), ("annee_debut", ogr.OFTInteger),
                        ("annee_fin", ogr.OFTInteger), ("surface_km2", ogr.OFTReal), ("mailles", ogr.OFTInteger)):
@@ -231,14 +238,16 @@ def _extensions_layer(datasource, srs, history) -> None:
         old, new = history.membership[before], history.membership[after]
         gained = np.where((new >= 0) & (new != old), new, NO_CELL)
         for polygon, geometry in _vectorise(gained, grid).items():
+            cells = int((gained == polygon).sum())
+            shape = _smoothed_gain(smoothed or {}, before, after, polygon, grid.cell_area_km2 * 1e6)
             feature = ogr.Feature(layer.GetLayerDefn())
-            feature.SetGeometry(geometry)
+            feature.SetGeometry(shape if shape is not None else geometry)
             feature.SetField("id", int(polygon))
             feature.SetField("strate", history.table.stratum[polygon])
             feature.SetField("annee_debut", int(before))
             feature.SetField("annee_fin", int(after))
-            feature.SetField("surface_km2", geometry.GetArea() / 1e6)
-            feature.SetField("mailles", int((gained == polygon).sum()))
+            feature.SetField("surface_km2", cells * grid.cell_area_km2)
+            feature.SetField("mailles", cells)
             layer.CreateFeature(feature)
     layer.CommitTransaction()
 
@@ -335,28 +344,64 @@ def _vectorise(values: np.ndarray, grid) -> Dict[int, ogr.Geometry]:
         return result
 
 
+SLIVER = 0.05
+"""Parts of a smoothed extension smaller than this share of a cell are left out (borders that moved a little)."""
+
+
+def _smoothed_gain(smoothed, before, after, polygon, cell_m2) -> Optional[ogr.Geometry]:
+    new = smoothed.get((after, polygon))
+    if new is None:
+        return None
+    old = smoothed.get((before, polygon))
+    with gdal_exceptions():
+        gain = new.Difference(old) if old is not None else new.Clone()
+        gain = polygonal_part(gain) if gain is not None and not gain.IsEmpty() else None
+        if gain is None:
+            return None
+        kept = ogr.Geometry(ogr.wkbMultiPolygon)
+        for i in range(gain.GetGeometryCount()):
+            part = gain.GetGeometryRef(i)
+            if part.GetArea() >= SLIVER * cell_m2:
+                kept.AddGeometry(part)
+    return kept if kept.GetGeometryCount() else None
+
+
 def _smooth(geometry: ogr.Geometry, membership: np.ndarray, polygon: int, grid, passes: int,
-            min_area: float) -> Optional[ogr.Geometry]:
-    """Chaikin smoothing for display; vertices shared with another polygon stay where they are, so that
-    neighbouring polygons keep a common border. Parts under ``min_area`` (km2) are left out."""
+            min_area: float, study: Optional[ogr.Geometry] = None) -> Optional[ogr.Geometry]:
+    """Outline for display (plan_lissage.md, validated on 06/10/2026). Parts under ``min_area`` (km2) are left out.
+
+    The staircase of the cells is cut at the middle of each cell side (a diagonal staircase becomes a straight
+    line), then rounded by ``passes`` passes of Chaikin. Only the junctions stay where they are: corners where
+    three polygons (or values) meet, corners touching the outside of the grid, and the two corners of a
+    checkerboard. Every operation is symmetric along a border, so two neighbouring polygons are smoothed the
+    same way on both sides and stay joined, without gap or overlap. Borders against the outside keep their
+    cells, then the outline is cut by the real limit of the study area (``study``). ``passes`` 0: raw cells.
+    """
     padded = np.pad(membership, 1, constant_values=NO_CELL)
     x0, size, _, y0, _, _ = grid.geotransform
 
     def fixed(x: float, y: float) -> bool:
         col, row = int(round((x - x0) / size)), int(round((y0 - y) / size))
         around = padded[row:row + 2, col:col + 2]
-        return bool(((around >= 0) & (around != polygon)).any())
+        values = set(around.ravel().tolist())
+        if len(values) >= 3 or NO_CELL in values:
+            return True
+        return bool(around[0, 0] == around[1, 1] and around[0, 1] == around[1, 0] and around[0, 0] != around[0, 1])
 
     result = ogr.Geometry(ogr.wkbMultiPolygon)
     for i in range(geometry.GetGeometryCount()):
         part = geometry.GetGeometryRef(i)
         if part.GetArea() / 1e6 < min_area - 1e-9:
             continue
+        if passes <= 0:
+            result.AddGeometry(part.Clone())
+            continue
         smoothed = ogr.Geometry(ogr.wkbPolygon)
         for j in range(part.GetGeometryCount()):
             ring = part.GetGeometryRef(j)
-            points = [ring.GetPoint_2D(k) for k in range(ring.GetPointCount() - 1)]
+            points = _densify([ring.GetPoint_2D(k) for k in range(ring.GetPointCount() - 1)], size)
             flags = [fixed(x, y) for x, y in points]
+            points, flags = _midpoints(points, flags)
             for _ in range(passes):
                 points, flags = _chaikin(points, flags)
             new_ring = ogr.Geometry(ogr.wkbLinearRing)
@@ -364,7 +409,42 @@ def _smooth(geometry: ogr.Geometry, membership: np.ndarray, polygon: int, grid, 
                 new_ring.AddPoint_2D(x, y)
             smoothed.AddGeometry(new_ring)
         result.AddGeometry(smoothed)
-    return result if result.GetGeometryCount() else None
+    if not result.GetGeometryCount():
+        return None
+    with gdal_exceptions():
+        if not result.IsValid():
+            result = polygonal_part(result.MakeValid())
+        if study is not None and result is not None:
+            result = polygonal_part(result.Intersection(study))
+    return result
+
+
+def _densify(points: Sequence[Tuple[float, float]], size: float) -> List[Tuple[float, float]]:
+    """A vertex at every cell corner along the straight sides of a staircase outline."""
+    out = []
+    n = len(points)
+    for i in range(n):
+        a, b = points[i], points[(i + 1) % n]
+        steps = max(1, int(round(max(abs(b[0] - a[0]), abs(b[1] - a[1])) / size)))
+        for k in range(steps):
+            out.append((a[0] + (b[0] - a[0]) * k / steps, a[1] + (b[1] - a[1]) * k / steps))
+    return out
+
+
+def _midpoints(points: Sequence[Tuple[float, float]], fixed: Sequence[bool]):
+    """Corners cut at the middle of each side, fixed vertices kept (edges between two of them left straight)."""
+    out, flags = [], []
+    n = len(points)
+    for i in range(n):
+        a, b = points[i], points[(i + 1) % n]
+        if fixed[i]:
+            out.append(a)
+            flags.append(True)
+        if fixed[i] and fixed[(i + 1) % n]:
+            continue
+        out.append(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))
+        flags.append(False)
+    return out, flags
 
 
 def _chaikin(points: Sequence[Tuple[float, float]], fixed: Sequence[bool]):

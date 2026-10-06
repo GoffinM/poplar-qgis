@@ -56,8 +56,12 @@ pre { padding: 6px 8px; } blockquote { border-left: 3px solid #1f6f6a; margin: 6
 <tr><td><code>polygon_id_AAAA.tif</code></td><td>Polygone de chaque maille, avec son style</td></tr>
 <tr><td><code>statut_AAAA.tif</code></td><td>0 non urbain, 1 urbain dès le départ, 2 extension, 3 nouveau noyau, 9 exclusion</td></tr>
 <tr><td><code>annee_colonisation.tif</code></td><td>Année où chaque maille a changé de polygone</td></tr>
-<tr><td><code>polygones.gpkg</code></td><td>Polygones <b>lissés pour l'affichage</b> à chaque année de sortie, extensions et généalogie. Les surfaces et populations viennent de la grille</td></tr>
+<tr><td><code>polygones.gpkg</code></td><td>Polygones <b>lissés pour l'affichage</b> à chaque année de sortie, extensions (différence des contours lissés de deux années) et généalogie. Les surfaces et populations viennent de la grille</td></tr>
 <tr><td><code>plausibilite.csv</code></td><td>Indicateurs de plausibilité par polygone et par horizon : vitesse du front, étalement ou densification, densités, compacité, nouveaux noyaux, non accueillis, effet de reclassement, bilan de masse</td></tr>
 </table>
 <p>Ce sont des <b>indicateurs de plausibilité</b>, pas une validation : les zones d'étude n'ont pas d'historique d'urbanisation. Dans l'onglet Résultats, les polygones de la dernière année sont chargés ; les extensions, le statut et l'année de colonisation sont chargés décochés. <b>Comparer avec un calcul planifié…</b> écrit et ouvre <code>comparaison_modes.html</code>.</p>
+<h3>Lissage des contours</h3>
+<p>Le calcul se fait maille par maille ; seuls les contours de <code>polygones.gpkg</code> sont lissés, pour l'affichage :</p>
+<ul><li>les escaliers des mailles sont coupés au milieu de chaque côté (une diagonale en escalier devient une droite), puis arrondis (3 passes par défaut, réglage « Lissage (passes) » ; 0 donne les mailles brutes) ;</li><li>seuls les points où se touchent trois polygones restent fixes : deux polygones voisins sont lissés de la même façon de part et d'autre de leur frontière, sans trou ni recouvrement ;</li><li>au bord, le contour suit la vraie limite de la zone d'étude ;</li><li>les rasters (<code>polygon_id_AAAA.tif</code>, <code>statut_AAAA.tif</code>) restent maille par maille : c'est la vue exacte du calcul.</li></ul>
+<p>Les surfaces dessinées diffèrent un peu de celles des mailles (de l'ordre de 1 à 2 % ; davantage pour un polygone qui touche la limite de la zone d'étude). Les chiffres des tableaux viennent toujours des mailles.</p>
 </body></html>

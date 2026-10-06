@@ -385,3 +385,67 @@ def test_rank_colours_go_from_light_to_petrol():
     assert [rank_colour(r, [1, 2]) for r in (1, 2)] == ["#e5ece9", "#1f6f6a"]
     assert [rank_colour(r, [1, 2, 3, 4]) for r in (1, 2, 3, 4)] == ["#e5ece9", "#f1dfbd", "#c98a36", "#1f6f6a"]
     assert rank_colour(9, [1, 2]) == "#c8c8c8"
+
+
+def _grid_of(membership, size=250.0):
+    from engine.grid import Grid
+
+    rows, cols = membership.shape
+    return Grid(0.0, rows * size, size, cols, rows, "")
+
+
+def _smoothed_partition(membership, passes=3, study=None):
+    from engine.polygon_outputs import _smooth, _vectorise
+
+    grid = _grid_of(membership)
+    return {p: _smooth(g, membership, p, grid, passes, 0.0, study) for p, g in _vectorise(membership, grid).items()}
+
+
+def test_smoothing_turns_a_staircase_into_a_straight_line():
+    # A city whose border with the rural polygon is a diagonal staircase: it becomes a straight diagonal.
+    n = 12
+    membership = np.fromfunction(lambda r, c: np.where(c > r, 1, 0), (n, n), dtype=int).astype(np.int32)
+    city = _smoothed_partition(membership)[1]
+    # Along the diagonal, far from the corners, the outline is within a few metres of the line y = H - x - 125.
+    ring = city.GetGeometryRef(0).GetGeometryRef(0)
+    points = [ring.GetPoint_2D(k) for k in range(ring.GetPointCount())]
+    middle = [(x, y) for x, y in points if 750 < x < 2250 and 750 < (n * 250 - y) < 2250]
+    assert middle
+    for x, y in middle:
+        assert abs((n * 250 - y) - (x - 125)) < 5.0       # through the middles of the steps
+
+
+def test_smoothed_neighbours_stay_joined_without_gap_or_overlap():
+    rng = np.random.default_rng(5)
+    membership = np.zeros((20, 20), dtype=np.int32)
+    membership[5:14, 4:15] = 1
+    membership[8:11, 15:19] = 1                                     # a finger along a road
+    membership[2:6, 12:17] = 2                                      # a third polygon touching the city
+    membership[rng.random((20, 20)) < 0.03] = 1
+    membership[12, 3] = 2
+    membership[13, 2] = 2                                           # diagonal contact (checkerboard corner)
+    shapes = _smoothed_partition(membership)
+    total = sum(g.GetArea() for g in shapes.values())
+    assert total == pytest.approx(20 * 20 * 250 ** 2, rel=1e-9)     # the grid edge stays where it is
+    for a in shapes:
+        for b in shapes:
+            if a < b:
+                assert shapes[a].Intersection(shapes[b]).GetArea() < 1.0
+    union = shapes[0]
+    for g in shapes.values():
+        union = union.Union(g)
+    assert union.GetArea() == pytest.approx(total, rel=1e-9)
+    raw = _smoothed_partition(membership, passes=0)
+    assert raw[1].GetArea() == pytest.approx((membership == 1).sum() * 250 ** 2)
+    assert abs(shapes[1].GetArea() - raw[1].GetArea()) < 0.1 * raw[1].GetArea()
+
+
+def test_smoothed_outline_follows_the_real_limit_of_the_study_area():
+    from helpers import square
+
+    membership = np.full((6, 6), 0, dtype=np.int32)
+    membership[2:4, 2:4] = 1
+    study = square(100.0, 100.0, 1400.0, 1400.0)                   # not on the cell edges
+    shapes = _smoothed_partition(membership, study=study)
+    assert sum(g.GetArea() for g in shapes.values()) == pytest.approx(study.GetArea(), rel=1e-9)
+    assert shapes[0].Within(study.Buffer(1e-6))

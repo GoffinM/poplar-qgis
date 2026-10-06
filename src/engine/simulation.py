@@ -437,6 +437,7 @@ class _Model:
         self.grid = Grid.covering((xmin - margin, ymin - margin, xmax + margin, ymax + margin),
                                   scenario.cell_size, crs, origin=origin)
         self.units = build_units(self.grid, study, zones, union_all(no_inflow) if no_inflow else None, layers)
+        self.study = study
         shared.derive(self.units)
         if self.units.report.unclassified_area_km2 > 0.01:
             self.warnings.append(message("typology_gaps", area=round(self.units.report.unclassified_area_km2, 2)))
@@ -594,7 +595,8 @@ class _Model:
 
     def start_history(self, year: float) -> PolygonHistory:
         history = PolygonHistory(self.units, self.polygons, self.polygon_id.copy(), self.polygon_id.copy(),
-                                 reclassification=np.zeros(len(self.units)), start_year=int(round(year)))
+                                 reclassification=np.zeros(len(self.units)), start_year=int(round(year)),
+                                 study=self.study)
         if self.roads is not None:
             settings = self.road_settings
             history.roads = {"main_distance": self.roads.main_distance, "reach_m": settings.reach_m,

@@ -17,11 +17,12 @@ Distances are measured from points every :data:`STEP_M` metres along the lines (
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import numpy as np
-from osgeo import ogr, osr
+from osgeo import gdal, ogr, osr
 from scipy.spatial import cKDTree
 
 from ._gdal import gdal_exceptions, srs_from_wkt
@@ -68,8 +69,14 @@ def read_road_points(source: str, layer: Optional[str], where: Optional[str], fi
     lengths: Dict[str, float] = {}
     unknown = set()
     count = 0
+    if "://" not in source and ":" not in source[2:] and not os.path.exists(source.split("|")[0]):
+        raise RoadLayerError(f"{source}: no such file")
     with gdal_exceptions():
-        datasource = ogr.Open(source)
+        try:
+            datasource = ogr.Open(source)
+        except RuntimeError as error:
+            gdal.ErrorReset()
+            raise RoadLayerError(str(error)) from None
         if datasource is None:
             raise RoadLayerError(source)
         ogr_layer = datasource.GetLayerByName(layer) if layer else datasource.GetLayer(0)

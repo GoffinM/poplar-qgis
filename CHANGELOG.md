@@ -3,6 +3,13 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.9.1 – 06/10/2026 : polygones lissés
+
+- **Lissage des polygones** du mode libre (`polygones.gpkg`) : escaliers des mailles coupés au milieu des côtés puis arrondis (3 passes par défaut au lieu de 2). Seuls les points triples restent fixes, de sorte que les polygones voisins restent jointifs. Le contour suit la vraie limite de la zone d'étude. Jusqu'ici, les sommets partagés avec le polygone rural étaient figés, si bien que la ville n'était presque pas lissée.
+- Extensions dessinées comme la différence des contours lissés de deux années ; surfaces et nombres de mailles toujours issus de la grille.
+- Rasters inchangés (maille par maille, vue exacte du calcul).
+- Attraction des routes : un fichier de routes absent est signalé proprement, sans perturber les calculs suivants.
+
 ## 0.9.0 – 06/10/2026 : attraction des routes
 
 - **Attraction des routes** (onglet Strates, mode libre) : les migrants vont de préférence près des routes (distance ressentie = distance / attractivité), et une maille proche d'une route se colonise avec 2 voisines au lieu de 3. Attractivité `1 + poids × exp(− distance / portée)`, poids par classe (nationale 1, provinciale 0,6, autre 0,3), portée 500 m ; chaque action peut être désactivée. Couche de lignes quelconque, ou téléchargée depuis OpenStreetMap depuis le même cadre.

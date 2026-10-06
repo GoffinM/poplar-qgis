@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Statut** | Proposé le 06/10/2026, **à valider avant tout code** |
+| **Statut** | Validé le 06/10/2026 (L-a, L-b, L-c) et livré en 0.9.1 |
 | **Demande du 06/10** | « Le but n'est pas d'avoir des polygones carrés suivant les mailles » |
 | **Portée** | Affichage seulement (`polygones.gpkg`) : la grille reste la référence du calcul, les chiffres ne changent pas |
 
@@ -31,3 +31,10 @@ Le lissage actuel (0.8) fige tout sommet partagé avec un autre polygone, pour q
 | L-c | Doit-on lisser aussi le raster `polygon_id_AAAA.tif` ? | Non : il reste la vue exacte du calcul, maille par maille |
 
 **Durée** : une demi-journée, tests compris.
+
+## Résultat (0.9.1)
+
+![Résultat](lissage_resultat.png)
+
+Muramvya (libre, part saturée 25 %, 2060) : 10,27 km² de mailles pour 10,27 km² dessinés pour le premier polygone urbain, 9,94 km² pour 9,76 km² dessinés pour le second, qui touche la limite communale. Le défaut du prototype à l'ouest (pointe le long de la limite) a disparu.
+

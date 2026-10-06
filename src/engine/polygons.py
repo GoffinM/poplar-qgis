@@ -437,3 +437,5 @@ class PolygonHistory:
     """Cumulated reclassification effect per administrative unit, at the start and at each output year."""
     roads: Optional[dict] = None
     """Roads (plan B): ``main_distance`` (cell raster, m), ``reach_m``, settings used."""
+    study: Optional[ogr.Geometry] = None
+    """Study area, to cut the smoothed outlines by its real limit (display only)."""

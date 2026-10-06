@@ -152,7 +152,7 @@ class StrataSettings:
     """Rank from which a polygon is urban, for the status rasters (default: the second lowest rank)."""
     min_patch_area_km2: Optional[float] = None
     """Smallest part drawn in the smoothed polygons (default: one cell); display only (P18)."""
-    smoothing_passes: int = 2
+    smoothing_passes: int = 3
     new_nuclei: Dict[str, Any] = field(default_factory=dict)
     """Rule of the new nuclei (P8/P17), off by default: enabled, stratum, min_cells, enclave_km2, migration_share."""
     roads: Optional[RoadSettings] = None
@@ -378,7 +378,7 @@ def scenario_from_dict(data: Dict[str, Any], base_dir: str = "") -> Scenario:
                 cell_membership_share=strata_data.get("cell_membership_share", 0.5),
                 min_inflow_unit=str(strata_data.get("min_inflow_unit", "share_of_capacity")), classes=classes,
                 urban_rank=strata_data.get("urban_rank"), min_patch_area_km2=strata_data.get("min_patch_area_km2"),
-                smoothing_passes=strata_data.get("smoothing_passes", 2),
+                smoothing_passes=strata_data.get("smoothing_passes", 3),
                 new_nuclei=dict(strata_data.get("new_nuclei") or {}), roads=_roads(strata_data.get("roads"), errors))
 
     if errors or time is None or study_area is None or typology is None:

@@ -957,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 7
-    assert version() == "0.9.0"
+    assert version() == "0.9.1"
     AboutDialog()
 
 

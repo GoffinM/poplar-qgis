@@ -141,7 +141,7 @@ class StrataPage(Page):
         self._roads_box(layout)
 
         self.outputs_box, form = _box("strata.outputs")
-        self.smoothing = _spin(0, 5, 2)
+        self.smoothing = _spin(0, 5, 3)
         add_row(form, "strata.smoothing", self.smoothing)
         self.min_patch = _spin(0, 1000, 0.0625, decimals=4, step=0.0625)
         self.min_patch.setSuffix(" km²")
@@ -386,7 +386,7 @@ class StrataPage(Page):
         self.enclave.setValue(float(nuclei["enclave_km2"]))
         self.migration_share.setValue(int(round(100 * float(nuclei["migration_share"]))))
         self._load_roads(strata.get("roads"))
-        self.smoothing.setValue(int(strata.get("smoothing_passes", 2)))
+        self.smoothing.setValue(int(strata.get("smoothing_passes", 3)))
         area = strata.get("min_patch_area_km2")
         cell = float(data.get("cell_size", 250.0) or 250.0)
         self.min_patch.setValue(float(area) if area is not None else cell * cell / 1e6)
@@ -495,7 +495,7 @@ class StrataPage(Page):
             "cell_membership_share": (self.membership.value() / 100.0, 0.5),
             "min_inflow_unit": (self.inflow_unit.currentData(), SHARE),
             "urban_rank": (self.urban_rank.currentData(), None),
-            "smoothing_passes": (self.smoothing.value(), 2),
+            "smoothing_passes": (self.smoothing.value(), 3),
         }
         for key, (value, default) in nondefault.items():
             if value != default:

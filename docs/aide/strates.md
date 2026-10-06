@@ -89,7 +89,19 @@ En ligne de commande : `python -m engine patches scenario.json` (écrit une copi
 | `polygon_id_AAAA.tif` | Polygone de chaque maille, avec son style |
 | `statut_AAAA.tif` | 0 non urbain, 1 urbain dès le départ, 2 extension, 3 nouveau noyau, 9 exclusion |
 | `annee_colonisation.tif` | Année où chaque maille a changé de polygone |
-| `polygones.gpkg` | Polygones **lissés pour l'affichage** à chaque année de sortie, extensions et généalogie. Les surfaces et populations viennent de la grille |
+| `polygones.gpkg` | Polygones **lissés pour l'affichage** à chaque année de sortie, extensions (différence des contours lissés de deux années) et généalogie. Les surfaces et populations viennent de la grille |
 | `plausibilite.csv` | Indicateurs de plausibilité par polygone et par horizon : vitesse du front, étalement ou densification, densités, compacité, nouveaux noyaux, non accueillis, effet de reclassement, bilan de masse |
 
 Ce sont des **indicateurs de plausibilité**, pas une validation : les zones d'étude n'ont pas d'historique d'urbanisation. Dans l'onglet Résultats, les polygones de la dernière année sont chargés ; les extensions, le statut et l'année de colonisation sont chargés décochés. **Comparer avec un calcul planifié…** écrit et ouvre `comparaison_modes.html`.
+
+### Lissage des contours
+
+Le calcul se fait maille par maille ; seuls les contours de `polygones.gpkg` sont lissés, pour l'affichage :
+
+- les escaliers des mailles sont coupés au milieu de chaque côté (une diagonale en escalier devient une droite), puis arrondis (3 passes par défaut, réglage « Lissage (passes) » ; 0 donne les mailles brutes) ;
+- seuls les points où se touchent trois polygones restent fixes : deux polygones voisins sont lissés de la même façon de part et d'autre de leur frontière, sans trou ni recouvrement ;
+- au bord, le contour suit la vraie limite de la zone d'étude ;
+- les rasters (`polygon_id_AAAA.tif`, `statut_AAAA.tif`) restent maille par maille : c'est la vue exacte du calcul.
+
+Les surfaces dessinées diffèrent un peu de celles des mailles (de l'ordre de 1 à 2 % ; davantage pour un polygone qui touche la limite de la zone d'étude). Les chiffres des tableaux viennent toujours des mailles.
+
