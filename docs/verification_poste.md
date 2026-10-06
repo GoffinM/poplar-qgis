@@ -8,18 +8,18 @@ Version 0.8.0. Une seule liste, dans l'ordre des onglets. Passée entièrement u
 
 ## 0. Préparer
 
-1. **Plugin** : téléchargez `poplar-0.8.0.zip` :
-   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.8.0.zip
+1. **Plugin** : téléchargez `poplar-0.8.1.zip` :
+   https://github.com/GoffinM/poplar-qgis/raw/claude/legacy-code-assessment-frf66q/dist/poplar-0.8.1.zip
 2. **Jeu d'exemple** : sur GitHub, branche `claude/legacy-code-assessment-frf66q`, cliquez sur **Code › Download ZIP**, puis décompressez l'archive. Le dossier `data/test/muramvya/` contient les scénarios et les données.
 3. Si une version précédente de Poplar est installée : **Extensions › Installer/Gérer les extensions › Installées › Poplar › Désinstaller**.
 
-⚠️ Installez seulement `poplar-0.8.0.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
+⚠️ Installez seulement `poplar-0.8.1.zip`, jamais l'archive complète du dépôt : QGIS la refuserait avec l'erreur « No module named 'poplar-qgis-…' ». Si c'est déjà arrivé, fermez QGIS, supprimez le dossier `poplar-qgis-…` de `%APPDATA%\QGIS\QGIS3\profiles\default\python\plugins\`, puis relancez QGIS.
 
 | # | Action | Résultat attendu |
 |---|---|---|
-| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.8.0.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
+| I.1 | **Extensions › Installer depuis un ZIP** › `poplar-0.8.1.zip` | Une barre d'outils **Population** (9 boutons) et un menu **Population** apparaissent |
 | I.2 | Survolez chaque bouton | Une bulle d'aide s'affiche pour chacun |
-| I.3 | Bouton **À propos** | Version 0.8.0 ; crédits « Michel – SHER (contributions : Keyvan, Marine, Assoumpta, Sophie) » |
+| I.3 | Bouton **À propos** | Version 0.8.1 ; crédits « Michel – SHER (contributions : Keyvan, Marine, Assoumpta, Sophie) » |
 
 ## 1. Scénario
 

@@ -3,6 +3,11 @@
 Plugin QGIS **Poplar**, outil de croissance et de migration de population (BUR71).
 Les dates sont celles de la publication de la version sur la branche de travail.
 
+## 0.8.1 – 06/10/2026
+
+- Mode libre : les notes « Strates libres : les polygones s'étendent… » et « nouveaux noyaux désactivés » ne sont plus montrées comme des avertissements (elles restent dans le rapport).
+- Couleurs des polygones (couche « Polygones » et style du raster polygon_id) : du gris clair pour le rang le plus bas au pétrole pour le plus urbain, comme le statut urbain.
+
 ## 0.8.0 – 06/10/2026 : polygones qui évoluent dans le temps (mode libre)
 
 - **Onglet Strates** (fiche §3.5) : mode **Planifié** (par défaut, résultats identiques à l'outil actuel) ou **Libre**. En mode libre, un polygone saturé déborde sur ses voisines, qui prennent son identité et ses paramètres ; la vitesse des fronts est un résultat.

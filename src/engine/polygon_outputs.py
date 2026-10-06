@@ -35,7 +35,19 @@ STATUS_NODATA = 255.0
 YEAR_NODATA = -1.0
 GPKG = "polygones.gpkg"
 LEGEND = "polygones_legende.csv"
-PALETTE = ["#c8c8c8", "#f2d16b", "#e8945a", "#c9503c", "#8c2d3c", "#5a1e46", "#2f1a40", "#141026"]
+RANK_SCALE = ["#e5ece9", "#f1dfbd", "#c98a36", "#1f6f6a"]
+"""From the lowest rank (light grey-green) to the most urban one (petrol), as in the status rasters."""
+
+
+def rank_colour(rank, ranks) -> str:
+    """Colour of a rank among the ranks in use: the lowest is light, the highest is petrol."""
+    ranks = sorted(set(ranks))
+    if rank not in ranks:
+        return "#c8c8c8"
+    if len(ranks) == 1:
+        return RANK_SCALE[-1]
+    position = ranks.index(rank) * (len(RANK_SCALE) - 1) / (len(ranks) - 1)
+    return RANK_SCALE[int(round(position))]
 
 
 def urban_rank(table, strata_urban_rank: Optional[int]) -> int:
@@ -400,7 +412,7 @@ def _write_style(path: str, table) -> None:
     entries = []
     for polygon in range(len(table)):
         rank = table.rank[polygon]
-        colour = PALETTE[min(ranks.index(rank) if rank in ranks else 0, len(PALETTE) - 1)]
+        colour = rank_colour(rank, ranks)
         label = f"{polygon} – {table.stratum[polygon]}".replace("&", "&amp;").replace("<", "&lt;").replace('"', "&quot;")
         entries.append(f'<paletteEntry value="{polygon}" color="{colour}" alpha="255" label="{label}"/>')
     entries.append(f'<paletteEntry value="{NO_POLYGON}" color="#ffffff" alpha="0" label="-"/>')

@@ -16,7 +16,7 @@ QUANTITIES = ["population", "density", "capacity", "unallocated", "water_domesti
 STATUS = [(0, "#e5ece9", "status.0"), (1, "#1f6f6a", "status.1"), (2, "#c98a36", "status.2"),
           (3, "#a4452a", "status.3"), (9, "#9aaeab", "status.9")]
 """Codes of the urban status rasters (fiche §3.4) and their colours."""
-RANK_COLOURS = ["#dfe7e4", "#f1dfbd", "#e0a85a", "#c98a36", "#1f6f6a", "#14504c", "#0c3431"]
+
 RAMPS = {
     "population": ("#fbf3d6", "#7c2f2a"),
     "density": ("#fbf3d6", "#7c2f2a"),
@@ -188,6 +188,8 @@ def load_polygon_layers(directory, group_name, year):
 
     from qgis.core import (QgsCategorizedSymbolRenderer, QgsFillSymbol, QgsRendererCategory, QgsVectorLayer)
 
+    from .engine.polygon_outputs import rank_colour
+
     path = os.path.join(directory, "polygones.gpkg")
     if not os.path.exists(path):
         return []
@@ -207,7 +209,7 @@ def load_polygon_layers(directory, group_name, year):
         order = sorted(set(ranks.values()))
         categories = []
         for stratum, rank in sorted(ranks.items(), key=lambda item: item[1]):
-            colour = RANK_COLOURS[min(order.index(rank), len(RANK_COLOURS) - 1)] if rank in order else "#dfe7e4"
+            colour = rank_colour(rank, order)
             symbol = QgsFillSymbol.createSimple({"color": colour, "outline_color": "60,60,60,160",
                                                  "outline_width": "0.2"})
             categories.append(QgsRendererCategory(stratum, symbol, stratum))

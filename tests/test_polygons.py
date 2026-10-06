@@ -377,3 +377,11 @@ def test_nuclei_need_one_square_kilometre_by_default():
     from engine.polygons import NucleusRules
 
     assert NucleusRules().min_cells == 16 and not NucleusRules().enabled          # decision D2
+
+
+def test_rank_colours_go_from_light_to_petrol():
+    from engine.polygon_outputs import rank_colour
+
+    assert [rank_colour(r, [1, 2]) for r in (1, 2)] == ["#e5ece9", "#1f6f6a"]
+    assert [rank_colour(r, [1, 2, 3, 4]) for r in (1, 2, 3, 4)] == ["#e5ece9", "#f1dfbd", "#c98a36", "#1f6f6a"]
+    assert rank_colour(9, [1, 2]) == "#c8c8c8"

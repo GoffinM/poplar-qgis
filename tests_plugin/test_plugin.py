@@ -957,7 +957,7 @@ def test_help_and_about(iface):
     visible = [help_dialog.toc.item(i).text() for i in range(help_dialog.toc.count())
                if not help_dialog.toc.item(i).isHidden()]
     assert visible and len(visible) < 7
-    assert version() == "0.8.0"
+    assert version() == "0.8.1"
     AboutDialog()
 
 
@@ -1097,3 +1097,10 @@ def test_free_run_loads_the_polygons_and_compares_with_a_planned_run(iface, scen
     results.refresh()
     assert not results.compare.isEnabled()
     QgsProject.instance().clear()
+
+
+def test_free_mode_notes_are_information_not_warnings():
+    from poplar.ui.main_dialog import INFORMATION
+
+    assert {"strata_free_mode", "strata_nuclei_off"} <= INFORMATION
+    assert "strata_reclassification" not in INFORMATION and "strata_cell_size" not in INFORMATION

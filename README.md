@@ -34,6 +34,6 @@ Les résultats sont écrits dans `data/test/muramvya/outputs/`, qui n'est pas ve
 
 ## Installer le plugin dans QGIS
 
-**Extensions › Installer/Gérer les extensions › Installer depuis un ZIP**, puis choisir `dist/poplar-0.8.0.zip`. La liste de vérification est dans `docs/verification_poste.md`.
+**Extensions › Installer/Gérer les extensions › Installer depuis un ZIP**, puis choisir `dist/poplar-0.8.1.zip`. La liste de vérification est dans `docs/verification_poste.md`.
 
 Pour reconstruire le zip après une modification : `python3 tools/build_plugin.py`. Les tests du plugin (`tests_plugin/`) tournent quand QGIS est installé (`apt install python3-qgis`), avec `QT_QPA_PLATFORM=offscreen`.
